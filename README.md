@@ -36,3 +36,5 @@ Supported are:
 * SHA3-384 hash
 * SHA3-256 hash
 * SHA3-512 hash
+* Whirlpool
+* RipeMD160
