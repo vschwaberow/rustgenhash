@@ -25,91 +25,10 @@ fn match_valid() {
     exit(0);
 }
 
-fn create_md5(password: String) {
-
-    let mut hasher = Md5::new();
+fn create_hash<T:Digest>(password: String, mut hasher:T, algo: String) {
     hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha1", result);
-
+    print_hash(&algo, hasher.result_str());
 }
-
-fn create_sha1(password: String) {
-
-    let mut hasher = Sha1::new();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha1", result);
-
-}
-
-fn create_sha224(password: String) {
-
-    let mut hasher = Sha224::new();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha224", result);
-
-}
-fn create_sha256(password: String) {
-
-    let mut hasher = Sha256::new();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha256", result);
-
-}
-
-fn create_sha384(password: String) {
-
-    let mut hasher = Sha384::new();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha384", result);
-
-}
-
-fn create_sha512(password: String) {
-
-    let mut hasher = Sha512::new();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha512", result);
-
-}
-fn create_sha3_224(password: String) {
-
-    let mut hasher = Sha3::sha3_224();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha3-224", result);
-
-}
-fn create_sha3_256(password: String) {
-
-    let mut hasher = Sha3::sha3_256();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha3-256", result);
-
-}
-fn create_sha3_384(password: String) {
-
-    let mut hasher = Sha3::sha3_384();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha3-384", result);
-
-}
-fn create_sha3_512(password: String) {
-
-    let mut hasher = Sha3::sha3_512();
-    hasher.input_str(&password);
-    let result = hasher.result_str();
-    print_hash("sha3-512", result);
-
-}
-
 
 fn print_hash(algo:&str, password: String) {
     println!("{} hash: {}", algo, password);
@@ -123,16 +42,16 @@ fn main() {
         println!("password is: {}", args.password);
 
         match &args.algorithm as &str {
-            "md5" => create_md5(args.password),
-            "sha1" => create_sha1(args.password),
-            "sha224" => create_sha224(args.password),
-            "sha256" => create_sha256(args.password),
-            "sha384" => create_sha384(args.password),
-            "sha512" => create_sha512(args.password),
-            "sha3-224" => create_sha3_224(args.password),
-            "sha3-256" => create_sha3_256(args.password),
-            "sha3-384" => create_sha3_384(args.password),
-            "sha3-512" => create_sha3_512(args.password),
+            "md5" => create_hash(args.password, Md5::new(), "md5".to_string()),
+            "sha1" => create_hash(args.password, Sha1::new(), "sha1".to_string()),
+            "sha224" => create_hash(args.password, Sha224::new(), "sha224".to_string()),
+            "sha256" => create_hash(args.password, Sha256::new(), "sha256".to_string()),
+            "sha384" => create_hash(args.password, Sha384::new(), "sha384".to_string()),
+            "sha512" => create_hash(args.password, Sha512::new(), "sha512".to_string()),
+            "sha3-224" => create_hash(args.password, Sha3::sha3_224(), "sha3-224".to_string()),
+            "sha3-256" => create_hash(args.password, Sha3::sha3_256(), "sha3-256".to_string()),
+            "sha3-384" => create_hash(args.password, Sha3::sha3_384(), "sha3-384".to_string()),
+            "sha3-512" => create_hash(args.password, Sha3::sha3_512(), "sha3-512".to_string()),
             _ => match_valid(),
         }
 

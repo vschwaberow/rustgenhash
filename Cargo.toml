@@ -1,7 +1,6 @@
 [package]
 name = "rustgenhash"
-version = "0.1.0"
-license = "MIT"
+version = "0.1.1"
 license-file = "LICENSE"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
