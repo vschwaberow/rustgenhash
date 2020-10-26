@@ -24,9 +24,9 @@ struct GenCmd {
 
 }
 
-fn match_valid() {
+fn match_invalid() {
     println!("You need to select a valid algorithm.");
-    exit(0);
+    exit(1);
 }
 
 fn create_hash<T:Digest>(password: String, mut hasher:T, algo: String) {
@@ -58,7 +58,7 @@ fn main() {
             "sha3-512" => create_hash(args.password, Sha3::sha3_512(), "sha3-512".to_string()),
             "whirlpool" => create_hash(args.password, Whirlpool::new(), "whirlpool".to_string()),
             "ripemd160" => create_hash(args.password, Ripemd160::new(), "ripemd160".to_string()),
-            _ => match_valid(),
+            _ => match_invalid(),
         }
 
 }
