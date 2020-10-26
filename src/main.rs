@@ -3,6 +3,7 @@ use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 use crypto::sha2::{Sha224, Sha256, Sha384, Sha512};
 use crypto::sha3::Sha3;
+use crypto::whirlpool::Whirlpool;
 use std::process::exit;
 use crypto::md5::Md5;
 
@@ -52,6 +53,7 @@ fn main() {
             "sha3-256" => create_hash(args.password, Sha3::sha3_256(), "sha3-256".to_string()),
             "sha3-384" => create_hash(args.password, Sha3::sha3_384(), "sha3-384".to_string()),
             "sha3-512" => create_hash(args.password, Sha3::sha3_512(), "sha3-512".to_string()),
+            "whirlpool" => create_hash(args.password, Whirlpool::new(), "whirlpool".to_string()),
             _ => match_valid(),
         }
 
