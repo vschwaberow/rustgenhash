@@ -57,7 +57,7 @@ fn main() {
             "sha3-384" => create_hash(args.password, Sha3::sha3_384(), "sha3-384".to_string()),
             "sha3-512" => create_hash(args.password, Sha3::sha3_512(), "sha3-512".to_string()),
             "whirlpool" => create_hash(args.password, Whirlpool::new(), "whirlpool".to_string()),
-            "ripemd160" => create_hash(args.password, Ripemd160::new(), "whirlpool".to_string()),
+            "ripemd160" => create_hash(args.password, Ripemd160::new(), "ripemd160".to_string()),
             _ => match_valid(),
         }
 
