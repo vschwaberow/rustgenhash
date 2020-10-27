@@ -7,7 +7,7 @@ description = "A tool to generate hashes from the command line."
 readme = "README.md"
 keywords = ["cli", "crypto", "hashes", "rust"]
 edition = "2018"
-categories = [ "Command line utilities"]
+categories = [ "command-line-interface", "command-line-utilities", "cryptography"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
