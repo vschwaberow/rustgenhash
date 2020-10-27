@@ -50,11 +50,8 @@ fn main() {
         match &args.algorithm as &str {
             "blake2b" => create_hash(args.password, Blake2b::new(), "blake2b".to_string()),
             "blake2s" => create_hash(args.password, Blake2s::new(), "blake2s".to_string()),
-<<<<<<< HEAD
             "md2" => create_hash(args.password, Md2::new(), "md2".to_string()),
-=======
             "md4" => create_hash(args.password, Md4::new(), "md4".to_string()),
->>>>>>> feature/CR0007_md4_support
             "md5" => create_hash(args.password, Md5::new(), "md5".to_string()),
             "sha1" => create_hash(args.password, Sha1::new(), "sha1".to_string()),
             "sha224" => create_hash(args.password, Sha224::new(), "sha224".to_string()),
