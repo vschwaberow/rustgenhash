@@ -20,7 +20,7 @@ struct GenCmd {
     ripemd160"
     )]
     algorithm: String,
-    #[structopt(name="PASSWORD", required = false, long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
+    #[structopt(name="PASSWORD", required = true, long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
     password: String,
 
 }
