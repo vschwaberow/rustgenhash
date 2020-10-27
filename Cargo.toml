@@ -1,9 +1,11 @@
 [package]
 name = "rustgenhash"
 version = "0.1.4"
-license-file = "LICENSE"
+license = "MIT/Apache-2.0"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
+homepage = "https://github.com/vschwaberow/rustgenhash"
+repository = "https://github.com/vschwaberow/rustgenhash
 readme = "README.md"
 keywords = ["cli", "crypto", "hashes", "rust"]
 edition = "2018"
