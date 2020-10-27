@@ -1,5 +1,6 @@
 use structopt::StructOpt;
 use std::process::exit;
+use blake2::{Blake2b, Blake2s};
 use digest::Digest;
 use digest::generic_array::ArrayLength;
 use md5::Md5;
@@ -15,9 +16,9 @@ struct GenCmd {
     #[structopt(
     short,
     required = true,
-    long_help = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are:
-    md5, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, whirlpool,
-    ripemd160"
+    long_help = r"A switch to provide the hash algorithm with which the provided string will be
+    hashed. Supported are: md5, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384,
+    sha3-512, whirlpool, ripemd160, blake2s, blake2b"
     )]
     algorithm: String,
     #[structopt(name="PASSWORD", required = true, long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
@@ -45,6 +46,8 @@ fn main() {
         println!("password is: {}", args.password);
 
         match &args.algorithm as &str {
+            "blake2b" => create_hash(args.password, Blake2b::new(), "blake2b".to_string()),
+            "blake2s" => create_hash(args.password, Blake2s::new(), "blake2s".to_string()),
             "md5" => create_hash(args.password, Md5::new(), "md5".to_string()),
             "sha1" => create_hash(args.password, Sha1::new(), "sha1".to_string()),
             "sha224" => create_hash(args.password, Sha224::new(), "sha224".to_string()),
