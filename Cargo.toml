@@ -17,6 +17,7 @@ categories = [ "command-line-interface", "command-line-utilities", "cryptography
 blake2 = "0.9.1"
 digest = "0.9.0"
 structopt = "0.3.20"
+md4 = "0.9.0"
 md-5 = "0.9.1"
 ripemd160 = "0.9.1"
 sha-1 = "0.9.1"
