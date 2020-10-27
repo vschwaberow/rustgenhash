@@ -157,6 +157,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "md2"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfd23bb613adebff88451d962b449f93e2ca5d97400021ad5895740778d95f78"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "md4"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd1a7931601ee6a560262a1dc9a8369949f5b7ae20b2bbf029c74fbd6d1b09e2"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
 name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -217,11 +239,13 @@ dependencies = [
 
 [[package]]
 name = "rustgenhash"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "blake2",
  "digest",
  "md-5",
+ "md2",
+ "md4",
  "ripemd160",
  "sha-1",
  "sha2",
