@@ -8,19 +8,17 @@ It can be used to generate single or multiple hashes for usage in password datab
 
 rustgenhash is written in Rust. You can install the tool with your Rust installation using following command:
 
->
-> git clone https://github.com/vschwaberow/rustgenhash.git
-> cd rustgenhash
-> cargo build --release
->
+```bash
+cargo install rustgenhash
+```
 
 ## Usage
 
 You can provide a text string as argument to be hashed by one of the program supported hash algorithms.
 
->
-> rustgenhash -a <HASH_ALGORITHM> <text string>
->
+```bash
+rustgenhash -a <HASH_ALGORITHM> <String>
+```
 
 You can list all algorithms over the help function.
 
