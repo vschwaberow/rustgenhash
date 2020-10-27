@@ -24,6 +24,8 @@ You can list all algorithms over the help function.
 
 Supported are:
 
+* BLAKE2b 
+* BLAKE2s
 * MD5 hash
 * SHA-1 hash
 * SHA2-224 hash
