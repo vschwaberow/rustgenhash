@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "rustgenhash"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "blake2",
  "digest",
