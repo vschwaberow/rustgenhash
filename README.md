@@ -26,6 +26,8 @@ Supported are:
 
 * BLAKE2b 
 * BLAKE2s
+* MD2 hash
+* MD4 hash
 * MD5 hash
 * SHA-1 hash
 * SHA2-224 hash
