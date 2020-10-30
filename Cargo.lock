@@ -286,6 +286,7 @@ dependencies = [
  "sha-1",
  "sha2",
  "sha3",
+ "shabal",
  "structopt",
  "whirlpool",
 ]
@@ -325,6 +326,17 @@ dependencies = [
  "block-buffer",
  "digest",
  "keccak",
+ "opaque-debug",
+]
+
+[[package]]
+name = "shabal"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa63941ef67c979cfa571f32c93d30d21727c9c69310733ae9701fdd28243983"
+dependencies = [
+ "block-buffer",
+ "digest",
  "opaque-debug",
 ]
 
