@@ -121,6 +121,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "groestl"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2432787a9b8f0d58dca43fe2240399479b7582dc8afa2126dc7652b864029e47"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
 name = "heck"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -266,6 +277,7 @@ dependencies = [
  "blake2",
  "digest",
  "gost94",
+ "groestl",
  "md-5",
  "md2",
  "md4",
@@ -274,6 +286,8 @@ dependencies = [
  "sha-1",
  "sha2",
  "sha3",
+ "shabal",
+ "streebog",
  "structopt",
  "whirlpool",
 ]
@@ -313,6 +327,28 @@ dependencies = [
  "block-buffer",
  "digest",
  "keccak",
+ "opaque-debug",
+]
+
+[[package]]
+name = "shabal"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa63941ef67c979cfa571f32c93d30d21727c9c69310733ae9701fdd28243983"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "streebog"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9a21c1a3920381f27c666a81ad2481abc005900ac871a80b479e1869d54e753"
+dependencies = [
+ "block-buffer",
+ "digest",
  "opaque-debug",
 ]
 

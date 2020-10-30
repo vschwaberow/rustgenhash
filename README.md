@@ -27,6 +27,7 @@ Supported are:
 * BLAKE2b 
 * BLAKE2s
 * GOST R 34.11-94
+* Grøstl
 * MD2 hash
 * MD4 hash
 * MD5 hash
@@ -41,5 +42,12 @@ Supported are:
 * SHA3-384 hash
 * SHA3-256 hash
 * SHA3-512 hash
+* Shabal192
+* Shabal224
+* Shabal256
+* Shabal384
+* Shabal512
+* Streebog256
+* Streebog512
 * Whirlpool
 

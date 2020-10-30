@@ -1,16 +1,19 @@
-use structopt::StructOpt;
-use std::process::exit;
 use blake2::{Blake2b, Blake2s};
 use digest::Digest;
 use digest::generic_array::ArrayLength;
 use gost94::*;
+use groestl::*;
 use md2::Md2;
 use md4::Md4;
 use md5::Md5;
 use sha1::Sha1;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
+use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
 use std::ops::Add;
+use std::process::exit;
+use streebog::*;
+use structopt::StructOpt;
 use ripemd160::Ripemd160;
 use ripemd320::*;
 use whirlpool::Whirlpool;
@@ -20,7 +23,7 @@ struct GenCmd {
     #[structopt(
     short,
     required = true,
-    long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, whirlpool"
+    long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, groestl, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, whirlpool"
     )]
     algorithm: String,
     #[structopt(name="PASSWORD", required = true, long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
@@ -51,6 +54,7 @@ fn main() {
             "blake2b" => create_hash(args.password, Blake2b::new(), "blake2b".to_string()),
             "blake2s" => create_hash(args.password, Blake2s::new(), "blake2s".to_string()),
             "gost94" => create_hash(args.password, Gost94Test::new(), "gost94".to_string()),
+            "groestl" => create_hash(args.password, Groestl256::new() , "groestl".to_string()),
             "md2" => create_hash(args.password, Md2::new(), "md2".to_string()),
             "md4" => create_hash(args.password, Md4::new(), "md4".to_string()),
             "md5" => create_hash(args.password, Md5::new(), "md5".to_string()),
@@ -65,6 +69,13 @@ fn main() {
             "sha3-256" => create_hash(args.password, Sha3_256::new(), "sha3-256".to_string()),
             "sha3-384" => create_hash(args.password, Sha3_384::new(), "sha3-384".to_string()),
             "sha3-512" => create_hash(args.password, Sha3_512::new(), "sha3-512".to_string()),
+            "shabal192" => create_hash(args.password, Shabal192::new(), "shabal192".to_string()),
+            "shabal224" => create_hash(args.password, Shabal224::new(), "shabal224".to_string()),
+            "shabal256" => create_hash(args.password, Shabal256::new(), "shabal256".to_string()),
+            "shabal384" => create_hash(args.password, Shabal384::new(), "shabal384".to_string()),
+            "shabal512" => create_hash(args.password, Shabal512::new(), "shabal512".to_string()),
+            "streebog256" => create_hash(args.password, Streebog256::new(), "streebog256".to_string()),
+            "streebog512" => create_hash(args.password, Streebog512::new(), "streebog512".to_string()),
             "whirlpool" => create_hash(args.password, Whirlpool::new(), "whirlpool".to_string()),
             _ => match_invalid(),
         }
