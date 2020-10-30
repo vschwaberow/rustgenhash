@@ -26,9 +26,12 @@ Supported are:
 
 * BLAKE2b 
 * BLAKE2s
+* GOST R 34.11-94
 * MD2 hash
 * MD4 hash
 * MD5 hash
+* RipeMD160
+* RipeMD320
 * SHA-1 hash
 * SHA2-224 hash
 * SHA2-256 hash
@@ -39,4 +42,4 @@ Supported are:
 * SHA3-256 hash
 * SHA3-512 hash
 * Whirlpool
-* RipeMD160
+
