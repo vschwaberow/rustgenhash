@@ -4,6 +4,7 @@ use blake2::{Blake2b, Blake2s};
 use digest::Digest;
 use digest::generic_array::ArrayLength;
 use gost94::*;
+use groestl::*;
 use md2::Md2;
 use md4::Md4;
 use md5::Md5;
@@ -20,7 +21,7 @@ struct GenCmd {
     #[structopt(
     short,
     required = true,
-    long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, whirlpool"
+    long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, groestl, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, whirlpool"
     )]
     algorithm: String,
     #[structopt(name="PASSWORD", required = true, long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
@@ -51,6 +52,7 @@ fn main() {
             "blake2b" => create_hash(args.password, Blake2b::new(), "blake2b".to_string()),
             "blake2s" => create_hash(args.password, Blake2s::new(), "blake2s".to_string()),
             "gost94" => create_hash(args.password, Gost94Test::new(), "gost94".to_string()),
+            "groestl" => create_hash(args.password, Groestl256::new() , "groestl".to_string()),
             "md2" => create_hash(args.password, Md2::new(), "md2".to_string()),
             "md4" => create_hash(args.password, Md4::new(), "md4".to_string()),
             "md5" => create_hash(args.password, Md5::new(), "md5".to_string()),
