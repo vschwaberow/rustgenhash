@@ -42,5 +42,12 @@ Supported are:
 * SHA3-384 hash
 * SHA3-256 hash
 * SHA3-512 hash
+* Shabal192
+* Shabal224
+* Shabal256
+* Shabal384
+* Shabal512
+* Streebog256
+* Streebog512
 * Whirlpool
 
