@@ -1,5 +1,3 @@
-use structopt::StructOpt;
-use std::process::exit;
 use blake2::{Blake2b, Blake2s};
 use digest::Digest;
 use digest::generic_array::ArrayLength;
@@ -13,6 +11,9 @@ use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
 use std::ops::Add;
+use std::process::exit;
+use streebog::*;
+use structopt::StructOpt;
 use ripemd160::Ripemd160;
 use ripemd320::*;
 use whirlpool::Whirlpool;
@@ -22,7 +23,7 @@ struct GenCmd {
     #[structopt(
     short,
     required = true,
-    long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, groestl, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, whirlpool"
+    long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, groestl, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, whirlpool"
     )]
     algorithm: String,
     #[structopt(name="PASSWORD", required = true, long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
@@ -73,6 +74,8 @@ fn main() {
             "shabal256" => create_hash(args.password, Shabal256::new(), "shabal256".to_string()),
             "shabal384" => create_hash(args.password, Shabal384::new(), "shabal384".to_string()),
             "shabal512" => create_hash(args.password, Shabal512::new(), "shabal512".to_string()),
+            "streebog256" => create_hash(args.password, Streebog256::new(), "streebog256".to_string()),
+            "streebog512" => create_hash(args.password, Streebog512::new(), "streebog512".to_string()),
             "whirlpool" => create_hash(args.password, Whirlpool::new(), "whirlpool".to_string()),
             _ => match_invalid(),
         }
