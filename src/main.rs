@@ -19,9 +19,7 @@ struct GenCmd {
     #[structopt(
     short,
     required = true,
-    long_help = r"A switch to provide the hash algorithm with which the provided string will be
-    hashed. Supported are: md5, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384,
-    sha3-512, whirlpool, ripemd160, blake2s, blake2b"
+    long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, md2, md4, md5, ripemd160, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, whirlpool"
     )]
     algorithm: String,
     #[structopt(name="PASSWORD", required = true, long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
