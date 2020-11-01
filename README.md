@@ -14,7 +14,12 @@ cargo install rustgenhash
 
 ## Usage
 
-You can provide a text string as argument to be hashed by one of the program supported hash algorithms.
+Rustgenhash has a command line interface which allows you to set the utility into a specific operating mode. The current
+modes are 
+
+* string
+* file
+
 
 ```bash
 rustgenhash -a <HASH_ALGORITHM> <String>
