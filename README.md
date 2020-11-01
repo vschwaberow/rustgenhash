@@ -20,6 +20,20 @@ modes are
 * string
 * file
 
+After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
+or file to be hashed.
+
+Scheme is for string hashing:
+
+```bash
+rustgenhash string -a <algorithm> <string>
+```
+
+Scheme is for file hashing:
+
+```bash
+rustgenhash file -a <algorithm> <filename>
+```
 
 ```bash
 rustgenhash -a <HASH_ALGORITHM> <String>
