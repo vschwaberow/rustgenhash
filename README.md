@@ -23,6 +23,8 @@ modes are
 After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
 or file to be hashed.
 
+The file mode supports hashing of multiple files in a directory and currently works non-recursive.
+
 Scheme is for string hashing:
 
 ```bash
@@ -32,11 +34,7 @@ rustgenhash string -a <algorithm> <string>
 Scheme is for file hashing:
 
 ```bash
-rustgenhash file -a <algorithm> <filename>
-```
-
-```bash
-rustgenhash -a <HASH_ALGORITHM> <String>
+rustgenhash file -a <algorithm> <filename or directory>
 ```
 
 You can list all algorithms over the help function.
