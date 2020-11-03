@@ -19,26 +19,6 @@ use ripemd160::Ripemd160;
 use ripemd320::*;
 use whirlpool::Whirlpool;
 
-// #[derive(Debug, StructOpt)]
-// struct GenCmd {
-//     #[structopt(
-//         short,
-//         required = true,
-//         long_help = "A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, groestl, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, whirlpool"
-//     )]
-//     algorithm: String,
-//     #[structopt(name="PASSWORD", required_if("file", "false"), long_help = r"Placeholder for password to be hashed. Not required in stdio mode")]
-//     password: String,
-//     #[structopt(name="FILENAME", required_if("file", "true"))]
-//     filename: String,
-//     #[structopt(
-//         short,
-//         long_help = "hash files",
-//     )]
-//     file: bool,
-
-// }
-
 #[derive(StructOpt, Debug)]
 #[structopt(name = "rustgenhash", about = "CLI utility to generate hashes for files and strings.")]
 enum Cmd {
@@ -63,16 +43,40 @@ fn match_invalid() {
     exit(1);
 }
 
-fn hash_file<D>(file: String, mut hasher:D) where D: Digest, D: io::Write, D::OutputSize: Add,
-                                                                <D::OutputSize as Add>::Output: ArrayLength<u8> {
-    let mut input = fs::File::open(&file)
-        .expect("Unable to open the provided file.");
-    io::copy(&mut input, &mut hasher)
-        .expect("io error while reading from file.");
-   // println!("{} file hash: {:x}", algo, hasher.finalize());
-   println!("{:x} {}", hasher.finalize(), &file);
+fn hash_file<D>(file: String, mut hasher:D) where D: Clone, D: Digest, D: io::Write, D::OutputSize: Add,
+                                                  <D::OutputSize as Add>::Output: ArrayLength<u8> {
+    
+    let md = std::fs::metadata(&file).unwrap();
+
+    let mut hashdir = hasher.clone();
+
+    if md.is_file() {
+        let mut input = fs::File::open(&file)
+            .expect("Unable to open the provided file.");
+        io::copy(&mut input, &mut hasher)
+            .expect("io error while reading from file.");
+        println!("{:x} {}", hasher.finalize(), &file);
+    }
+
+    if md.is_dir() {
+
+        for entry in fs::read_dir(&file).expect("Error while reading dir.") {
+            let entry = entry.expect("Error while reading dir.");
+            let path = entry.path();
+            if path.is_file() {
+                let mut input = fs::File::open(&path)
+                    .expect("Unable to open the provided file.");
+                io::copy(&mut input, &mut hashdir)
+                    .expect("io error while reading from file.");
+                println!("{:x} {}", &mut hashdir.finalize_reset(), path.to_str().unwrap());
+            }
+
+        }
+
+    }
 
 }
+
 
 fn hash_string<D>(password: String, mut hasher:D) where D: Digest, D::OutputSize: Add,
                                                                       <D::OutputSize as Add>::Output: ArrayLength<u8>
@@ -83,7 +87,7 @@ fn hash_string<D>(password: String, mut hasher:D) where D: Digest, D::OutputSize
 
 fn main() {
       println!("Rustgenhash by Volker Schwaberow <volker@schwaberow.de>");
-      println!("");
+      println!();
 
     match Cmd::from_args() {
 
