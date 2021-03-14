@@ -2,6 +2,7 @@ use blake2::{Blake2b, Blake2s};
 use gost94::Gost94Test;
 use hex_literal::hex;
 use sha1::{Sha1, Digest};
+use groestl::Groestl256;
 
 const PHRASE:&str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
 
@@ -27,6 +28,14 @@ fn lib_gost94_hash() {
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(result[..], hex!("1845acc06577ead1f5b671e7e452fc6064e90ab1bbb536df36a91327e40e1872"));
+}
+
+#[test]
+fn lib_groestl_hash() {
+    let mut hasher = Groestl256::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("f65cae36b7a0cb51e8ee732f4090ffacaa8f910a793596046073b8457bc4a356"));
 }
 
 #[test]
