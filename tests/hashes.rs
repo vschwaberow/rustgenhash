@@ -3,6 +3,9 @@ use gost94::Gost94Test;
 use hex_literal::hex;
 use sha1::{Sha1, Digest};
 use groestl::Groestl256;
+use md2::Md2;
+use md4::Md4;
+use md5::Md5;
 
 const PHRASE:&str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
 
@@ -36,6 +39,30 @@ fn lib_groestl_hash() {
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(result[..], hex!("f65cae36b7a0cb51e8ee732f4090ffacaa8f910a793596046073b8457bc4a356"));
+}
+
+#[test]
+fn lib_md2_hash() {
+    let mut hasher = Md2::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("5e5377610e6b41e7103e7fab19facc07"));
+}
+
+#[test]
+fn lib_md4_hash() {
+    let mut hasher = Md4::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("18744ab6124baa392ee1cc9b1552a403"));
+}
+
+#[test]
+fn lib_md5_hash() {
+    let mut hasher = Md5::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("ad05bcfc97af63bf7ebf568220b19d7e"));
 }
 
 #[test]
