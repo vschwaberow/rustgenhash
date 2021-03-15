@@ -12,6 +12,7 @@ use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
 use streebog::{Streebog256, Streebog512};
+use whirlpool::Whirlpool;
 
 
 const PHRASE:&str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
@@ -181,4 +182,12 @@ fn lib_streebog_hash() {
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(result[..], hex!("665ff29a87dca81a48000b95b155e78b84fdb908368f0e125b8946de9835c0239f13984549f48b89a2c35acc5549bc89676848f1f199253e0cfdba3eef2878b8"));
+}
+
+#[test]
+fn lib_whirlpool_hash() {
+    let mut hasher = Whirlpool::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("171642cace2dabe6f0aa31c9b425af8ec180e3d569640d81c95d6721e12ece9f7d91271a35dd79d4ccacad7b43cf9446c391fdeb94fc3ba293e2550dbd9b5d10"));
 }
