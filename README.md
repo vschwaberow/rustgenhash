@@ -17,24 +17,35 @@ cargo install rustgenhash
 Rustgenhash has a command line interface which allows you to set the utility into a specific operating mode. The current
 modes are 
 
+* stdio
 * string
 * file
 
 After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
-or file to be hashed.
+or file to be hashed. The stdio mode allows you to pipe to the ``rustgenhash`` command. The tool will hash the passed 
+lines from the stdio (useful for hashing password lists).
 
 The file mode supports hashing of multiple files in a directory and currently works non-recursive.
 
-Scheme is for string hashing:
+Scheme for string hashing:
 
 ```bash
 rustgenhash string -a <algorithm> <string>
 ```
 
-Scheme is for file hashing:
+Scheme for file hashing:
 
 ```bash
 rustgenhash file -a <algorithm> <filename or directory>
+```
+Scheme for string hashing from stdio:
+
+```bash
+cat myfile | rustgenhash stdio -a <algorithm> 
+```
+
+```bash
+echo "mypassword" | rustgenhash stdio -a <algorithm> 
 ```
 
 You can list all algorithms over the help function.
