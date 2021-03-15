@@ -11,6 +11,7 @@ use ripemd320::Ripemd320;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
+use streebog::{Streebog256, Streebog512};
 
 
 const PHRASE:&str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
@@ -167,4 +168,17 @@ fn lib_shabal_hash() {
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(result[..], hex!("40d7579e07ae5df931d64d444abe1d7fa1ba784a8ddba6461bd0825abf6c17dae29d9fe3a3f7b968e537f04a28cd5880ea6954b91f2ded8354febe483125ad06"));
+}
+
+#[test]
+fn lib_streebog_hash() {
+    let mut hasher = Streebog256::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("51526ca01cc97f72fde98a9e45bbd3e4ba54a478ab9a8db550354be5295f9f00"));
+
+    let mut hasher = Streebog512::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("665ff29a87dca81a48000b95b155e78b84fdb908368f0e125b8946de9835c0239f13984549f48b89a2c35acc5549bc89676848f1f199253e0cfdba3eef2878b8"));
 }
