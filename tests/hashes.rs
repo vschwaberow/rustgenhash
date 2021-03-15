@@ -10,6 +10,7 @@ use ripemd160::Ripemd160;
 use ripemd320::Ripemd320;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
+use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
 
 
 const PHRASE:&str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
@@ -138,4 +139,32 @@ fn lib_sha3_hash() {
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(result[..], hex!("8975eb95252573d6575a59d3ee995a50b33c15549370af80a37acef2953d43b957a0c66664e22ac0eacbe7d99ca094b0fcb5a6d3c5a266337d8a23a76a9b846f"));
+}
+
+#[test]
+fn lib_shabal_hash() {
+    let mut hasher = Shabal192::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("2e74a8bae598b18ad03179eed4ddf334f0c8d7bf2062141c"));
+
+    let mut hasher = Shabal224::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("5726195b421e6694cd27069e43b0b5fdf470e100680fc0a176e98602"));
+
+    let mut hasher = Shabal256::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("2416fcb3074316430af2ee338aba58e1d965f5436fa074eb5a5f22b47ee0a32f"));
+
+    let mut hasher = Shabal384::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("09491396789f3aba449b147de27d0fe3e79050b6f7cf09e49b4c1bf7ff72630a3122d6618c0ef24333016e4ef990004c"));
+
+    let mut hasher = Shabal512::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("40d7579e07ae5df931d64d444abe1d7fa1ba784a8ddba6461bd0825abf6c17dae29d9fe3a3f7b968e537f04a28cd5880ea6954b91f2ded8354febe483125ad06"));
 }
