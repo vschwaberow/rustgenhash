@@ -6,6 +6,8 @@ use groestl::Groestl256;
 use md2::Md2;
 use md4::Md4;
 use md5::Md5;
+use ripemd160::Ripemd160;
+use ripemd320::Ripemd320;
 
 const PHRASE:&str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
 
@@ -63,6 +65,22 @@ fn lib_md5_hash() {
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(result[..], hex!("ad05bcfc97af63bf7ebf568220b19d7e"));
+}
+
+#[test]
+fn lib_ripemd160_hash() {
+    let mut hasher = Ripemd160::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("85b000debad329e4738bfefb0e480d2cb32a0869"));
+}
+
+#[test]
+fn lib_ripemd320_hash() {
+    let mut hasher = Ripemd320::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(result[..], hex!("e34757b3c51470ec4a47a06a39ffbe85587f41f9711facc25bdcf5d74ebf44e59743ca07bd70ab5e"));
 }
 
 #[test]
