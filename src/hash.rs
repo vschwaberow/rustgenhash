@@ -11,7 +11,7 @@ pub fn match_invalid() {
     exit(1);
 }
 
-pub fn hash_string<D>(password: String, mut hasher: D)
+pub fn string<D>(password: String, mut hasher: D)
 where
     D: Digest,
     D::OutputSize: Add,
@@ -21,7 +21,7 @@ where
     println!("{:x} {}", hasher.finalize(), &password);
 }
 
-pub fn hash_file<D>(file: String, mut hasher: D)
+pub fn file<D>(file: String, mut hasher: D)
 where
     D: Clone,
     D: Digest,
