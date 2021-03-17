@@ -26,8 +26,13 @@ use crate::cmd::CmdTree;
 mod cmd;
 mod hash;
 
+const PKG_NAME: &'static str = env!("CARGO_PKG_NAME");
+const PKG_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const PKG_AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
+
+
 fn main() {
-    println!("Rustgenhash by Volker Schwaberow <volker@schwaberow.de>");
+    println!("{} {} by {}", PKG_NAME, PKG_VERSION, PKG_AUTHOR);
     println!();
 
     match CmdTree::from_args() {
