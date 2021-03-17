@@ -13,7 +13,7 @@ streebog512, whirlpool";
     name = "rustgenhash",
     about = "CLI utility to generate hashes for files and strings."
 )]
-pub enum Cmd {
+pub enum CmdTree {
     File {
         #[structopt(
             short,

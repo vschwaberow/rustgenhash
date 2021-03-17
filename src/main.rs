@@ -21,7 +21,7 @@ use streebog::*;
 use structopt::StructOpt;
 use whirlpool::Whirlpool;
 
-use crate::cmd::Cmd;
+use crate::cmd::CmdTree;
 
 mod cmd;
 mod hash;
@@ -30,8 +30,8 @@ fn main() {
     println!("Rustgenhash by Volker Schwaberow <volker@schwaberow.de>");
     println!();
 
-    match Cmd::from_args() {
-        Cmd::String {
+    match CmdTree::from_args() {
+        CmdTree::String {
             algorithm,
             password,
         } => match &algorithm as &str {
@@ -64,7 +64,7 @@ fn main() {
             _ => hash::match_invalid(),
         },
 
-        Cmd::File { algorithm, input } => match &algorithm as &str {
+        CmdTree::File { algorithm, input } => match &algorithm as &str {
             "blake2b" => hash::file(input, Blake2b::new()),
             "blake2s" => hash::file(input, Blake2s::new()),
             "gost94" => hash::file(input, Gost94Test::new()),
@@ -93,7 +93,7 @@ fn main() {
             "whirlpool" => hash::file(input, Whirlpool::new()),
             _ => hash::match_invalid(),
         },
-        Cmd::Stdio {algorithm} => {
+        CmdTree::Stdio {algorithm} => {
             let stdin = std::io::stdin();
             for lines in stdin.lock().lines() {
                 let password = lines.unwrap();
