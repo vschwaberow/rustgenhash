@@ -86,3 +86,18 @@ pub enum CmdTree {
         algorithm: String,
     },
 }
+*/
+pub fn hash_digest(text_line: String, ){
+
+}
+
+pub fn match_algo(algo: String, text_line: String) {
+
+    match &algo as &str {
+        _ => println!("Not implemented."),
+    };
+}
+
+pub fn matching() {
+
+}
