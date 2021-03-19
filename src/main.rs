@@ -1,3 +1,4 @@
+use clap::Clap;
 
 use std::io::BufRead;
 use std::ops::Add;
@@ -18,22 +19,20 @@ use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
 use streebog::*;
-use structopt::StructOpt;
 use whirlpool::Whirlpool;
 
-use crate::cmd::CmdTree;
+use crate::cmd::Opts;
 
 mod cmd;
 mod hash;
 
-const PKG_NAME: &'static str = env!("CARGO_PKG_NAME");
-const PKG_VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const PKG_AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
+
 
 
 fn main() {
-    println!("{} {} by {}", PKG_NAME, PKG_VERSION, PKG_AUTHOR);
-    println!();
+
+    let opts: Opts = cmd::Opts::parse();
+    cmd::matching();
 
     match CmdTree::from_args() {
         CmdTree::String {
