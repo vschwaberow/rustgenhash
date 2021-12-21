@@ -19,6 +19,12 @@ use pbkdf2::{
 };
 use ripemd160::Ripemd160;
 use ripemd320::*;
+use scrypt::{
+    password_hash::{
+        SaltString as ScSaltString
+    },
+    Scrypt
+};
 use sha1::Sha1;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
@@ -115,6 +121,17 @@ where
     }
 }
 
+fn hash_scrypt(password: String) {
+    let salt = ScSaltString::generate(&mut OsRng);
+    let password_hash = Scrypt.hash_password(
+        password.as_bytes(),
+        &salt
+    )
+        .unwrap()
+        .to_string();
+    println!("{} {}", password_hash, password);
+}
+
 fn hash_argon2(password: String) {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
@@ -176,6 +193,7 @@ fn main() {
             "pbkdf2-sha512" => hash_pbkdf2(password, "pbkdf2-sha512"),
             "ripemd160" => hash_string(password, Ripemd160::new()),
             "ripemd320" => hash_string(password, Ripemd320::new()),
+            "scrypt" => hash_scrypt(password),
             "sha1" => hash_string(password, Sha1::new()),
             "sha224" => hash_string(password, Sha224::new()),
             "sha256" => hash_string(password, Sha256::new()),
@@ -210,6 +228,7 @@ fn main() {
             "pbkdf2-sha512" => match_invalid_for_mode(),
             "ripemd160" => hash_file(input, Ripemd160::new()),
             "ripemd320" => hash_file(input, Ripemd320::new()),
+            "scrypt" => match_invalid_for_mode(),
             "sha1" => hash_file(input, Sha1::new()),
             "sha224" => hash_file(input, Sha224::new()),
             "sha256" => hash_file(input, Sha256::new()),
@@ -246,6 +265,7 @@ fn main() {
                     "pbkdf2-sha512" => hash_pbkdf2(password, "pbkdf2-sha512"),
                     "ripemd160" => hash_string(password, Ripemd160::new()),
                     "ripemd320" => hash_string(password, Ripemd320::new()),
+                    "scrypt" => hash_scrypt(password),
                     "sha1" => hash_string(password, Sha1::new()),
                     "sha224" => hash_string(password, Sha224::new()),
                     "sha256" => hash_string(password, Sha256::new()),
