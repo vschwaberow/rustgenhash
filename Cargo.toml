@@ -1,6 +1,6 @@
 [package]
 name = "rustgenhash"
-version = "0.3.1"
+version = "0.4.0"
 license = "MIT/Apache-2.0"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
@@ -25,6 +25,7 @@ md4 = "0.9.0"
 md-5 = "0.9.1"
 gost94 = "0.9.1"
 groestl = "0.9.0"
+pbkdf2 = { version = "0.7" }
 rand_core = { version = "0.6", features = ["std"] }
 ripemd160 = "0.9.1"
 ripemd320 = "0.9.0"
@@ -38,3 +39,4 @@ structopt-derive = "0.4.16"
 whirlpool = "0.9.0"
 hex-literal = "0.3.3"
 argon2 = "0.3.2"
+password-hash = "0.3.2"

@@ -1,7 +1,7 @@
 use argon2::{
     password_hash::{
         rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+        PasswordHasher, SaltString
     },
     Argon2
 };
@@ -13,6 +13,10 @@ use groestl::*;
 use md2::Md2;
 use md4::Md4;
 use md5::Md5;
+use pbkdf2::{
+    password_hash::{ PasswordHasher as PbPasswordHasher, SaltString as PbSaltString, Ident as PbIdent },
+    Pbkdf2,
+};
 use ripemd160::Ripemd160;
 use ripemd320::*;
 use sha1::Sha1;
@@ -27,7 +31,7 @@ use structopt::StructOpt;
 use whirlpool::Whirlpool;
 use std::io::BufRead;
 
-const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: blake2s, blake2b, gost94, groestl, md2, md4, md5, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, whirlpool";
+const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: argon2, blake2s, blake2b, gost94, groestl, md2, md4, md5, pbkdf2-sha256, pbkdf2-sha512, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, whirlpool";
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -118,6 +122,29 @@ fn hash_argon2(password: String) {
     println!("{} {}", password_hash, password);
 }
 
+fn hash_pbkdf2(password: String, pb_scheme: &str) {
+    let salt = PbSaltString::generate(&mut OsRng);
+
+    let params = pbkdf2::Params {
+        output_length: 32,
+        rounds: 100_000,
+    };
+
+    let password_hash = Pbkdf2::hash_password(
+        &Pbkdf2,
+        password.as_bytes(),
+        Some(PbIdent::new(pb_scheme)),
+             None,
+             params,
+             salt.as_salt(),
+    )
+        .unwrap()
+        .to_string();
+
+    println!("{} {}", password_hash, password);
+
+}
+
 fn hash_string<D>(password: String, mut hasher: D)
 where
     D: Digest,
@@ -145,6 +172,8 @@ fn main() {
             "md2" => hash_string(password, Md2::new()),
             "md4" => hash_string(password, Md4::new()),
             "md5" => hash_string(password, Md5::new()),
+            "pbkdf2-sha256" => hash_pbkdf2(password, "pbkdf2-sha256"),
+            "pbkdf2-sha512" => hash_pbkdf2(password, "pbkdf2-sha512"),
             "ripemd160" => hash_string(password, Ripemd160::new()),
             "ripemd320" => hash_string(password, Ripemd320::new()),
             "sha1" => hash_string(password, Sha1::new()),
@@ -176,6 +205,9 @@ fn main() {
             "md2" => hash_file(input, Md2::new()),
             "md4" => hash_file(input, Md4::new()),
             "md5" => hash_file(input, Md5::new()),
+            "pbkdf2" => match_invalid_for_mode(),
+            "pbkdf2-sha256" => match_invalid_for_mode(),
+            "pbkdf2-sha512" => match_invalid_for_mode(),
             "ripemd160" => hash_file(input, Ripemd160::new()),
             "ripemd320" => hash_file(input, Ripemd320::new()),
             "sha1" => hash_file(input, Sha1::new()),
@@ -210,6 +242,8 @@ fn main() {
                     "md2" => hash_string(password, Md2::new()),
                     "md4" => hash_string(password, Md4::new()),
                     "md5" => hash_string(password, Md5::new()),
+                    "pbkdf2-sha256" => hash_pbkdf2(password, "pbkdf2-sha256"),
+                    "pbkdf2-sha512" => hash_pbkdf2(password, "pbkdf2-sha512"),
                     "ripemd160" => hash_string(password, Ripemd160::new()),
                     "ripemd320" => hash_string(password, Ripemd320::new()),
                     "sha1" => hash_string(password, Sha1::new()),
