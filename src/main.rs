@@ -1,3 +1,10 @@
+use argon2::{
+    password_hash::{
+        rand_core::OsRng,
+        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+    },
+    Argon2
+};
 use blake2::{Blake2b, Blake2s};
 use digest::generic_array::ArrayLength;
 use digest::Digest;
@@ -63,6 +70,12 @@ fn match_invalid() {
     exit(1);
 }
 
+fn match_invalid_for_mode() {
+    println!("This algorithm is not supported in this mode. You need to select a valid algorithm for this mode.");
+    exit(1);
+
+}
+
 fn hash_file<D>(file: String, mut hasher: D)
 where
     D: Clone,
@@ -98,6 +111,13 @@ where
     }
 }
 
+fn hash_argon2(password: String) {
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2.hash_password(password.as_bytes(), &salt).unwrap().to_string();
+    println!("{} {}", password_hash, password);
+}
+
 fn hash_string<D>(password: String, mut hasher: D)
 where
     D: Digest,
@@ -117,6 +137,7 @@ fn main() {
             algorithm,
             password,
         } => match &algorithm as &str {
+            "argon2" => hash_argon2(password),
             "blake2b" => hash_string(password, Blake2b::new()),
             "blake2s" => hash_string(password, Blake2s::new()),
             "gost94" => hash_string(password, Gost94Test::new()),
@@ -147,6 +168,7 @@ fn main() {
         },
 
         Cmd::File { algorithm, input } => match &algorithm as &str {
+            "argon2" => match_invalid_for_mode(),
             "blake2b" => hash_file(input, Blake2b::new()),
             "blake2s" => hash_file(input, Blake2s::new()),
             "gost94" => hash_file(input, Gost94Test::new()),
@@ -180,6 +202,7 @@ fn main() {
             for lines in stdin.lock().lines() {
                 let password = lines.unwrap();
                 match &algorithm as &str {
+                    "argon2" => hash_argon2(password),
                     "blake2b" => hash_string(password, Blake2b::new()),
                     "blake2s" => hash_string(password, Blake2s::new()),
                     "gost94" => hash_string(password, Gost94Test::new()),
