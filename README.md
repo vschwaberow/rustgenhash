@@ -52,6 +52,7 @@ You can list all algorithms over the help function.
 
 Supported are:
 
+* Argon2 (Only String and stdio)
 * BLAKE2b 
 * BLAKE2s
 * GOST R 34.11-94
@@ -59,6 +60,8 @@ Supported are:
 * MD2 hash
 * MD4 hash
 * MD5 hash
+* PBKDF2-SHA256 (Only String and stdio)
+* PBKDF2-SHA512 (Only String and stdio)
 * RipeMD160
 * RipeMD320
 * SHA-1 hash
