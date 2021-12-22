@@ -32,7 +32,7 @@ use structopt::StructOpt;
 use tiger::Tiger;
 use whirlpool::Whirlpool;
 
-const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: argon2, blake2s, blake2b, gost94, groestl, md2, md4, md5, pbkdf2-sha256, pbkdf2-sha512, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, whirlpool";
+const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: argon2, blake2s, blake2b, gost94, groestl, md2, md4, md5, pbkdf2-sha256, pbkdf2-sha512, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, tiger, whirlpool";
 
 #[derive(StructOpt, Debug)]
 #[structopt(
