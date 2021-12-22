@@ -1,9 +1,6 @@
 use argon2::{
-    password_hash::{
-        rand_core::OsRng,
-        PasswordHasher, SaltString
-    },
-    Argon2
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+    Argon2,
 };
 use blake2::{Blake2b, Blake2s};
 use digest::generic_array::ArrayLength;
@@ -14,24 +11,28 @@ use md2::Md2;
 use md4::Md4;
 use md5::Md5;
 use pbkdf2::{
-    password_hash::{ PasswordHasher as PbPasswordHasher, SaltString as PbSaltString, Ident as PbIdent },
+    password_hash::{
+        Ident as PbIdent, PasswordHasher as PbPasswordHasher, SaltString as PbSaltString,
+    },
     Pbkdf2,
 };
 use ripemd160::Ripemd160;
 use ripemd320::*;
+use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
 use sha1::Sha1;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
+use std::io::BufRead;
 use std::ops::Add;
 use std::process::exit;
 use std::{fs, io};
 use streebog::*;
 use structopt::StructOpt;
+use tiger::Tiger;
 use whirlpool::Whirlpool;
-use std::io::BufRead;
 
-const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: argon2, blake2s, blake2b, gost94, groestl, md2, md4, md5, pbkdf2-sha256, pbkdf2-sha512, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, whirlpool";
+const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: argon2, blake2s, blake2b, gost94, groestl, md2, md4, md5, pbkdf2-sha256, pbkdf2-sha512, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, tiger, whirlpool";
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -77,7 +78,6 @@ fn match_invalid() {
 fn match_invalid_for_mode() {
     println!("This algorithm is not supported in this mode. You need to select a valid algorithm for this mode.");
     exit(1);
-
 }
 
 fn hash_file<D>(file: String, mut hasher: D)
@@ -115,10 +115,22 @@ where
     }
 }
 
+fn hash_scrypt(password: String) {
+    let salt = ScSaltString::generate(&mut OsRng);
+    let password_hash = Scrypt
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
+    println!("{} {}", password_hash, password);
+}
+
 fn hash_argon2(password: String) {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let password_hash = argon2.hash_password(password.as_bytes(), &salt).unwrap().to_string();
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
     println!("{} {}", password_hash, password);
 }
 
@@ -134,15 +146,14 @@ fn hash_pbkdf2(password: String, pb_scheme: &str) {
         &Pbkdf2,
         password.as_bytes(),
         Some(PbIdent::new(pb_scheme)),
-             None,
-             params,
-             salt.as_salt(),
+        None,
+        params,
+        salt.as_salt(),
     )
-        .unwrap()
-        .to_string();
+    .unwrap()
+    .to_string();
 
     println!("{} {}", password_hash, password);
-
 }
 
 fn hash_string<D>(password: String, mut hasher: D)
@@ -176,6 +187,7 @@ fn main() {
             "pbkdf2-sha512" => hash_pbkdf2(password, "pbkdf2-sha512"),
             "ripemd160" => hash_string(password, Ripemd160::new()),
             "ripemd320" => hash_string(password, Ripemd320::new()),
+            "scrypt" => hash_scrypt(password),
             "sha1" => hash_string(password, Sha1::new()),
             "sha224" => hash_string(password, Sha224::new()),
             "sha256" => hash_string(password, Sha256::new()),
@@ -192,6 +204,7 @@ fn main() {
             "shabal512" => hash_string(password, Shabal512::new()),
             "streebog256" => hash_string(password, Streebog256::new()),
             "streebog512" => hash_string(password, Streebog512::new()),
+            "tiger" => hash_string(password, Tiger::new()),
             "whirlpool" => hash_string(password, Whirlpool::new()),
             _ => match_invalid(),
         },
@@ -210,6 +223,7 @@ fn main() {
             "pbkdf2-sha512" => match_invalid_for_mode(),
             "ripemd160" => hash_file(input, Ripemd160::new()),
             "ripemd320" => hash_file(input, Ripemd320::new()),
+            "scrypt" => match_invalid_for_mode(),
             "sha1" => hash_file(input, Sha1::new()),
             "sha224" => hash_file(input, Sha224::new()),
             "sha256" => hash_file(input, Sha256::new()),
@@ -226,10 +240,11 @@ fn main() {
             "shabal512" => hash_file(input, Shabal512::new()),
             "streebog256" => hash_file(input, Streebog256::new()),
             "streebog512" => hash_file(input, Streebog512::new()),
+            "tiger" => match_invalid_for_mode(),
             "whirlpool" => hash_file(input, Whirlpool::new()),
             _ => match_invalid(),
         },
-        Cmd::Stdio {algorithm} => {
+        Cmd::Stdio { algorithm } => {
             let stdin = io::stdin();
             for lines in stdin.lock().lines() {
                 let password = lines.unwrap();
@@ -246,6 +261,7 @@ fn main() {
                     "pbkdf2-sha512" => hash_pbkdf2(password, "pbkdf2-sha512"),
                     "ripemd160" => hash_string(password, Ripemd160::new()),
                     "ripemd320" => hash_string(password, Ripemd320::new()),
+                    "scrypt" => hash_scrypt(password),
                     "sha1" => hash_string(password, Sha1::new()),
                     "sha224" => hash_string(password, Sha224::new()),
                     "sha256" => hash_string(password, Sha256::new()),
@@ -262,10 +278,11 @@ fn main() {
                     "shabal512" => hash_string(password, Shabal512::new()),
                     "streebog256" => hash_string(password, Streebog256::new()),
                     "streebog512" => hash_string(password, Streebog512::new()),
+                    "tiger" => hash_string(password, Tiger::new()),
                     "whirlpool" => hash_string(password, Whirlpool::new()),
                     _ => match_invalid(),
                 }
             }
-        },
+        }
     }
 }
