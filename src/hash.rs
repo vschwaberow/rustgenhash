@@ -1,0 +1,101 @@
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHasher, rand_core::OsRng, SaltString},
+};
+use digest::generic_array::ArrayLength;
+use digest::Digest;
+use pbkdf2::{
+    password_hash::{
+        Ident as PbIdent, PasswordHasher as PbPasswordHasher, SaltString as PbSaltString,
+    },
+    Pbkdf2,
+};
+use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
+use std::ops::Add;
+use std::{fs, io};
+
+pub fn hash_file<D>(file: String, mut hasher: D)
+where
+    D: Clone,
+    D: Digest,
+    D: io::Write,
+    D::OutputSize: Add,
+    <D::OutputSize as Add>::Output: ArrayLength<u8>,
+{
+    let md = std::fs::metadata(&file).unwrap();
+
+    let mut hashdir = hasher.clone();
+
+    if md.is_file() {
+        let mut input = fs::File::open(&file).expect("Unable to open the provided file.");
+        io::copy(&mut input, &mut hasher).expect("io error while reading from file.");
+        println!("{:x} {}", hasher.finalize(), &file);
+    }
+
+    if md.is_dir() {
+        for entry in fs::read_dir(&file).expect("Error while reading dir.") {
+            let entry = entry.expect("Error while reading dir.");
+            let path = entry.path();
+            if path.is_file() {
+                let mut input = fs::File::open(&path).expect("Unable to open the provided file.");
+                io::copy(&mut input, &mut hashdir).expect("io error while reading from file.");
+                println!(
+                    "{:x} {}",
+                    &mut hashdir.finalize_reset(),
+                    path.to_str().unwrap()
+                );
+            }
+        }
+    }
+}
+
+pub fn hash_scrypt(password: String) {
+    let salt = ScSaltString::generate(&mut OsRng);
+    let password_hash = Scrypt
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
+    println!("{} {}", password_hash, password);
+}
+
+pub fn hash_argon2(password: String) {
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
+    println!("{} {}", password_hash, password);
+}
+
+pub fn hash_pbkdf2(password: String, pb_scheme: &str) {
+    let salt = PbSaltString::generate(&mut OsRng);
+
+    let params = pbkdf2::Params {
+        output_length: 32,
+        rounds: 100_000,
+    };
+
+    let password_hash = Pbkdf2::hash_password(
+        &Pbkdf2,
+        password.as_bytes(),
+        Some(PbIdent::new(pb_scheme)),
+        None,
+        params,
+        salt.as_salt(),
+    )
+    .unwrap()
+    .to_string();
+
+    println!("{} {}", password_hash, password);
+}
+
+pub fn hash_string<D>(password: String, mut hasher: D)
+where
+    D: Digest,
+    D::OutputSize: Add,
+    <D::OutputSize as Add>::Output: ArrayLength<u8>,
+{
+    hasher.update(&password.as_bytes());
+    println!("{:x} {}", hasher.finalize(), &password);
+}
