@@ -1,26 +1,25 @@
-use blake2::{Blake2b, Blake2s};
+use crate::hash;
+use blake2::{Blake2b512, Blake2s256};
 use digest::Digest;
-use gost94::*;
-use groestl::*;
+use gost94::{Gost94Test, Gost94UA};
+use groestl::Groestl256;
 use md2::Md2;
 use md4::Md4;
 use md5::Md5;
-use ripemd160::Ripemd160;
-use ripemd320::*;
+use ripemd::{Ripemd160, Ripemd320};
 use sha1::Sha1;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
 use std::io::BufRead;
 use std::process::exit;
-use streebog::*;
+use streebog::{Streebog256, Streebog512};
+use structopt::clap::{crate_authors, crate_name, crate_version};
 use structopt::StructOpt;
 use tiger::Tiger;
 use whirlpool::Whirlpool;
-use structopt::clap::{crate_authors, crate_name, crate_version};
-use crate::hash;
 
-const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: argon2, blake2s, blake2b, gost94, groestl, md2, md4, md5, pbkdf2-sha256, pbkdf2-sha512, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, tiger, whirlpool";
+const LONG_HELP_TXT: &str = r"A switch to provide the hash algorithm with which the provided string will be hashed. Supported are: argon2, blake2s, blake2b, gost94, gost94ua, groestl, md2, md4, md5, pbkdf2-sha256, pbkdf2-sha512, ripemd160, ripemd320, sha1, sha224, sha256, sha384, sha512, sha3-224, sha3-256, sha3-384, sha3-512, shabal192, shabal224, shabal256, shabal384, shabal512, streebog256, streebog512, tiger, whirlpool";
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -75,9 +74,10 @@ pub fn matching() {
             password,
         } => match &algorithm as &str {
             "argon2" => hash::hash_argon2(password),
-            "blake2b" => hash::hash_string(password, Blake2b::new()),
-            "blake2s" => hash::hash_string(password, Blake2s::new()),
+            "blake2b" => hash::hash_string(password, Blake2b512::new()),
+            "blake2s" => hash::hash_string(password, Blake2s256::new()),
             "gost94" => hash::hash_string(password, Gost94Test::new()),
+            "gost94ua" => hash::hash_string(password, Gost94UA::new()),
             "groestl" => hash::hash_string(password, Groestl256::new()),
             "md2" => hash::hash_string(password, Md2::new()),
             "md4" => hash::hash_string(password, Md4::new()),
@@ -110,9 +110,10 @@ pub fn matching() {
 
         Cmd::File { algorithm, input } => match &algorithm as &str {
             "argon2" => match_invalid_for_mode(),
-            "blake2b" => hash::hash_file(input, Blake2b::new()),
-            "blake2s" => hash::hash_file(input, Blake2s::new()),
+            "blake2b" => hash::hash_file(input, Blake2b512::new()),
+            "blake2s" => hash::hash_file(input, Blake2s256::new()),
             "gost94" => hash::hash_file(input, Gost94Test::new()),
+            "gost94ua" => hash::hash_file(input, Gost94UA::new()),
             "groestl" => hash::hash_file(input, Groestl256::new()),
             "md2" => hash::hash_file(input, Md2::new()),
             "md4" => hash::hash_file(input, Md4::new()),
@@ -149,9 +150,10 @@ pub fn matching() {
                 let password = lines.unwrap();
                 match &algorithm as &str {
                     "argon2" => hash::hash_argon2(password),
-                    "blake2b" => hash::hash_string(password, Blake2b::new()),
-                    "blake2s" => hash::hash_string(password, Blake2s::new()),
+                    "blake2b" => hash::hash_string(password, Blake2b512::new()),
+                    "blake2s" => hash::hash_string(password, Blake2s256::new()),
                     "gost94" => hash::hash_string(password, Gost94Test::new()),
+                    "gost94ua" => hash::hash_string(password, Gost94UA::new()),
                     "groestl" => hash::hash_string(password, Groestl256::new()),
                     "md2" => hash::hash_string(password, Md2::new()),
                     "md4" => hash::hash_string(password, Md4::new()),
@@ -187,6 +189,11 @@ pub fn matching() {
 }
 
 pub fn about() {
-    println!("{} v{} by {}", crate_name!(), crate_version!(), crate_authors!());
+    println!(
+        "{} v{} by {}",
+        crate_name!(),
+        crate_version!(),
+        crate_authors!()
+    );
     println!();
 }

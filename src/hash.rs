@@ -1,13 +1,11 @@
 use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
-    password_hash::{PasswordHasher, rand_core::OsRng, SaltString},
 };
 use digest::generic_array::ArrayLength;
 use digest::Digest;
 use pbkdf2::{
-    password_hash::{
-        Ident as PbIdent, PasswordHasher as PbPasswordHasher, SaltString as PbSaltString,
-    },
+    password_hash::{Ident as PbIdent, SaltString as PbSaltString},
     Pbkdf2,
 };
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
@@ -21,6 +19,7 @@ where
     D: io::Write,
     D::OutputSize: Add,
     <D::OutputSize as Add>::Output: ArrayLength<u8>,
+    D: digest::FixedOutputReset,
 {
     let md = std::fs::metadata(&file).unwrap();
 
@@ -69,6 +68,8 @@ pub fn hash_argon2(password: String) {
 }
 
 pub fn hash_pbkdf2(password: String, pb_scheme: &str) {
+    let algorithm = PbIdent::new(pb_scheme).unwrap();
+
     let salt = PbSaltString::generate(&mut OsRng);
 
     let params = pbkdf2::Params {
@@ -76,10 +77,10 @@ pub fn hash_pbkdf2(password: String, pb_scheme: &str) {
         rounds: 100_000,
     };
 
-    let password_hash = Pbkdf2::hash_password(
+    let password_hash = Pbkdf2::hash_password_customized(
         &Pbkdf2,
         password.as_bytes(),
-        Some(PbIdent::new(pb_scheme)),
+        Some(algorithm),
         None,
         params,
         salt.as_salt(),

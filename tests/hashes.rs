@@ -1,21 +1,20 @@
 use blake2::{Blake2b, Blake2s};
 use gost94::Gost94Test;
-use hex_literal::hex;
-use sha1::{Sha1, Digest};
 use groestl::Groestl256;
+use hex_literal::hex;
 use md2::Md2;
 use md4::Md4;
 use md5::Md5;
 use ripemd160::Ripemd160;
 use ripemd320::Ripemd320;
+use sha1::{Digest, Sha1};
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
 use streebog::{Streebog256, Streebog512};
 use whirlpool::Whirlpool;
 
-
-const PHRASE:&str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
+const PHRASE: &str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen.";
 
 #[test]
 fn lib_blake2b_hash() {
@@ -30,7 +29,10 @@ fn lib_blake2s_hash() {
     let mut hasher = Blake2s::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("dbfd3f2c835adcc9fc955d812384bb3bf569de0b9613ffca0e723254c05cf497"));
+    assert_eq!(
+        result[..],
+        hex!("dbfd3f2c835adcc9fc955d812384bb3bf569de0b9613ffca0e723254c05cf497")
+    );
 }
 
 #[test]
@@ -38,7 +40,10 @@ fn lib_gost94_hash() {
     let mut hasher = Gost94Test::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("1845acc06577ead1f5b671e7e452fc6064e90ab1bbb536df36a91327e40e1872"));
+    assert_eq!(
+        result[..],
+        hex!("1845acc06577ead1f5b671e7e452fc6064e90ab1bbb536df36a91327e40e1872")
+    );
 }
 
 #[test]
@@ -46,7 +51,10 @@ fn lib_groestl_hash() {
     let mut hasher = Groestl256::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("f65cae36b7a0cb51e8ee732f4090ffacaa8f910a793596046073b8457bc4a356"));
+    assert_eq!(
+        result[..],
+        hex!("f65cae36b7a0cb51e8ee732f4090ffacaa8f910a793596046073b8457bc4a356")
+    );
 }
 
 #[test]
@@ -86,7 +94,10 @@ fn lib_ripemd320_hash() {
     let mut hasher = Ripemd320::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("e34757b3c51470ec4a47a06a39ffbe85587f41f9711facc25bdcf5d74ebf44e59743ca07bd70ab5e"));
+    assert_eq!(
+        result[..],
+        hex!("e34757b3c51470ec4a47a06a39ffbe85587f41f9711facc25bdcf5d74ebf44e59743ca07bd70ab5e")
+    );
 }
 
 #[test]
@@ -102,12 +113,18 @@ fn lib_sha2_hash() {
     let mut hasher = Sha224::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("89f96bccbae0d803667fee6afdd18e2c7df1c93121a24d5878d92afe"));
+    assert_eq!(
+        result[..],
+        hex!("89f96bccbae0d803667fee6afdd18e2c7df1c93121a24d5878d92afe")
+    );
 
     let mut hasher = Sha256::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("4c3478a95c7b19f747de6d9a0ac49517e37a1312768dd64093626290e5b3ed79"));
+    assert_eq!(
+        result[..],
+        hex!("4c3478a95c7b19f747de6d9a0ac49517e37a1312768dd64093626290e5b3ed79")
+    );
 
     let mut hasher = Sha384::new();
     hasher.update(PHRASE.as_bytes());
@@ -125,12 +142,18 @@ fn lib_sha3_hash() {
     let mut hasher = Sha3_224::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("a3d42c4ca398f6e3deb5f9829db812ec5683a5e908a2a6b5aca5bc2f"));
+    assert_eq!(
+        result[..],
+        hex!("a3d42c4ca398f6e3deb5f9829db812ec5683a5e908a2a6b5aca5bc2f")
+    );
 
     let mut hasher = Sha3_256::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("7f3b18201d8a0243af7f0190024211066a91c9579889fc80df52e7981de814ef"));
+    assert_eq!(
+        result[..],
+        hex!("7f3b18201d8a0243af7f0190024211066a91c9579889fc80df52e7981de814ef")
+    );
 
     let mut hasher = Sha3_384::new();
     hasher.update(PHRASE.as_bytes());
@@ -148,17 +171,26 @@ fn lib_shabal_hash() {
     let mut hasher = Shabal192::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("2e74a8bae598b18ad03179eed4ddf334f0c8d7bf2062141c"));
+    assert_eq!(
+        result[..],
+        hex!("2e74a8bae598b18ad03179eed4ddf334f0c8d7bf2062141c")
+    );
 
     let mut hasher = Shabal224::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("5726195b421e6694cd27069e43b0b5fdf470e100680fc0a176e98602"));
+    assert_eq!(
+        result[..],
+        hex!("5726195b421e6694cd27069e43b0b5fdf470e100680fc0a176e98602")
+    );
 
     let mut hasher = Shabal256::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("2416fcb3074316430af2ee338aba58e1d965f5436fa074eb5a5f22b47ee0a32f"));
+    assert_eq!(
+        result[..],
+        hex!("2416fcb3074316430af2ee338aba58e1d965f5436fa074eb5a5f22b47ee0a32f")
+    );
 
     let mut hasher = Shabal384::new();
     hasher.update(PHRASE.as_bytes());
@@ -176,7 +208,10 @@ fn lib_streebog_hash() {
     let mut hasher = Streebog256::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
-    assert_eq!(result[..], hex!("51526ca01cc97f72fde98a9e45bbd3e4ba54a478ab9a8db550354be5295f9f00"));
+    assert_eq!(
+        result[..],
+        hex!("51526ca01cc97f72fde98a9e45bbd3e4ba54a478ab9a8db550354be5295f9f00")
+    );
 
     let mut hasher = Streebog512::new();
     hasher.update(PHRASE.as_bytes());
