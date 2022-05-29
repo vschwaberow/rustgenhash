@@ -1,7 +1,5 @@
-
-
-mod hash;
 mod command;
+mod hash;
 
 fn main() {
     command::about();

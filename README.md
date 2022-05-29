@@ -57,6 +57,7 @@ Supported are:
 - BLAKE2b
 - BLAKE2s
 - GOST R 34.11-94
+- GOST 34.311-95 UA
 - Grøstl
 - MD2 hash
 - MD4 hash
