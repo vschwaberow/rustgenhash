@@ -48,7 +48,7 @@ where
     }
 }
 
-pub fn hash_scrypt(password: String) {
+pub fn hash_scrypt(password: &str) {
     let salt = ScSaltString::generate(&mut OsRng);
     let password_hash = Scrypt
         .hash_password(password.as_bytes(), &salt)
@@ -57,7 +57,7 @@ pub fn hash_scrypt(password: String) {
     println!("{} {}", password_hash, password);
 }
 
-pub fn hash_argon2(password: String) {
+pub fn hash_argon2(password: &str) {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let password_hash = argon2
@@ -67,7 +67,7 @@ pub fn hash_argon2(password: String) {
     println!("{} {}", password_hash, password);
 }
 
-pub fn hash_pbkdf2(password: String, pb_scheme: &str) {
+pub fn hash_pbkdf2(password: &str, pb_scheme: &str) {
     let algorithm = PbIdent::new(pb_scheme).unwrap();
 
     let salt = PbSaltString::generate(&mut OsRng);
@@ -91,7 +91,7 @@ pub fn hash_pbkdf2(password: String, pb_scheme: &str) {
     println!("{} {}", password_hash, password);
 }
 
-pub fn hash_string<D>(password: String, mut hasher: D)
+pub fn hash_string<D>(password: &str, mut hasher: D)
 where
     D: Digest,
     D::OutputSize: Add,
