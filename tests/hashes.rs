@@ -1,12 +1,11 @@
-use blake2::{Blake2b, Blake2s};
+use blake2::{Blake2b512, Blake2s256};
 use gost94::Gost94Test;
 use groestl::Groestl256;
 use hex_literal::hex;
 use md2::Md2;
 use md4::Md4;
 use md5::Md5;
-use ripemd160::Ripemd160;
-use ripemd320::Ripemd320;
+use ripemd::{Ripemd160, Ripemd320};
 use sha1::{Digest, Sha1};
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
@@ -18,7 +17,7 @@ const PHRASE: &str = "Jeder wackere Bayer vertilgt bequem zwo Pfund Kalbshaxen."
 
 #[test]
 fn lib_blake2b_hash() {
-    let mut hasher = Blake2b::new();
+    let mut hasher = Blake2b512::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(result[..], hex!("95b7ecb0d7de59820205a0a94fe3ca5ee36fd296b1a9ecaa4e01634aed9fa9505d70182c12f900b9dd95f1d5c04fe57dbc5b1e48acdf3a8bae2996f5d8f4578a"));
@@ -26,7 +25,7 @@ fn lib_blake2b_hash() {
 
 #[test]
 fn lib_blake2s_hash() {
-    let mut hasher = Blake2s::new();
+    let mut hasher = Blake2s256::new();
     hasher.update(PHRASE.as_bytes());
     let result = hasher.finalize();
     assert_eq!(
