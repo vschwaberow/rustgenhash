@@ -9,8 +9,7 @@ repository = "https://github.com/vschwaberow/rustgenhash"
 readme = "README.md"
 keywords = ["cli", "crypto", "hashes", "rust"]
 edition = "2018"
-categories = [ "command-line-utilities", "cryptography"]
-
+categories = ["command-line-utilities", "cryptography"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
@@ -18,16 +17,20 @@ default = ["std"]
 std = []
 
 [dependencies]
+argon2 = "0.4.0"
 blake2 = "0.10.4"
 digest = { version = "0.10.3", features = ["std"] }
-md2 = "0.10.1"
-md4 = "0.10.1"
-md-5 = "0.10.1"
 gost94 = "0.10.2"
 groestl = "0.10.1"
+hex-literal = "0.3.3"
+md-5 = "0.10.1"
+md2 = "0.10.1"
+md4 = "0.10.1"
+password-hash = "0.4.1"
 pbkdf2 = { version = "0.11.0" }
 rand_core = { version = "0.6", features = ["std"] }
 ripemd = "0.1.1"
+scrypt = "0.10.0"
 sha-1 = "0.10.0"
 sha2 = "0.10.2"
 sha3 = "0.10.1"
@@ -35,9 +38,5 @@ shabal = "0.4.1"
 streebog = "0.10.1"
 structopt = "0.3.26"
 structopt-derive = "0.4.16"
-whirlpool = "0.10.1"
-hex-literal = "0.3.3"
-argon2 = "0.4.0"
-password-hash = "0.4.1"
-scrypt = "0.10.0"
 tiger = "0.2.1"
+whirlpool = "0.10.1"
