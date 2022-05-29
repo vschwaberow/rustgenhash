@@ -1,5 +1,5 @@
 use blake2::{Blake2b512, Blake2s256};
-use gost94::Gost94Test;
+use gost94::{Gost94Test, Gost94UA};
 use groestl::Groestl256;
 use hex_literal::hex;
 use md2::Md2;
@@ -42,6 +42,17 @@ fn lib_gost94_hash() {
     assert_eq!(
         result[..],
         hex!("1845acc06577ead1f5b671e7e452fc6064e90ab1bbb536df36a91327e40e1872")
+    );
+}
+
+#[test]
+fn lib_gost94ua_hash() {
+    let mut hasher = Gost94UA::new();
+    hasher.update(PHRASE.as_bytes());
+    let result = hasher.finalize();
+    assert_eq!(
+        result[..],
+        hex!("3a8ce1ee676fa5b0c942c0426309b165376e23cc7d826f31944cdc827aaf674a")
     );
 }
 
