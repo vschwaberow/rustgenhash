@@ -66,6 +66,7 @@ Supported are:
 - PBKDF2-SHA512 (Only String and stdio)
 - RipeMD160
 - RipeMD320
+- Scrypt (Only String and stdio)
 - SHA-1 hash
 - SHA2-224 hash
 - SHA2-256 hash
@@ -84,3 +85,12 @@ Supported are:
 - Streebog512
 - Tiger (Only String and stdio)
 - Whirlpool
+
+
+Generate shell completions:
+
+```bash
+rustgenhash generate-completions <SHELL> > some_path
+```
+
+Supported shells: bash, elvish, fish, power-shell, zsh

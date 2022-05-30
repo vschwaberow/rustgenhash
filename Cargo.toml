@@ -1,6 +1,6 @@
 [package]
 name = "rustgenhash"
-version = "0.5.0"
+version = "0.5.1"
 license = "MIT/Apache-2.0"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
@@ -19,6 +19,8 @@ std = []
 [dependencies]
 argon2 = "0.4.0"
 blake2 = "0.10.4"
+clap = { version = "3.1", features = ["derive", "cargo"] }
+clap_complete = "3.1"
 digest = { version = "0.10.3", features = ["std"] }
 gost94 = "0.10.2"
 groestl = "0.10.1"
@@ -36,7 +38,5 @@ sha2 = "0.10.2"
 sha3 = "0.10.1"
 shabal = "0.4.1"
 streebog = "0.10.1"
-structopt = "0.3.26"
-structopt-derive = "0.4.16"
 tiger = "0.2.1"
 whirlpool = "0.10.1"
