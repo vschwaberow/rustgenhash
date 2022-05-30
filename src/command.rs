@@ -14,6 +14,7 @@ use sha1::Sha1;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
+use sm3::Sm3;
 use std::io::{self, BufRead};
 use std::process::exit;
 use streebog::{Streebog256, Streebog512};
@@ -55,6 +56,7 @@ fn hash_string(algorithm: Algorithm, password: &str) {
         Algorithm::Shabal256 => hash::hash_string(password, Shabal256::new()),
         Algorithm::Shabal384 => hash::hash_string(password, Shabal384::new()),
         Algorithm::Shabal512 => hash::hash_string(password, Shabal512::new()),
+        Algorithm::Sm3 => hash::hash_string(password, Sm3::new()),
         Algorithm::Streebog256 => hash::hash_string(password, Streebog256::new()),
         Algorithm::Streebog512 => hash::hash_string(password, Streebog512::new()),
         Algorithm::Tiger => hash::hash_string(password, Tiger::new()),
@@ -109,6 +111,7 @@ pub fn matching() {
             Algorithm::Shabal256 => hash::hash_file(input, Shabal256::new()),
             Algorithm::Shabal384 => hash::hash_file(input, Shabal384::new()),
             Algorithm::Shabal512 => hash::hash_file(input, Shabal512::new()),
+            Algorithm::Sm3 => hash::hash_file(input, Sm3::new()),
             Algorithm::Streebog256 => hash::hash_file(input, Streebog256::new()),
             Algorithm::Streebog512 => hash::hash_file(input, Streebog512::new()),
             Algorithm::Tiger => match_invalid_for_mode(),

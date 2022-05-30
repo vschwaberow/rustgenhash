@@ -40,6 +40,7 @@ pub enum Algorithm {
     Shabal256,
     Shabal384,
     Shabal512,
+    Sm3,
     Streebog256,
     Streebog512,
     Tiger,
