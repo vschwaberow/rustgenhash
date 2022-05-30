@@ -406,6 +406,7 @@ dependencies = [
  "sha2",
  "sha3",
  "shabal",
+ "sm3",
  "streebog",
  "tiger",
  "whirlpool",
@@ -470,6 +471,15 @@ name = "shabal"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "990a6c7ff96ecc5664129bbf1f7b46a5a7c13f297d05af75e702f861cea6f08a"
+dependencies = [
+ "digest",
+]
+
+[[package]]
+name = "sm3"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f943a7c5e3089f2bd046221d1e9f4fa59396bf0fe966360983649683086215da"
 dependencies = [
  "digest",
 ]
