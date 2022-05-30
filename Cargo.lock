@@ -384,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "rustgenhash"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "argon2",
  "blake2",
