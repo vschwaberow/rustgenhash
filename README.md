@@ -81,6 +81,7 @@ Supported are:
 - Shabal256
 - Shabal384
 - Shabal512
+- Sm3
 - Streebog256
 - Streebog512
 - Tiger (Only String and stdio)
