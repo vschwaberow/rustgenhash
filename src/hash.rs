@@ -2,6 +2,10 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
 };
+use balloon_hash::{
+    password_hash::{rand_core::OsRng as BalOsRng, SaltString as BalSaltString},
+    Balloon,
+};
 use digest::generic_array::ArrayLength;
 use digest::Digest;
 use pbkdf2::{
@@ -61,6 +65,17 @@ pub fn hash_argon2(password: &str) {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
+    println!("{} {}", password_hash, password);
+}
+
+pub fn hash_balloon(password: &str) {
+    // TODO: Make Balloon hash configurable
+    let salt = BalSaltString::generate(&mut BalOsRng);
+    let balloon = Balloon::<sha2::Sha256>::default();
+    let password_hash = balloon
         .hash_password(password.as_bytes(), &salt)
         .unwrap()
         .to_string();

@@ -29,6 +29,7 @@ fn match_invalid_for_mode() {
 fn hash_string(algorithm: Algorithm, password: &str) {
     match algorithm {
         Algorithm::Argon2 => hash::hash_argon2(password),
+        Algorithm::Balloon => hash::hash_balloon(password),
         Algorithm::Blake2b => hash::hash_string(password, Blake2b512::new()),
         Algorithm::Blake2s => hash::hash_string(password, Blake2s256::new()),
         Algorithm::Gost94 => hash::hash_string(password, Gost94Test::new()),
@@ -84,6 +85,7 @@ pub fn matching() {
         }
         Mode::File { algorithm, input } => match algorithm {
             Algorithm::Argon2 => match_invalid_for_mode(),
+            Algorithm::Balloon => match_invalid_for_mode(),
             Algorithm::Blake2b => hash::hash_file(input, Blake2b512::new()),
             Algorithm::Blake2s => hash::hash_file(input, Blake2s256::new()),
             Algorithm::Gost94 => hash::hash_file(input, Gost94Test::new()),

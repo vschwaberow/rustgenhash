@@ -13,6 +13,7 @@ pub struct Cmd {
 #[derive(Debug, ArgEnum, Clone)]
 pub enum Algorithm {
     Argon2,
+    Balloon,
     Blake2b,
     Blake2s,
     Gost94,

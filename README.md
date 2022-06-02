@@ -54,6 +54,7 @@ You can list all algorithms over the help function.
 Supported are:
 
 - Argon2 (Only String and stdio)
+- Balloon Hashing (Only String and stdio)
 - BLAKE2b
 - BLAKE2s
 - GOST R 34.11-94
