@@ -1,6 +1,6 @@
 [package]
 name = "rustgenhash"
-version = "0.5.3"
+version = "0.5.4"
 license = "MIT/Apache-2.0"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
@@ -17,28 +17,28 @@ default = ["std"]
 std = []
 
 [dependencies]
-argon2 = "0.4.0"
-balloon-hash = "0.2.0"
+argon2 = "0.4.1"
+balloon-hash = "0.3.0"
 blake2 = "0.10.4"
-clap = { version = "3.1", features = ["derive", "cargo"] }
-clap_complete = "3.1"
+clap = { version = "3.2.20", features = ["derive", "cargo"] }
+clap_complete = "3.2.4"
 digest = { version = "0.10.3", features = ["std"] }
-gost94 = "0.10.2"
+gost94 = "0.10.3"
 groestl = "0.10.1"
-hex-literal = "0.3.3"
-md-5 = "0.10.1"
+hex-literal = "0.3.4"
+md-5 = "0.10.4"
 md2 = "0.10.1"
 md4 = "0.10.1"
-password-hash = "0.4.1"
-pbkdf2 = { version = "0.11.0" }
-rand_core = { version = "0.6", features = ["std"] }
+password-hash = "0.4.2"
+pbkdf2 = "0.11.0"
+rand_core = { version = "0.6.3", features = ["std"] }
 ripemd = "0.1.1"
 scrypt = "0.10.0"
 sha-1 = "0.10.0"
-sha2 = "0.10.2"
-sha3 = "0.10.1"
+sha2 = "0.10.5"
+sha3 = "0.10.4"
 shabal = "0.4.1"
 sm3 = "0.4.1"
 streebog = "0.10.1"
 tiger = "0.2.1"
-whirlpool = "0.10.1"
+whirlpool = "0.10.4"
