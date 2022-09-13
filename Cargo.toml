@@ -20,8 +20,8 @@ std = []
 argon2 = "0.4.1"
 balloon-hash = "0.3.0"
 blake2 = "0.10.4"
-clap = { version = "3.2.20", features = ["derive", "cargo"] }
-clap_complete = "3.2.4"
+clap = { version = "3.2.21", features = ["derive", "cargo"] }
+clap_complete = "3.2.5"
 digest = { version = "0.10.3", features = ["std"] }
 gost94 = "0.10.3"
 groestl = "0.10.1"
