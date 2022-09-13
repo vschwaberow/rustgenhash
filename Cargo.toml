@@ -1,6 +1,6 @@
 [package]
 name = "rustgenhash"
-version = "0.5.4"
+version = "0.5.5"
 license = "MIT/Apache-2.0"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
@@ -11,6 +11,12 @@ keywords = ["cli", "crypto", "hashes", "rust"]
 edition = "2018"
 categories = ["command-line-utilities", "cryptography"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+strip = "symbols"
+lto = true
+codegen-units = 1
+opt-level = "s"
 
 [features]
 default = ["std"]
