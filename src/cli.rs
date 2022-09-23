@@ -1,4 +1,4 @@
-use clap::{ArgEnum, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -10,7 +10,7 @@ pub struct Cmd {
     pub mode: Mode,
 }
 
-#[derive(Debug, ArgEnum, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone)]
 pub enum Algorithm {
     Argon2,
     Balloon,
@@ -48,7 +48,7 @@ pub enum Algorithm {
     Whirlpool,
 }
 
-#[derive(Debug, ArgEnum, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone)]
 pub enum Shell {
     Bash,
     Elvish,
@@ -73,23 +73,23 @@ impl From<Shell> for clap_complete::Shell {
 #[derive(Debug, Subcommand, Clone)]
 pub enum Mode {
     File {
-        #[clap(short, arg_enum, required = true)]
+        #[arg(value_enum, short, required = true)]
         algorithm: Algorithm,
-        #[clap(name = "FILENAME", required = true)]
+        #[arg(name = "FILENAME", required = true)]
         input: String,
     },
     String {
-        #[clap(short, arg_enum, required = true)]
+        #[arg(short, required = true)]
         algorithm: Algorithm,
-        #[clap(name = "PASSWORD", required = true)]
+        #[arg(name = "PASSWORD", required = true)]
         password: String,
     },
     Stdio {
-        #[clap(short, arg_enum, required = true)]
+        #[arg(short, required = true)]
         algorithm: Algorithm,
     },
     GenerateCompletions {
-        #[clap(arg_enum, required = true)]
+        #[arg(value_enum, required = true)]
         shell: Shell,
     },
 }
