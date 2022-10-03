@@ -6,8 +6,15 @@ use clap::{Parser, Subcommand};
     about = "CLI utility to generate hashes for files and strings."
 )]
 pub struct Cmd {
-    #[clap(subcommand)]
+    #[clap(subcommand, help = "The mode to run in.")]
     pub mode: Mode,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone)]
+pub enum OutputOptions {
+    Hex,
+    Base64,
+    HexBase64,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -72,24 +79,56 @@ impl From<Shell> for clap_complete::Shell {
 
 #[derive(Debug, Subcommand, Clone)]
 pub enum Mode {
+    #[clap(about = "Generate a hash for a file or a full directory.")]
     File {
-        #[arg(value_enum, short, required = true)]
+        #[arg(value_enum, short, required = true, help = "Hashing algorithm")]
         algorithm: Algorithm,
-        #[arg(name = "FILENAME", required = true)]
+        #[arg(name = "FILENAME", required = true, help = "File to hash")]
         input: String,
+        #[arg(
+            short,
+            long,
+            value_name = "OUTPUT",
+            default_value = "hex",
+            help = "Output format"
+        )]
+        output: Option<OutputOptions>,
     },
+    #[clap(about = "Generate a hash for a string.")]
     String {
-        #[arg(short, required = true)]
+        #[arg(value_enum, short, required = true, help = "Hashing algorithm")]
         algorithm: Algorithm,
-        #[arg(name = "PASSWORD", required = true)]
+        #[arg(name = "PASSWORD", required = true, help = "Password to hash")]
         password: String,
+        #[arg(
+            short,
+            long,
+            value_name = "OUTPUT",
+            default_value = "hex",
+            help = "Output format"
+        )]
+        output: Option<OutputOptions>,
     },
+    #[clap(about = "Generate a hash for input from the stdio.")]
     Stdio {
-        #[arg(short, required = true)]
+        #[arg(value_enum, short, required = true, help = "Hashing algorithm")]
         algorithm: Algorithm,
+        #[arg(
+            short,
+            long,
+            value_name = "OUTPUT",
+            default_value = "hex",
+            help = "Output format"
+        )]
+        output: Option<OutputOptions>,
     },
+    #[clap(about = "Generate shell completions.")]
     GenerateCompletions {
-        #[arg(value_enum, required = true)]
+        #[arg(
+            value_enum,
+            required = true,
+            help = "Shell to generate completions for"
+        )]
         shell: Shell,
     },
 }

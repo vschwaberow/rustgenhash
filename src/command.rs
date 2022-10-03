@@ -1,68 +1,59 @@
-use crate::cli::{Algorithm, Cmd, Mode};
-use crate::hash;
-use blake2::{Blake2b512, Blake2s256};
+use crate::cli::{Algorithm, Cmd, Mode, OutputOptions};
+use crate::hash::{PHash, RHash};
 use clap::{crate_authors, crate_name, crate_version};
 use clap::{CommandFactory, Parser};
-use digest::Digest;
-use gost94::{Gost94Test, Gost94UA};
-use groestl::Groestl256;
-use md2::Md2;
-use md4::Md4;
-use md5::Md5;
-use ripemd::{Ripemd160, Ripemd320};
-use sha1::Sha1;
-use sha2::{Sha224, Sha256, Sha384, Sha512};
-use sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512};
-use shabal::{Shabal192, Shabal224, Shabal256, Shabal384, Shabal512};
-use sm3::Sm3;
 use std::io::{self, BufRead};
-use std::process::exit;
-use streebog::{Streebog256, Streebog512};
-use tiger::Tiger;
-use whirlpool::Whirlpool;
 
-fn match_invalid_for_mode() {
-    println!("This algorithm is not supported in this mode. You need to select a valid algorithm for this mode.");
-    exit(1);
+fn hash_string(algor: Option<Algorithm>, password: &str, option: Option<OutputOptions>) {
+    use crate::cli::Algorithm as alg;
+    algor.map(|a| match a {
+        alg::Argon2 => {
+            PHash::hash_argon2(password);
+        }
+        alg::Balloon => {
+            PHash::hash_balloon(password);
+        }
+        alg::Pbkdf2Sha256 | alg::Pbkdf2Sha512 => {
+            PHash::hash_pbkdf2(password, format!("{:?}", a).to_lowercase().as_str());
+        }
+        alg::Scrypt => {
+            PHash::hash_scrypt(password);
+        }
+        _ => {
+            let alg_s = format!("{:?}", a).to_uppercase();
+            let b = RHash::new(&alg_s).process_string(password.as_bytes());
+            match option {
+                Some(OutputOptions::Hex) => println!("{} {}", hex::encode(b), password),
+                Some(OutputOptions::Base64) => println!("{} {}", base64::encode(b), password),
+                Some(OutputOptions::HexBase64) => {
+                    println!("{} {} {}", hex::encode(&b), base64::encode(&b), password);
+                }
+                _ => println!("{} {}", hex::encode(b), password),
+            }
+        }
+    });
 }
 
-fn hash_string(algorithm: Algorithm, password: &str) {
-    match algorithm {
-        Algorithm::Argon2 => hash::hash_argon2(password),
-        Algorithm::Balloon => hash::hash_balloon(password),
-        Algorithm::Blake2b => hash::hash_string(password, Blake2b512::new()),
-        Algorithm::Blake2s => hash::hash_string(password, Blake2s256::new()),
-        Algorithm::Gost94 => hash::hash_string(password, Gost94Test::new()),
-        Algorithm::Gost94ua => hash::hash_string(password, Gost94UA::new()),
-        Algorithm::Groestl => hash::hash_string(password, Groestl256::new()),
-        Algorithm::Md2 => hash::hash_string(password, Md2::new()),
-        Algorithm::Md4 => hash::hash_string(password, Md4::new()),
-        Algorithm::Md5 => hash::hash_string(password, Md5::new()),
-        Algorithm::Pbkdf2Sha256 => hash::hash_pbkdf2(password, "pbkdf2-sha256"),
-        Algorithm::Pbkdf2Sha512 => hash::hash_pbkdf2(password, "pbkdf2-sha512"),
-        Algorithm::Ripemd160 => hash::hash_string(password, Ripemd160::new()),
-        Algorithm::Ripemd320 => hash::hash_string(password, Ripemd320::new()),
-        Algorithm::Scrypt => hash::hash_scrypt(password),
-        Algorithm::Sha1 => hash::hash_string(password, Sha1::new()),
-        Algorithm::Sha224 => hash::hash_string(password, Sha224::new()),
-        Algorithm::Sha256 => hash::hash_string(password, Sha256::new()),
-        Algorithm::Sha384 => hash::hash_string(password, Sha384::new()),
-        Algorithm::Sha512 => hash::hash_string(password, Sha512::new()),
-        Algorithm::Sha3_224 => hash::hash_string(password, Sha3_224::new()),
-        Algorithm::Sha3_256 => hash::hash_string(password, Sha3_256::new()),
-        Algorithm::Sha3_384 => hash::hash_string(password, Sha3_384::new()),
-        Algorithm::Sha3_512 => hash::hash_string(password, Sha3_512::new()),
-        Algorithm::Shabal192 => hash::hash_string(password, Shabal192::new()),
-        Algorithm::Shabal224 => hash::hash_string(password, Shabal224::new()),
-        Algorithm::Shabal256 => hash::hash_string(password, Shabal256::new()),
-        Algorithm::Shabal384 => hash::hash_string(password, Shabal384::new()),
-        Algorithm::Shabal512 => hash::hash_string(password, Shabal512::new()),
-        Algorithm::Sm3 => hash::hash_string(password, Sm3::new()),
-        Algorithm::Streebog256 => hash::hash_string(password, Streebog256::new()),
-        Algorithm::Streebog512 => hash::hash_string(password, Streebog512::new()),
-        Algorithm::Tiger => hash::hash_string(password, Tiger::new()),
-        Algorithm::Whirlpool => hash::hash_string(password, Whirlpool::new()),
-    }
+fn hash_file(alg: Option<Algorithm>, input: &str, option: Option<OutputOptions>) {
+    use crate::cli::Algorithm as algo;
+    alg.map(|a| match a {
+        algo::Argon2 => {
+            todo!("Argon2");
+        }
+        algo::Balloon => {
+            todo!("Balloon hashing is not yet implemented.");
+        }
+        algo::Pbkdf2Sha256 | algo::Pbkdf2Sha512 => {
+            todo!("Pbkdf2");
+        }
+        algo::Scrypt => {
+            todo!("Scrypt");
+        }
+        _ => {
+            let alg_s = format!("{:?}", a).to_uppercase();
+            RHash::new(&alg_s).process_file(input, option);
+        }
+    });
 }
 
 pub fn matching() {
@@ -75,50 +66,28 @@ pub fn matching() {
         Mode::String {
             algorithm,
             password,
-        } => hash_string(algorithm, &password),
-        Mode::Stdio { algorithm } => {
+            output,
+        } => hash_string(Some(algorithm), &password, output),
+        Mode::Stdio { algorithm, output } => {
             let stdin = std::io::stdin();
+            let output2 = output.unwrap();
             for lines in stdin.lock().lines() {
                 let password = lines.unwrap();
-                hash_string(algorithm.clone(), &password);
+
+                hash_string(
+                    Some(algorithm.clone()),
+                    &password,
+                    Option::from(output2.clone()),
+                );
             }
         }
-        Mode::File { algorithm, input } => match algorithm {
-            Algorithm::Argon2 => match_invalid_for_mode(),
-            Algorithm::Balloon => match_invalid_for_mode(),
-            Algorithm::Blake2b => hash::hash_file(input, Blake2b512::new()),
-            Algorithm::Blake2s => hash::hash_file(input, Blake2s256::new()),
-            Algorithm::Gost94 => hash::hash_file(input, Gost94Test::new()),
-            Algorithm::Gost94ua => hash::hash_file(input, Gost94UA::new()),
-            Algorithm::Groestl => hash::hash_file(input, Groestl256::new()),
-            Algorithm::Md2 => hash::hash_file(input, Md2::new()),
-            Algorithm::Md4 => hash::hash_file(input, Md4::new()),
-            Algorithm::Md5 => hash::hash_file(input, Md5::new()),
-            Algorithm::Pbkdf2Sha256 => match_invalid_for_mode(),
-            Algorithm::Pbkdf2Sha512 => match_invalid_for_mode(),
-            Algorithm::Ripemd160 => hash::hash_file(input, Ripemd160::new()),
-            Algorithm::Ripemd320 => hash::hash_file(input, Ripemd320::new()),
-            Algorithm::Scrypt => match_invalid_for_mode(),
-            Algorithm::Sha1 => hash::hash_file(input, Sha1::new()),
-            Algorithm::Sha224 => hash::hash_file(input, Sha224::new()),
-            Algorithm::Sha256 => hash::hash_file(input, Sha256::new()),
-            Algorithm::Sha384 => hash::hash_file(input, Sha384::new()),
-            Algorithm::Sha512 => hash::hash_file(input, Sha512::new()),
-            Algorithm::Sha3_224 => hash::hash_file(input, Sha3_224::new()),
-            Algorithm::Sha3_256 => hash::hash_file(input, Sha3_256::new()),
-            Algorithm::Sha3_384 => hash::hash_file(input, Sha3_384::new()),
-            Algorithm::Sha3_512 => hash::hash_file(input, Sha3_512::new()),
-            Algorithm::Shabal192 => hash::hash_file(input, Shabal192::new()),
-            Algorithm::Shabal224 => hash::hash_file(input, Shabal224::new()),
-            Algorithm::Shabal256 => hash::hash_file(input, Shabal256::new()),
-            Algorithm::Shabal384 => hash::hash_file(input, Shabal384::new()),
-            Algorithm::Shabal512 => hash::hash_file(input, Shabal512::new()),
-            Algorithm::Sm3 => hash::hash_file(input, Sm3::new()),
-            Algorithm::Streebog256 => hash::hash_file(input, Streebog256::new()),
-            Algorithm::Streebog512 => hash::hash_file(input, Streebog512::new()),
-            Algorithm::Tiger => match_invalid_for_mode(),
-            Algorithm::Whirlpool => hash::hash_file(input, Whirlpool::new()),
-        },
+        Mode::File {
+            algorithm,
+            input,
+            output,
+        } => {
+            hash_file(Some(algorithm), &input, output);
+        }
     }
 }
 
