@@ -100,3 +100,30 @@ pub fn about() {
     );
     eprintln!();
 }
+
+#[test]
+fn test_function_hash_string() {
+    use crate::cli::Algorithm as alg;
+    use crate::cli::OutputOptions as opt;
+    hash_string(Some(alg::Md5), "password", Some(opt::Hex));
+    hash_string(Some(alg::Sha1), "password", Some(opt::Hex));
+    hash_string(Some(alg::Sha256), "password", Some(opt::Hex));
+    hash_string(Some(alg::Sha512), "password", Some(opt::Hex));
+    hash_string(Some(alg::Md5), "password", Some(opt::Base64));
+    hash_string(Some(alg::Sha1), "password", Some(opt::Base64));
+    hash_string(Some(alg::Sha256), "password", Some(opt::Base64));
+    hash_string(Some(alg::Sha512), "password", Some(opt::Base64));
+}
+#[test]
+fn test_function_hash_file() {
+    use crate::cli::Algorithm as alg;
+    use crate::cli::OutputOptions as opt;
+    hash_file(Some(alg::Md5), "Cargo.toml", Some(opt::Hex));
+    hash_file(Some(alg::Sha1), "Cargo.toml", Some(opt::Hex));
+    hash_file(Some(alg::Sha256), "Cargo.toml", Some(opt::Hex));
+    hash_file(Some(alg::Sha512), "Cargo.toml", Some(opt::Hex));
+    hash_file(Some(alg::Md5), "Cargo.toml", Some(opt::Base64));
+    hash_file(Some(alg::Sha1), "Cargo.toml", Some(opt::Base64));
+    hash_file(Some(alg::Sha256), "Cargo.toml", Some(opt::Base64));
+    hash_file(Some(alg::Sha512), "Cargo.toml", Some(opt::Base64));
+}
