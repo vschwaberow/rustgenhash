@@ -1,10 +1,6 @@
 [package]
 name = "rustgenhash"
-<<<<<<< HEAD
 version = "0.5.9"
-=======
-version = "0.5.8"
->>>>>>> master
 license = "MIT/Apache-2.0"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
