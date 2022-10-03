@@ -36,6 +36,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base64"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+
+[[package]]
 name = "base64ct"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -83,9 +89,15 @@ dependencies = [
 
 [[package]]
 name = "clap"
+<<<<<<< HEAD
+version = "4.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5840cd9093aabeabf7fd932754c435b7674520fc3ddc935c397837050f0f1e4b"
+=======
 version = "4.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f78ad8e84aa8e8aa3e821857be40eb4b925ff232de430d4dd2ae6aa058cbd92"
+>>>>>>> master
 dependencies = [
  "atty",
  "bitflags",
@@ -107,9 +119,15 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
+<<<<<<< HEAD
+version = "4.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92289ffc6fb4a85d85c246ddb874c05a87a2e540fb6ad52f7ca07c8c1e1840b1"
+=======
 version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca689d7434ce44517a12a89456b2be4d1ea1cafcd8f581978c03d45f5a5c12a7"
+>>>>>>> master
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -220,6 +238,12 @@ checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hex-literal"
@@ -381,16 +405,22 @@ dependencies = [
 
 [[package]]
 name = "rustgenhash"
-version = "0.5.7"
+<<<<<<< HEAD
+version = "0.5.9"
+=======
+version = "0.5.8"
+>>>>>>> master
 dependencies = [
  "argon2",
  "balloon-hash",
+ "base64",
  "blake2",
  "clap",
  "clap_complete",
  "digest",
  "gost94",
  "groestl",
+ "hex",
  "hex-literal",
  "md-5",
  "md2",

@@ -1,6 +1,10 @@
 [package]
 name = "rustgenhash"
+<<<<<<< HEAD
+version = "0.5.9"
+=======
 version = "0.5.8"
+>>>>>>> master
 license = "MIT/Apache-2.0"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
@@ -16,7 +20,8 @@ categories = ["command-line-utilities", "cryptography"]
 strip = "symbols"
 lto = true
 codegen-units = 1
-opt-level = "s"
+opt-level = "z"
+panic = "abort"
 
 [features]
 default = ["std"]
@@ -25,12 +30,14 @@ std = []
 [dependencies]
 argon2 = "0.4.1"
 balloon-hash = "0.3.0"
+base64 = "0.13.0"
 blake2 = "0.10.4"
 clap = { version = "4.0.0-rc.2", features = ["derive", "cargo"] }
 clap_complete = "4.0.0-rc.1"
 digest = { version = "0.10.3", features = ["std"] }
 gost94 = "0.10.3"
 groestl = "0.10.1"
+hex = "0.4.3"
 hex-literal = "0.3.4"
 md-5 = "0.10.4"
 md2 = "0.10.1"
