@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "rustgenhash"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "argon2",
  "balloon-hash",
