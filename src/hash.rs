@@ -135,6 +135,26 @@ impl RHash {
             .unwrap();
         if md.is_file() {
             self.read_buffered(file);
+            match output {
+                Some(OutputOptions::Base64) => {
+                    println!("{} {}", base64::encode(self.read_buffered(file)), file);
+                }
+                Some(OutputOptions::Hex) => {
+                    println!("{} {}", hex::encode(self.read_buffered(file)), file);
+                }
+                Some(OutputOptions::HexBase64) => {
+                    println!(
+                        "{} {} {}",
+                        hex::encode(self.read_buffered(&file)),
+                        base64::encode(self.read_buffered(file)),
+                        file
+                    );
+                }
+                None => {
+                    println!("{}:", file);
+                    self.read_buffered(file);
+                }
+            }
         } else if md.is_dir() {
             let mut files = std::fs::read_dir(file).unwrap();
             while let Some(Ok(entry)) = files.next() {
