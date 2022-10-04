@@ -123,7 +123,7 @@ impl RHash {
     pub fn process_string(&mut self, data: &[u8]) -> Vec<u8> {
         self.digest.update(data);
         let b = self.digest.finalize_reset();
-        b.iter().cloned().collect::<Vec<u8>>()
+        b.to_vec()
     }
 
     pub fn process_file(&mut self, file: &str, output: Option<OutputOptions>) {
@@ -211,7 +211,7 @@ impl RHash {
                     self.digest.update(&buffer[..count]);
                 }
                 let b = self.digest.finalize_reset();
-                b.to_vec().iter().cloned().collect::<Vec<u8>>()
+                b.to_vec()
             }
             Err(e) => {
                 println!("Error opening file: {}", e);
