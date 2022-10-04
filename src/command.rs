@@ -6,21 +6,21 @@ use std::io::{self, BufRead};
 
 fn hash_string(algor: Option<Algorithm>, password: &str, option: Option<OutputOptions>) {
     use crate::cli::Algorithm as alg;
-    algor.map(|a| match a {
-        alg::Argon2 => {
+    match algor {
+        Some(alg::Argon2) => {
             PHash::hash_argon2(password);
         }
-        alg::Balloon => {
+        Some(alg::Balloon) => {
             PHash::hash_balloon(password);
         }
-        alg::Pbkdf2Sha256 | alg::Pbkdf2Sha512 => {
-            PHash::hash_pbkdf2(password, format!("{:?}", a).to_lowercase().as_str());
+        Some(alg::Pbkdf2Sha256 | alg::Pbkdf2Sha512) => {
+            PHash::hash_pbkdf2(password, format!("{:?}", algor).to_lowercase().as_str());
         }
-        alg::Scrypt => {
+        Some(alg::Scrypt) => {
             PHash::hash_scrypt(password);
         }
         _ => {
-            let alg_s = format!("{:?}", a).to_uppercase();
+            let alg_s = format!("{:?}", algor.unwrap()).to_uppercase();
             let b = RHash::new(&alg_s).process_string(password.as_bytes());
             match option {
                 Some(OutputOptions::Hex) => println!("{} {}", hex::encode(b), password),
@@ -31,7 +31,7 @@ fn hash_string(algor: Option<Algorithm>, password: &str, option: Option<OutputOp
                 _ => println!("{} {}", hex::encode(b), password),
             }
         }
-    });
+    }
 }
 
 fn hash_file(alg: Option<Algorithm>, input: &str, option: Option<OutputOptions>) {
