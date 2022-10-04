@@ -211,7 +211,7 @@ impl RHash {
                     self.digest.update(&buffer[..count]);
                 }
                 let b = self.digest.finalize_reset();
-                b.iter().cloned().collect::<Vec<u8>>()
+                b.to_vec().iter().cloned().collect::<Vec<u8>>()
             }
             Err(e) => {
                 println!("Error opening file: {}", e);
