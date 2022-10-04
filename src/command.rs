@@ -36,24 +36,24 @@ fn hash_string(algor: Option<Algorithm>, password: &str, option: Option<OutputOp
 
 fn hash_file(alg: Option<Algorithm>, input: &str, option: Option<OutputOptions>) {
     use crate::cli::Algorithm as algo;
-    alg.map(|a| match a {
-        algo::Argon2 => {
+    match alg {
+        Some(algo::Argon2) => {
             todo!("Argon2");
         }
-        algo::Balloon => {
+        Some(algo::Balloon) => {
             todo!("Balloon hashing is not yet implemented.");
         }
-        algo::Pbkdf2Sha256 | algo::Pbkdf2Sha512 => {
+        Some(algo::Pbkdf2Sha256 | algo::Pbkdf2Sha512) => {
             todo!("Pbkdf2");
         }
-        algo::Scrypt => {
+        Some(algo::Scrypt) => {
             todo!("Scrypt");
         }
         _ => {
-            let alg_s = format!("{:?}", a).to_uppercase();
+            let alg_s = format!("{:?}", alg.unwrap()).to_uppercase();
             RHash::new(&alg_s).process_file(input, option);
         }
-    });
+    }
 }
 
 pub fn matching() {
