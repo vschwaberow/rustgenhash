@@ -145,7 +145,7 @@ impl RHash {
                 Some(OutputOptions::HexBase64) => {
                     println!(
                         "{} {} {}",
-                        hex::encode(self.read_buffered(&file)),
+                        hex::encode(self.read_buffered(file)),
                         base64::encode(self.read_buffered(file)),
                         file
                     );
