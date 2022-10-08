@@ -49,50 +49,7 @@ cat myfile | rustgenhash stdio -a <algorithm>
 echo "mypassword" | rustgenhash stdio -a <algorithm>
 ```
 
-You can list all algorithms over the help function.
+You can list all supported algorithms over the help function.
+## Contribution 
 
-Supported are:
-
-- Argon2 (Only String and stdio)
-- Balloon Hashing (Only String and stdio)
-- BLAKE2b
-- BLAKE2s
-- GOST R 34.11-94
-- GOST 34.311-95 UA
-- Grøstl
-- MD2 hash
-- MD4 hash
-- MD5 hash
-- PBKDF2-SHA256 (Only String and stdio)
-- PBKDF2-SHA512 (Only String and stdio)
-- RipeMD160
-- RipeMD320
-- Scrypt (Only String and stdio)
-- SHA-1 hash
-- SHA2-224 hash
-- SHA2-256 hash
-- SHA2-384 hash
-- SHA2-512 hash
-- SHA3-224 hash
-- SHA3-384 hash
-- SHA3-256 hash
-- SHA3-512 hash
-- Shabal192
-- Shabal224
-- Shabal256
-- Shabal384
-- Shabal512
-- Sm3
-- Streebog256
-- Streebog512
-- Tiger (Only String and stdio)
-- Whirlpool
-
-
-Generate shell completions:
-
-```bash
-rustgenhash generate-completions <SHELL> > some_path
-```
-
-Supported shells: bash, elvish, fish, power-shell, zsh
+If you want to contribute to this project, please feel free to do so. I am happy to accept pull requests. Any help is appreciated. If you have any questions, please feel free to contact me.
