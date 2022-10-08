@@ -40,7 +40,7 @@ jobs:
         toolchain: ${{ matrix.rust }}
         default: true
         profile: minimal
-        comp1onents: clippy
+        components: clippy
 
     - name: Build Debug
       run: |
@@ -114,38 +114,38 @@ jobs:
       run: |
         cargo test
 
-linting:
-    name: Lints
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        components: rustfmt
-    
-    - run: cargo fmt -- --check
+  linting:
+      name: Lints
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@master
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      
+      - run: cargo fmt -- --check
 
-    - name: cargo-sort
-      run: |
-        cargo install cargo-sort --force
-        cargo sort -c -w
-    - name: cargo-deny install
-      run: |
-        cargo install --locked cargo-deny
-    - name: cargo-deny licenses
-      run: |
-        cargo deny check licenses
-    - name: cargo-deny bans
-      run: |
-        cargo deny check bans
+      - name: cargo-sort
+        run: |
+          cargo install cargo-sort --force
+          cargo sort -c -w
+      - name: cargo-deny install
+        run: |
+          cargo install --locked cargo-deny
+      - name: cargo-deny licenses
+        run: |
+          cargo deny check licenses
+      - name: cargo-deny bans
+        run: |
+          cargo deny check bans
 
-sec:
-    name: Security audit
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/audit-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+  sec:
+      name: Security audit
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
