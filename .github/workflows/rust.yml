@@ -141,7 +141,7 @@ linting:
       run: |
         cargo deny check bans
 
- sec:
+sec:
     name: Security audit
     runs-on: ubuntu-latest
     steps:
