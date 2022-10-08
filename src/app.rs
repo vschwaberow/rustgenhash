@@ -19,6 +19,7 @@ Author(s): Volker Schwaberow
 */
 use crate::hash::{PHash, RHash};
 use clap::{crate_name, Arg};
+use clap_complete::{generate, Generator, Shell};
 use std::io::BufRead;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
@@ -144,8 +145,8 @@ fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
 	}
 }
 
-pub fn run() {
-	let c = clap::Command::new(clap::crate_name!())
+fn build_cli() -> clap::Command {
+	clap::Command::new(clap::crate_name!())
 		.color(clap::ColorChoice::Never)
 		.help_template(HELP_TEMPLATE)
 		.bin_name(crate_name!())
@@ -232,9 +233,22 @@ pub fn run() {
 						.default_value("hex")
 						.display_order(1),
 				),
-		);
+		)
+		.subcommand(
+			clap::command!("generate-auto-completions")
+				.about("Generate shell completions")
+				.arg(
+					Arg::new("SHELL")
+						.required(true)
+						.value_parser(clap::value_parser!(Shell))
+						.help("Shell to generate completions for"),
+				),
+		)
+}
 
-	let m = c.get_matches();
+pub fn run() {
+	let capp = build_cli();
+	let m = capp.get_matches();
 
 	match m.subcommand() {
 		Some(("string", s)) => {
@@ -314,8 +328,23 @@ pub fn run() {
 				hash_string(a, &l, option);
 			});
 		}
+		Some(("generate-auto-completions", s)) => {
+			if let Some(gen) = s.get_one::<Shell>("SHELL") {
+				let mut capp = build_cli();
+				print_completions(*gen, &mut capp);
+			};
+		}
 		_ => {}
 	}
+}
+
+fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
+	generate(
+		gen,
+		cmd,
+		cmd.get_name().to_string(),
+		&mut std::io::stdout(),
+	);
 }
 
 #[test]
