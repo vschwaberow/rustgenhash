@@ -67,6 +67,7 @@ pub enum Algorithm {
 	Shabal256,
 	Shabal384,
 	Shabal512,
+	Shacrypt,
 	Sm3,
 	Streebog256,
 	Streebog512,
@@ -95,6 +96,9 @@ fn hash_string(
 		}
 		alg::Scrypt => {
 			PHash::hash_scrypt(password);
+		}
+		alg::Shacrypt => {
+			PHash::hash_sha_crypt(password);
 		}
 		_ => {
 			let alg_s = format!("{:?}", algor).to_uppercase();
@@ -136,6 +140,10 @@ fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
 		}
 		algo::Scrypt => {
 			println!("Scrypt not supported for files.");
+			std::process::exit(1);
+		}
+		algo::Shacrypt => {
+			println!("SHA-crypt not supported for files.");
 			std::process::exit(1);
 		}
 		_ => {

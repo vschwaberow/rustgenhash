@@ -51,6 +51,21 @@ impl PHash {
 		println!("{} {}", password_hash, password);
 	}
 
+	pub fn hash_sha_crypt(password: &str) {
+		let params = sha_crypt::Sha512Params::new(10_000)
+			.unwrap_or_else(|e| {
+				println!("Error: {:?}", e);
+				std::process::exit(1);
+			});
+		let password_hash =
+			sha_crypt::sha512_simple(password, &params)
+				.unwrap_or_else(|e| {
+					println!("Error: {:?}", e);
+					std::process::exit(1);
+				});
+		println!("{} {}", password_hash, password);
+	}
+
 	pub fn hash_balloon(password: &str) {
 		// TODO: Make Balloon hash configurable
 		let salt = BalSaltString::generate(&mut BalOsRng);
