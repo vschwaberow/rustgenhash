@@ -41,6 +41,7 @@ pub enum Algorithm {
 	Argon2,
 	Balloon,
 	Bcrypt,
+	Belthash,
 	Blake2b,
 	Blake2s,
 	Gost94,

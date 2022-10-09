@@ -59,6 +59,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "belt-block"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a1be3fcfd5950762b6ac3f929b7ac65f31b35afee94e17f6fcadd58ee47abee"
+
+[[package]]
+name = "belt-hash"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d8ee43afdfcc493dec1e51c8032546cc1c52b4d68549e6469d03ff2cf3c3d91"
+dependencies = [
+ "belt-block",
+ "digest",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -453,6 +469,7 @@ dependencies = [
  "balloon-hash",
  "base64",
  "bcrypt-pbkdf",
+ "belt-hash",
  "blake2",
  "clap",
  "clap_complete",

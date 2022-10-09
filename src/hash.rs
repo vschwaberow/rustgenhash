@@ -30,6 +30,7 @@ use balloon_hash::{
 };
 use blake2::Digest;
 use digest::DynDigest;
+use hex_literal::hex;
 use pbkdf2::{
 	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
 	Pbkdf2,
@@ -139,6 +140,7 @@ impl RHash {
 	pub fn new(alg: &str) -> Self {
 		Self {
 			digest: match alg {
+				"BELTHASH" => Box::new(belt_hash::BeltHash::new()),
 				"BLAKE2B" => Box::new(blake2::Blake2b512::new()),
 				"BLAKE2S" => Box::new(blake2::Blake2s256::new()),
 				"GOST94" => Box::new(gost94::Gost94Test::new()),
@@ -314,6 +316,14 @@ impl RHash {
 			}
 		}
 	}
+}
+
+#[test]
+fn test_belthash() {
+	let mut hasher = RHash::new("BELTHASH");
+	let pass = "hello world".to_string();
+	let result = hasher.process_string(pass.as_bytes());
+	assert_eq!(result, hex!("afb175816416fbadad4629ecbd78e1887789881f2d2e5b80c22a746b7ac7ba88"));
 }
 
 #[test]
