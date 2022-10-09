@@ -51,6 +51,23 @@ impl PHash {
 		println!("{} {}", password_hash, password);
 	}
 
+	pub fn hash_bcrypt(password: &str) {
+		let salt = SaltString::generate(&mut OsRng);
+		let salt = salt.as_ref().as_bytes();
+		let mut output = [0; 64];
+		bcrypt_pbkdf::bcrypt_pbkdf(
+			password.as_bytes(),
+			&salt,
+			36,
+			&mut output,
+		)
+		.unwrap_or_else(|e| {
+			eprintln!("Error: {}", e);
+			std::process::exit(1);
+		});
+		println!("{} {}", hex::encode(output), password);
+	}
+
 	pub fn hash_sha_crypt(password: &str) {
 		let params = sha_crypt::Sha512Params::new(10_000)
 			.unwrap_or_else(|e| {

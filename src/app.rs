@@ -40,6 +40,7 @@ pub enum OutputOptions {
 pub enum Algorithm {
 	Argon2,
 	Balloon,
+	Bcrypt,
 	Blake2b,
 	Blake2s,
 	Gost94,
@@ -88,6 +89,9 @@ fn hash_string(
 		alg::Balloon => {
 			PHash::hash_balloon(password);
 		}
+		alg::Bcrypt => {
+			PHash::hash_bcrypt(password);
+		}
 		alg::Pbkdf2Sha256 | alg::Pbkdf2Sha512 => {
 			PHash::hash_pbkdf2(
 				password,
@@ -127,23 +131,17 @@ fn hash_string(
 fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
 	use Algorithm as algo;
 	match alg {
-		algo::Argon2 => {
-			todo!("Argon2");
-		}
-		algo::Balloon => {
-			println!("Balloon hashing is not supported for files.");
-			std::process::exit(1);
-		}
-		algo::Pbkdf2Sha256 | algo::Pbkdf2Sha512 => {
-			println!("PBKDF2 hashing is not supported for files.");
-			std::process::exit(1);
-		}
-		algo::Scrypt => {
-			println!("Scrypt not supported for files.");
-			std::process::exit(1);
-		}
-		algo::Shacrypt => {
-			println!("SHA-crypt not supported for files.");
+		algo::Argon2
+		| algo::Balloon
+		| algo::Bcrypt
+		| algo::Pbkdf2Sha256
+		| algo::Pbkdf2Sha512
+		| algo::Scrypt
+		| algo::Shacrypt => {
+			println!(
+				"{:?} is not supported for files",
+				format!("{:?}", alg).to_lowercase().as_str()
+			);
 			std::process::exit(1);
 		}
 		_ => {
