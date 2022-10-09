@@ -51,6 +51,38 @@ impl PHash {
 		println!("{} {}", password_hash, password);
 	}
 
+	pub fn hash_bcrypt(password: &str) {
+		let salt = SaltString::generate(&mut OsRng);
+		let salt = salt.as_ref().as_bytes();
+		let mut output = [0; 64];
+		bcrypt_pbkdf::bcrypt_pbkdf(
+			password.as_bytes(),
+			&salt,
+			36,
+			&mut output,
+		)
+		.unwrap_or_else(|e| {
+			eprintln!("Error: {}", e);
+			std::process::exit(1);
+		});
+		println!("{} {}", hex::encode(output), password);
+	}
+
+	pub fn hash_sha_crypt(password: &str) {
+		let params = sha_crypt::Sha512Params::new(10_000)
+			.unwrap_or_else(|e| {
+				println!("Error: {:?}", e);
+				std::process::exit(1);
+			});
+		let password_hash =
+			sha_crypt::sha512_simple(password, &params)
+				.unwrap_or_else(|e| {
+					println!("Error: {:?}", e);
+					std::process::exit(1);
+				});
+		println!("{} {}", password_hash, password);
+	}
+
 	pub fn hash_balloon(password: &str) {
 		// TODO: Make Balloon hash configurable
 		let salt = BalSaltString::generate(&mut BalOsRng);
@@ -107,8 +139,14 @@ impl RHash {
 	pub fn new(alg: &str) -> Self {
 		Self {
 			digest: match alg {
+				"BELTHASH" => Box::new(belt_hash::BeltHash::new()),
 				"BLAKE2B" => Box::new(blake2::Blake2b512::new()),
 				"BLAKE2S" => Box::new(blake2::Blake2s256::new()),
+				"FSB160" => Box::new(fsb::Fsb160::new()),
+				"FSB224" => Box::new(fsb::Fsb224::new()),
+				"FSB256" => Box::new(fsb::Fsb256::new()),
+				"FSB384" => Box::new(fsb::Fsb384::new()),
+				"FSB512" => Box::new(fsb::Fsb512::new()),
 				"GOST94" => Box::new(gost94::Gost94Test::new()),
 				"GOST94UA" => Box::new(gost94::Gost94UA::new()),
 				"GROESTL" => Box::new(groestl::Groestl256::new()),
@@ -282,6 +320,43 @@ impl RHash {
 			}
 		}
 	}
+}
+
+#[test]
+fn test_belthash() {
+	use hex_literal::hex;
+	let mut hasher = RHash::new("BELTHASH");
+	let pass = "hello world".to_string();
+	let result = hasher.process_string(pass.as_bytes());
+	assert_eq!(result, hex!("afb175816416fbadad4629ecbd78e1887789881f2d2e5b80c22a746b7ac7ba88"));
+}
+
+#[test]
+fn test_fsb() {
+	use hex_literal::hex;
+	let mut hasher = RHash::new("FSB160");
+	let pass = "volker".to_string();
+	let result = hasher.process_string(pass.as_bytes());
+	assert_eq!(
+		result,
+		hex!("6c241935a6599531bfa96826052c7b0675747606")
+	);
+	let mut hasher = RHash::new("FSB224");
+	let pass = "volker".to_string();
+	let result = hasher.process_string(pass.as_bytes());
+	assert_eq!(result, hex!("4da25700e1c56889418afb4bd32c28b880dd54ede24fd13406f5245d"));
+	let mut hasher = RHash::new("FSB256");
+	let pass = "volker".to_string();
+	let result = hasher.process_string(pass.as_bytes());
+	assert_eq!(result, hex!("39fb73727a0471fbdaff2a8124c6a349d3b98f17b93f108c495bcbe3bd85a233"));
+	let mut hasher = RHash::new("FSB384");
+	let pass = "volker".to_string();
+	let result = hasher.process_string(pass.as_bytes());
+	assert_eq!(result, hex!("ef05947d168b233e1e76a6db49e7ec324669530af5c473b7fb147a55473ca248ad2cc4d0f4f4cac7c63533cc713b305f"));
+	let mut hasher = RHash::new("FSB512");
+	let pass = "volker".to_string();
+	let result = hasher.process_string(pass.as_bytes());
+	assert_eq!(result, hex!("121e785b23b511cbb17c3656579d4794ed6dfc25e5d6274112221220be10a6d19a107e8e3f3c06f9e3fba5f51308a69539f0baf163835b55afcea425e0d059cd"));
 }
 
 #[test]
