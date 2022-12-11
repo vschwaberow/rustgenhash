@@ -34,7 +34,7 @@ use pbkdf2::{
 	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
 	Pbkdf2,
 };
-use std::io::Read;
+use std::{io::Read, collections::HashMap};
 
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
 
@@ -95,12 +95,12 @@ impl PHash {
 	}
 
 	pub fn hash_pbkdf2(password: &str, pb_scheme: &str) {
-		let pb_s = match pb_scheme {
-			"pbkdf2sha256" => "pbkdf2-sha256",
-			"pbkdf2sha512" => "pbkdf2-sha512",
-			_ => "NONE",
-		};
+		let pb_scheme_hmap: HashMap<&str, &str> = [
+			("pbkdf2sha256", "pbkdf2-sha256"), 
+			("pbkdf2sha512", "pbkdf2-sha512")
+		].iter().cloned().collect();
 
+		let pb_s = pb_scheme_hmap.get(pb_scheme).unwrap_or(&"NONE");
 		let algorithm = PbIdent::new(pb_s).unwrap();
 		let salt = PbSaltString::generate(&mut OsRng);
 		let params = pbkdf2::Params {
@@ -115,10 +115,14 @@ impl PHash {
 			params,
 			salt.as_salt(),
 		)
-		.unwrap()
-		.to_string();
+		.unwrap_or_else(|_| {
+			eprintln!("Error: {}", "Could not hash PBKDF2 password");
+			std::process::exit(1);
+		});
 		println!("{} {}", password_hash, password);
+
 	}
+
 
 	pub fn hash_scrypt(password: &str) {
 		let salt = ScSaltString::generate(&mut OsRng);
