@@ -89,8 +89,14 @@ struct AlgorithmProperties {
 impl Algorithm {
 	fn properties(&self) -> AlgorithmProperties {
 		match *self {
-			Algorithm::Argon2 => AlgorithmProperties { file_support: true },
-			// Set properties for other algorithms here
+			Algorithm::Argon2 => AlgorithmProperties { file_support: false },
+			Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
+				AlgorithmProperties { file_support: false }
+			},
+			Algorithm::Scrypt => AlgorithmProperties { file_support: false },
+			Algorithm::Shacrypt => AlgorithmProperties { file_support: false },
+			Algorithm::Bcrypt => AlgorithmProperties { file_support: false },
+			Algorithm::Balloon => AlgorithmProperties { file_support: false },
 			_ => AlgorithmProperties { file_support: true }
 		}
 	}
