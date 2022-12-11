@@ -82,6 +82,20 @@ pub enum Algorithm {
 	Whirlpool,
 }
 
+struct AlgorithmProperties {
+	file_support: bool,
+}
+
+impl Algorithm {
+	fn properties(&self) -> AlgorithmProperties {
+		match *self {
+			Algorithm::Argon2 => AlgorithmProperties { file_support: true },
+			// Set properties for other algorithms here
+			_ => AlgorithmProperties { file_support: true }
+		}
+	}
+}
+
 fn hash_string(
 	algor: Algorithm,
 	password: &str,
@@ -135,26 +149,12 @@ fn hash_string(
 }
 
 fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
-	use Algorithm as algo;
-	match alg {
-		algo::Argon2
-		| algo::Balloon
-		| algo::Bcrypt
-		| algo::Pbkdf2Sha256
-		| algo::Pbkdf2Sha512
-		| algo::Scrypt
-		| algo::Shacrypt => {
-			println!(
-				"{:?} is not supported for files",
-				format!("{:?}", alg).to_lowercase().as_str()
-			);
-			std::process::exit(1);
-		}
-		_ => {
-			let alg_s = format!("{:?}", alg).to_uppercase();
-			RHash::new(&alg_s).process_file(input, option);
-		}
+	if !alg.properties().file_support {
+		println!("Algorithm {:?} does not support file hashing", alg);
+		std::process::exit(1);
 	}
+	let alg_s = format!("{:?}", alg).to_uppercase();
+	RHash::new(&alg_s).process_file(input, option);
 }
 
 fn build_cli() -> clap::Command {
