@@ -88,13 +88,16 @@ impl PHash {
 	}
 
 	pub fn hash_balloon(password: &str) {
-		// TODO: Make Balloon hash configurable
 		let salt = BalSaltString::generate(&mut BalOsRng);
 		let balloon = Balloon::<sha2::Sha256>::default();
-		let password_hash = balloon
-			.hash_password(password.as_bytes(), &salt)
-			.unwrap()
-			.to_string();
+		let password_hash =
+			match balloon.hash_password(password.as_bytes(), &salt) {
+				Ok(hash) => hash.to_string(),
+				Err(e) => {
+					println!("Error hashing password: {}", e);
+					return;
+				}
+			};
 		println!("{} {}", password_hash, password);
 	}
 
