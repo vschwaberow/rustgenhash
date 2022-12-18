@@ -44,10 +44,14 @@ impl PHash {
 	pub fn hash_argon2(password: &str) {
 		let salt = SaltString::generate(&mut OsRng);
 		let argon2 = Argon2::default();
-		let password_hash = argon2
-			.hash_password(password.as_bytes(), &salt)
-			.unwrap()
-			.to_string();
+		let password_hash =
+			match argon2.hash_password(password.as_bytes(), &salt) {
+				Ok(hash) => hash.to_string(),
+				Err(e) => {
+					println!("Error hashing password: {}", e);
+					return;
+				}
+			};
 		println!("{} {}", password_hash, password);
 	}
 
