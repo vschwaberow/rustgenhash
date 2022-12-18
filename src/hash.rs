@@ -34,9 +34,13 @@ use pbkdf2::{
 	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
 	Pbkdf2,
 };
-use std::{io::Read, collections::HashMap};
+use std::{
+	collections::HashMap,
+	io::{Read, Write},
+};
 
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
+use tempfile::NamedTempFile;
 
 pub struct PHash {}
 
@@ -96,9 +100,12 @@ impl PHash {
 
 	pub fn hash_pbkdf2(password: &str, pb_scheme: &str) {
 		let pb_scheme_hmap: HashMap<&str, &str> = [
-			("pbkdf2sha256", "pbkdf2-sha256"), 
-			("pbkdf2sha512", "pbkdf2-sha512")
-		].iter().cloned().collect();
+			("pbkdf2sha256", "pbkdf2-sha256"),
+			("pbkdf2sha512", "pbkdf2-sha512"),
+		]
+		.iter()
+		.cloned()
+		.collect();
 
 		let pb_s = pb_scheme_hmap.get(pb_scheme).unwrap_or(&"NONE");
 		let algorithm = PbIdent::new(pb_s).unwrap();
@@ -120,9 +127,7 @@ impl PHash {
 			std::process::exit(1);
 		});
 		println!("{} {}", password_hash, password);
-
 	}
-
 
 	pub fn hash_scrypt(password: &str) {
 		let salt = ScSaltString::generate(&mut OsRng);
@@ -324,6 +329,16 @@ impl RHash {
 			}
 		}
 	}
+}
+
+#[test]
+fn test_read_buffered_temp_file() {
+	let mut hasher = RHash::new("SHA1");
+	let mut temp_file = NamedTempFile::new().unwrap();
+	temp_file.write_all(b"test content").unwrap();
+	let data =
+		hasher.read_buffered(temp_file.path().to_str().unwrap());
+	assert!(!data.is_empty());
 }
 
 #[test]
