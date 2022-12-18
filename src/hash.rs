@@ -134,10 +134,14 @@ impl PHash {
 
 	pub fn hash_scrypt(password: &str) {
 		let salt = ScSaltString::generate(&mut OsRng);
-		let password_hash = Scrypt
-			.hash_password(password.as_bytes(), &salt)
-			.unwrap()
-			.to_string();
+		let password_hash =
+			match Scrypt.hash_password(password.as_bytes(), &salt) {
+				Ok(hash) => hash.to_string(),
+				Err(e) => {
+					println!("Error hashing password: {}", e);
+					return;
+				}
+			};
 		println!("{} {}", password_hash, password);
 	}
 }
