@@ -329,6 +329,7 @@ impl RHash {
 
 #[test]
 fn test_read_buffered_temp_file() {
+	use tempfile::NamedTempFile;
 	let mut hasher = RHash::new("SHA1");
 	let mut temp_file = NamedTempFile::new().unwrap();
 	temp_file.write_all(b"test content").unwrap();
