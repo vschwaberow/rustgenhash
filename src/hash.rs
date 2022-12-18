@@ -34,13 +34,9 @@ use pbkdf2::{
 	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
 	Pbkdf2,
 };
-use std::{
-	collections::HashMap,
-	io::{Read, Write},
-};
+use std::{collections::HashMap, io::Read};
 
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
-use tempfile::NamedTempFile;
 
 pub struct PHash {}
 
