@@ -20,7 +20,7 @@ Author(s): Volker Schwaberow
 use crate::app::OutputOptions;
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-	Argon2, PasswordVerifier,
+	Argon2,
 };
 use balloon_hash::{
 	password_hash::{
@@ -340,6 +340,7 @@ fn test_read_buffered_temp_file() {
 
 #[test]
 fn test_argon2() {
+	use argon2::PasswordVerifier;
 	let password = "password";
 	let salt = SaltString::generate(&mut OsRng);
 	let argon2 = Argon2::default();
