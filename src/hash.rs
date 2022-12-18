@@ -20,7 +20,7 @@ Author(s): Volker Schwaberow
 use crate::app::OutputOptions;
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-	Argon2,
+	Argon2, PasswordVerifier,
 };
 use balloon_hash::{
 	password_hash::{
@@ -339,6 +339,26 @@ fn test_read_buffered_temp_file() {
 	let data =
 		hasher.read_buffered(temp_file.path().to_str().unwrap());
 	assert!(!data.is_empty());
+}
+
+#[test]
+fn test_argon2() {
+	let password = "password";
+	let salt = SaltString::generate(&mut OsRng);
+	let argon2 = Argon2::default();
+	let phash = argon2.hash_password(password.as_bytes(), &salt);
+
+	// error handling
+	let phash = match phash {
+		Ok(p) => p,
+		Err(e) => {
+			eprintln!("Error: {}", e);
+			std::process::exit(1);
+		}
+	};
+	assert!(Argon2::default()
+		.verify_password(password.as_bytes(), &phash)
+		.is_ok());
 }
 
 #[test]
