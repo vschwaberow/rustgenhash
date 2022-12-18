@@ -348,7 +348,6 @@ fn test_argon2() {
 	let argon2 = Argon2::default();
 	let phash = argon2.hash_password(password.as_bytes(), &salt);
 
-	// error handling
 	let phash = match phash {
 		Ok(p) => p,
 		Err(e) => {
