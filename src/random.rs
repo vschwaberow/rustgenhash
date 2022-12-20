@@ -62,6 +62,8 @@ impl RandomNumberGenerator {
 	fn generate(
 		&mut self,
 		buffer: &mut [u8],
+        output_length: usize,
+        output_format: OutputFormat,
 	) -> Result<(), Box<dyn Error>> {
 		match &mut self.rng {
 			RngType::GetRandom => {
