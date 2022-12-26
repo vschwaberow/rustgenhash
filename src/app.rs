@@ -18,6 +18,7 @@ DEALINGS IN THE SOFTWARE.
 Author(s): Volker Schwaberow
 */
 use crate::hash::{PHash, RHash};
+use crate::random::RngType;
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
 use std::io::BufRead;
@@ -89,15 +90,27 @@ struct AlgorithmProperties {
 impl Algorithm {
 	fn properties(&self) -> AlgorithmProperties {
 		match *self {
-			Algorithm::Argon2 => AlgorithmProperties { file_support: false },
-			Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
-				AlgorithmProperties { file_support: false }
+			Algorithm::Argon2 => AlgorithmProperties {
+				file_support: false,
 			},
-			Algorithm::Scrypt => AlgorithmProperties { file_support: false },
-			Algorithm::Shacrypt => AlgorithmProperties { file_support: false },
-			Algorithm::Bcrypt => AlgorithmProperties { file_support: false },
-			Algorithm::Balloon => AlgorithmProperties { file_support: false },
-			_ => AlgorithmProperties { file_support: true }
+			Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
+				AlgorithmProperties {
+					file_support: false,
+				}
+			}
+			Algorithm::Scrypt => AlgorithmProperties {
+				file_support: false,
+			},
+			Algorithm::Shacrypt => AlgorithmProperties {
+				file_support: false,
+			},
+			Algorithm::Bcrypt => AlgorithmProperties {
+				file_support: false,
+			},
+			Algorithm::Balloon => AlgorithmProperties {
+				file_support: false,
+			},
+			_ => AlgorithmProperties { file_support: true },
 		}
 	}
 }
@@ -239,6 +252,29 @@ fn build_cli() -> clap::Command {
 						.long("algorithm")
 						.value_parser(clap::value_parser!(Algorithm))
 						.help("Hashing algorithm"),
+				)
+				.arg(
+					Arg::new("output")
+						.short('o')
+						.long("output")
+						.value_parser(clap::value_parser!(
+							OutputOptions
+						))
+						.help("Output format")
+						.default_value("hex")
+						.display_order(1),
+				),
+		)
+		.subcommand(
+			clap::command!("random")
+				.about("Generate random string")
+				.display_order(3)
+				.arg(
+					Arg::new("algorithm")
+						.required(true)
+						.short('a')
+						.long("algorithm")
+						.value_parser(clap::value_parser!(RngType)),
 				)
 				.arg(
 					Arg::new("output")

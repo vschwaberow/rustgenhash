@@ -18,92 +18,109 @@ DEALINGS IN THE SOFTWARE.
 Author(s): Volker Schwaberow
 */
 
+use getrandom::getrandom;
+use rand::thread_rng;
+use rand_core::{RngCore, SeedableRng};
+
 use std::error::Error;
 
-extern crate getrandom;
-extern crate rand;
-extern crate rand_chacha;
-extern crate rand_core;
-extern crate rand_hc;
-extern crate rand_isaac;
-extern crate rand_jitter;
-extern crate rand_pcg;
-extern crate rand_xorshift;
+use base64::{encode_config, URL_SAFE_NO_PAD};
 
-trait Rng {
+use crate::app::OutputOptions;
+
+pub trait Rng {
 	fn generate(
 		&mut self,
 		buffer: &mut [u8],
 	) -> Result<(), Box<dyn Error>>;
 }
-
-enum RngType {
+#[derive(clap::ValueEnum, Debug, Clone)]
+pub enum RngType {
 	GetRandom,
 	ThreadRng,
 	OsRng,
-	ChaChaRng(rand_chacha::ChaChaRng),
-	CoreOsRng,
-	Hc128Rng(rand_hc::Hc128Rng),
-	IsaacRng(rand_isaac::IsaacRng),
-	JitterRng(rand_jitter::JitterRng),
-	Pcg32(rand_pcg::Pcg32),
-	XorShiftRng(rand_xorshift::XorShiftRng),
+	ChaChaRng,
+	Hc128Rng,
+	IsaacRng,
+	JitterRng,
+	Pcg32,
+	XorShiftRng,
 }
 
-struct RandomNumberGenerator {
+pub struct RandomNumberGenerator {
 	rng: RngType,
 }
 
 impl RandomNumberGenerator {
-	fn new(rng: RngType) -> Self {
+	pub fn new(rng: RngType) -> Self {
 		Self { rng }
 	}
 
-	fn generate(
+	pub fn generate(
 		&mut self,
-		buffer: &mut [u8],
-        output_length: usize,
-        output_format: OutputFormat,
-	) -> Result<(), Box<dyn Error>> {
+		output_length: usize,
+		output_format: OutputOptions,
+	) -> Vec<u8> {
+		let mut buffer = vec![0; output_length];
+
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom(buffer).map_err(|e| e.into())
+				getrandom(&mut buffer).unwrap();
 			}
 			RngType::ThreadRng => {
-				rand::thread_rng().fill(buffer);
-				Ok(())
+				thread_rng().fill_bytes(&mut buffer);
 			}
 			RngType::OsRng => {
-				rand::OsRng.fill(buffer);
-				Ok(())
+				let mut rng = rand::rngs::OsRng;
+				rng.fill_bytes(&mut buffer);
 			}
-			RngType::ChaChaRng(rng) => {
-				rng.fill(buffer);
-				Ok(())
+			RngType::ChaChaRng => {
+				let mut rng = rand_chacha::ChaChaRng::from_entropy();
+				rng.fill_bytes(&mut buffer);
 			}
-			RngType::CoreOsRng => {
-				rand_core::OsRng.fill(buffer);
-				Ok(())
+			RngType::Hc128Rng => {
+				let mut rng = rand_hc::Hc128Rng::from_entropy();
+				rng.fill_bytes(&mut buffer);
 			}
-			RngType::Hc128Rng(rng) => {
-				rng.fill(buffer);
-				Ok(())
+			RngType::IsaacRng => {
+				let mut rng = rand_isaac::IsaacRng::from_entropy();
+				rng.fill_bytes(&mut buffer);
 			}
-			RngType::IsaacRng(rng) => {
-				rng.fill(buffer);
-				Ok(())
+			RngType::JitterRng => {
+				use rand_jitter::rand_core::RngCore;
+				use std::time::{SystemTime, UNIX_EPOCH};
+				let mut rng =
+					rand_jitter::JitterRng::new_with_timer(|| {
+						let dur = SystemTime::now()
+							.duration_since(UNIX_EPOCH)
+							.unwrap();
+						dur.as_secs() << 30
+							| dur.subsec_nanos() as u64
+					});
+				rng.fill_bytes(&mut buffer);
 			}
-			RngType::JitterRng(rng) => {
-				rng.fill(buffer);
-				Ok(())
+			RngType::Pcg32 => {
+				let mut rng = rand_pcg::Pcg32::from_entropy();
+				rng.fill_bytes(&mut buffer);
 			}
-			RngType::Pcg32(rng) => {
-				rng.fill(buffer);
-				Ok(())
+			RngType::XorShiftRng => {
+				let mut rng = rand_xorshift::XorShiftRng::from_entropy();
+				rng.fill_bytes(&mut buffer);
 			}
-			RngType::XorShiftRng(rng) => {
-				rng.fill(buffer);
-				Ok(())
+		}
+		let buffer_clone = buffer.clone();
+		match output_format {
+			OutputOptions::Hex => hex::encode(buffer).into_bytes(),
+			OutputOptions::Base64 => {
+				encode_config(&buffer_clone, URL_SAFE_NO_PAD).into_bytes()
+			}
+			OutputOptions::HexBase64 => {
+				let mut hex = hex::encode(&buffer_clone);
+				hex.push_str(&encode_config(
+					&buffer_clone,
+					URL_SAFE_NO_PAD,
+				));
+				hex.into_bytes()
 			}
 		}
 	}

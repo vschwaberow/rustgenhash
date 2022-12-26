@@ -19,6 +19,7 @@ Author(s): Volker Schwaberow
 */
 mod app;
 mod hash;
+mod random;
 
 fn main() {
 	app::run()
