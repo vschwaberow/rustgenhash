@@ -18,7 +18,7 @@ DEALINGS IN THE SOFTWARE.
 Author(s): Volker Schwaberow
 */
 use crate::hash::{PHash, RHash};
-use crate::random::RngType;
+use crate::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
 use std::io::BufRead;
@@ -277,6 +277,13 @@ fn build_cli() -> clap::Command {
 						.value_parser(clap::value_parser!(RngType)),
 				)
 				.arg(
+					Arg::new("length")
+						.short('l')
+						.long("length")
+						.default_value("32")
+						.value_parser(clap::value_parser!(u64)),
+				)
+				.arg(
 					Arg::new("output")
 						.short('o')
 						.long("output")
@@ -389,7 +396,7 @@ pub fn run() {
 			};
 		}
 		Some(("random", s)) => {
-			let a = s.get_one::<Algorithm>("algorithm");
+			let a = s.get_one::<RngType>("algorithm");
 			let a = match a {
 				Some(a) => a.clone(),
 				None => panic!("Algorithm not found."),
@@ -402,7 +409,7 @@ pub fn run() {
 					std::process::exit(1);
 				}
 			};
-			let len = s.get_one::<usize>("length");
+			let len = s.get_one::<u64>("length");
 			let len = match len {
 				Some(l) => l,
 				None => {
@@ -410,7 +417,9 @@ pub fn run() {
 					std::process::exit(1);
 				}
 			};
-			hash_random(a, len, option);
+			let out =
+				RandomNumberGenerator::new(a).generate(*len, option);
+			println!("{}", out);
 		}
 		_ => {}
 	}

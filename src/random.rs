@@ -18,15 +18,12 @@ DEALINGS IN THE SOFTWARE.
 Author(s): Volker Schwaberow
 */
 
+use crate::app::OutputOptions;
+use base64::{encode_config, URL_SAFE_NO_PAD};
 use getrandom::getrandom;
 use rand::thread_rng;
 use rand_core::{RngCore, SeedableRng};
-
 use std::error::Error;
-
-use base64::{encode_config, URL_SAFE_NO_PAD};
-
-use crate::app::OutputOptions;
 
 pub trait Rng {
 	fn generate(
@@ -58,10 +55,10 @@ impl RandomNumberGenerator {
 
 	pub fn generate(
 		&mut self,
-		output_length: usize,
+		output_length: u64,
 		output_format: OutputOptions,
-	) -> Vec<u8> {
-		let mut buffer = vec![0; output_length];
+	) -> String {
+		let mut buffer = vec![0; output_length as usize];
 
 		match &mut self.rng {
 			RngType::GetRandom => {
@@ -104,23 +101,25 @@ impl RandomNumberGenerator {
 				rng.fill_bytes(&mut buffer);
 			}
 			RngType::XorShiftRng => {
-				let mut rng = rand_xorshift::XorShiftRng::from_entropy();
+				let mut rng =
+					rand_xorshift::XorShiftRng::from_entropy();
 				rng.fill_bytes(&mut buffer);
 			}
 		}
 		let buffer_clone = buffer.clone();
 		match output_format {
-			OutputOptions::Hex => hex::encode(buffer).into_bytes(),
+			OutputOptions::Hex => hex::encode(buffer),
 			OutputOptions::Base64 => {
-				encode_config(&buffer_clone, URL_SAFE_NO_PAD).into_bytes()
+				encode_config(&buffer_clone, URL_SAFE_NO_PAD)
 			}
 			OutputOptions::HexBase64 => {
 				let mut hex = hex::encode(&buffer_clone);
+				hex.push_str(" ");
 				hex.push_str(&encode_config(
 					&buffer_clone,
 					URL_SAFE_NO_PAD,
 				));
-				hex.into_bytes()
+				hex
 			}
 		}
 	}
