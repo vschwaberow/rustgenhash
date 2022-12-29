@@ -388,6 +388,30 @@ pub fn run() {
 				print_completions(*gen, &mut capp);
 			};
 		}
+		Some(("random", s)) => {
+			let a = s.get_one::<Algorithm>("algorithm");
+			let a = match a {
+				Some(a) => a.clone(),
+				None => panic!("Algorithm not found."),
+			};
+			let option = s.get_one::<OutputOptions>("output");
+			let option = match option {
+				Some(o) => o.clone(),
+				None => {
+					println!("No output format provided.");
+					std::process::exit(1);
+				}
+			};
+			let len = s.get_one::<usize>("length");
+			let len = match len {
+				Some(l) => l,
+				None => {
+					println!("No length provided.");
+					std::process::exit(1);
+				}
+			};
+			hash_random(a, len, option);
+		}
 		_ => {}
 	}
 }
