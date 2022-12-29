@@ -18,6 +18,7 @@ DEALINGS IN THE SOFTWARE.
 Author(s): Volker Schwaberow
 */
 use crate::hash::{PHash, RHash};
+use crate::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
 use std::io::BufRead;
@@ -89,15 +90,27 @@ struct AlgorithmProperties {
 impl Algorithm {
 	fn properties(&self) -> AlgorithmProperties {
 		match *self {
-			Algorithm::Argon2 => AlgorithmProperties { file_support: false },
-			Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
-				AlgorithmProperties { file_support: false }
+			Algorithm::Argon2 => AlgorithmProperties {
+				file_support: false,
 			},
-			Algorithm::Scrypt => AlgorithmProperties { file_support: false },
-			Algorithm::Shacrypt => AlgorithmProperties { file_support: false },
-			Algorithm::Bcrypt => AlgorithmProperties { file_support: false },
-			Algorithm::Balloon => AlgorithmProperties { file_support: false },
-			_ => AlgorithmProperties { file_support: true }
+			Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
+				AlgorithmProperties {
+					file_support: false,
+				}
+			}
+			Algorithm::Scrypt => AlgorithmProperties {
+				file_support: false,
+			},
+			Algorithm::Shacrypt => AlgorithmProperties {
+				file_support: false,
+			},
+			Algorithm::Bcrypt => AlgorithmProperties {
+				file_support: false,
+			},
+			Algorithm::Balloon => AlgorithmProperties {
+				file_support: false,
+			},
+			_ => AlgorithmProperties { file_support: true },
 		}
 	}
 }
@@ -253,6 +266,36 @@ fn build_cli() -> clap::Command {
 				),
 		)
 		.subcommand(
+			clap::command!("random")
+				.about("Generate random string")
+				.display_order(3)
+				.arg(
+					Arg::new("algorithm")
+						.required(true)
+						.short('a')
+						.long("algorithm")
+						.value_parser(clap::value_parser!(RngType)),
+				)
+				.arg(
+					Arg::new("length")
+						.short('l')
+						.long("length")
+						.default_value("32")
+						.value_parser(clap::value_parser!(u64)),
+				)
+				.arg(
+					Arg::new("output")
+						.short('o')
+						.long("output")
+						.value_parser(clap::value_parser!(
+							OutputOptions
+						))
+						.help("Output format")
+						.default_value("hex")
+						.display_order(1),
+				),
+		)
+		.subcommand(
 			clap::command!("generate-auto-completions")
 				.about("Generate shell completions")
 				.arg(
@@ -351,6 +394,32 @@ pub fn run() {
 				let mut capp = build_cli();
 				print_completions(*gen, &mut capp);
 			};
+		}
+		Some(("random", s)) => {
+			let a = s.get_one::<RngType>("algorithm");
+			let a = match a {
+				Some(a) => a.clone(),
+				None => panic!("Algorithm not found."),
+			};
+			let option = s.get_one::<OutputOptions>("output");
+			let option = match option {
+				Some(o) => o.clone(),
+				None => {
+					println!("No output format provided.");
+					std::process::exit(1);
+				}
+			};
+			let len = s.get_one::<u64>("length");
+			let len = match len {
+				Some(l) => l,
+				None => {
+					println!("No length provided.");
+					std::process::exit(1);
+				}
+			};
+			let out =
+				RandomNumberGenerator::new(a).generate(*len, option);
+			println!("{}", out);
 		}
 		_ => {}
 	}

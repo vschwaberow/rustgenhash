@@ -34,7 +34,7 @@ use pbkdf2::{
 	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
 	Pbkdf2,
 };
-use std::{io::Read, collections::HashMap};
+use std::{collections::HashMap, io::Read};
 
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
 
@@ -44,10 +44,14 @@ impl PHash {
 	pub fn hash_argon2(password: &str) {
 		let salt = SaltString::generate(&mut OsRng);
 		let argon2 = Argon2::default();
-		let password_hash = argon2
-			.hash_password(password.as_bytes(), &salt)
-			.unwrap()
-			.to_string();
+		let password_hash =
+			match argon2.hash_password(password.as_bytes(), &salt) {
+				Ok(hash) => hash.to_string(),
+				Err(e) => {
+					println!("Error hashing password: {}", e);
+					return;
+				}
+			};
 		println!("{} {}", password_hash, password);
 	}
 
@@ -84,21 +88,27 @@ impl PHash {
 	}
 
 	pub fn hash_balloon(password: &str) {
-		// TODO: Make Balloon hash configurable
 		let salt = BalSaltString::generate(&mut BalOsRng);
 		let balloon = Balloon::<sha2::Sha256>::default();
-		let password_hash = balloon
-			.hash_password(password.as_bytes(), &salt)
-			.unwrap()
-			.to_string();
+		let password_hash =
+			match balloon.hash_password(password.as_bytes(), &salt) {
+				Ok(hash) => hash.to_string(),
+				Err(e) => {
+					println!("Error hashing password: {}", e);
+					return;
+				}
+			};
 		println!("{} {}", password_hash, password);
 	}
 
 	pub fn hash_pbkdf2(password: &str, pb_scheme: &str) {
 		let pb_scheme_hmap: HashMap<&str, &str> = [
-			("pbkdf2sha256", "pbkdf2-sha256"), 
-			("pbkdf2sha512", "pbkdf2-sha512")
-		].iter().cloned().collect();
+			("pbkdf2sha256", "pbkdf2-sha256"),
+			("pbkdf2sha512", "pbkdf2-sha512"),
+		]
+		.iter()
+		.cloned()
+		.collect();
 
 		let pb_s = pb_scheme_hmap.get(pb_scheme).unwrap_or(&"NONE");
 		let algorithm = PbIdent::new(pb_s).unwrap();
@@ -120,16 +130,18 @@ impl PHash {
 			std::process::exit(1);
 		});
 		println!("{} {}", password_hash, password);
-
 	}
-
 
 	pub fn hash_scrypt(password: &str) {
 		let salt = ScSaltString::generate(&mut OsRng);
-		let password_hash = Scrypt
-			.hash_password(password.as_bytes(), &salt)
-			.unwrap()
-			.to_string();
+		let password_hash =
+			match Scrypt.hash_password(password.as_bytes(), &salt) {
+				Ok(hash) => hash.to_string(),
+				Err(e) => {
+					println!("Error hashing password: {}", e);
+					return;
+				}
+			};
 		println!("{} {}", password_hash, password);
 	}
 }
@@ -324,6 +336,38 @@ impl RHash {
 			}
 		}
 	}
+}
+
+#[test]
+fn test_read_buffered_temp_file() {
+	use std::io::Write;
+	use tempfile::NamedTempFile;
+	let mut hasher = RHash::new("SHA1");
+	let mut temp_file = NamedTempFile::new().unwrap();
+	temp_file.write_all(b"test content").unwrap();
+	let data =
+		hasher.read_buffered(temp_file.path().to_str().unwrap());
+	assert!(!data.is_empty());
+}
+
+#[test]
+fn test_argon2() {
+	use argon2::PasswordVerifier;
+	let password = "password";
+	let salt = SaltString::generate(&mut OsRng);
+	let argon2 = Argon2::default();
+	let phash = argon2.hash_password(password.as_bytes(), &salt);
+
+	let phash = match phash {
+		Ok(p) => p,
+		Err(e) => {
+			eprintln!("Error: {}", e);
+			std::process::exit(1);
+		}
+	};
+	assert!(Argon2::default()
+		.verify_password(password.as_bytes(), &phash)
+		.is_ok());
 }
 
 #[test]
