@@ -17,6 +17,7 @@ cargo install rustgenhash
 Rustgenhash has a command line interface which allows you to set the utility into a specific operating mode. The current
 modes are
 
+- random
 - stdio
 - string
 - file
