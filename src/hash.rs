@@ -304,8 +304,8 @@ impl RHash {
 		let f = match std::fs::File::open(file) {
 			Ok(f) => f,
 			Err(e) => {
-				println!("Error opening file: {}", e);
-				return vec![];
+				eprintln!("Error opening file: {}", e);
+				std::process::exit(1);
 			}
 		};
 		let mut f = std::io::BufReader::new(f);
@@ -315,8 +315,8 @@ impl RHash {
 			let count = match f.read(&mut buffer) {
 				Ok(count) => count,
 				Err(e) => {
-					println!("Error reading file: {}", e);
-					return vec![];
+					eprintln!("Error reading file: {}", e);
+					std::process::exit(1);
 				}
 			};
 			if count == 0 {
