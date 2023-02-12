@@ -301,30 +301,30 @@ impl RHash {
 	}
 
 	pub fn read_buffered(&mut self, file: &str) -> Vec<u8> {
-		let f = std::fs::File::open(file);
-		match f {
-			Ok(mut f) => {
-				let mut buffer = [0; 1024];
-				loop {
-					let count = f
-						.read(&mut buffer)
-						.map_err(|e| {
-							println!("Error reading file: {}", e);
-							std::process::exit(1);
-						})
-						.unwrap();
-					if count == 0 {
-						break;
-					}
-					self.digest.update(&buffer[..count]);
-				}
-				self.digest.finalize_reset().to_vec()
-			}
+		let f = match std::fs::File::open(file) {
+			Ok(f) => f,
 			Err(e) => {
-				println!("Error opening file: {}", e);
+				eprintln!("Error opening file: {}", e);
 				std::process::exit(1);
 			}
+		};
+		let mut f = std::io::BufReader::new(f);
+		let buffer_size = f.capacity();
+		let mut buffer = vec![0; buffer_size];
+		loop {
+			let count = match f.read(&mut buffer) {
+				Ok(count) => count,
+				Err(e) => {
+					eprintln!("Error reading file: {}", e);
+					std::process::exit(1);
+				}
+			};
+			if count == 0 {
+				break;
+			}
+			self.digest.update(&buffer[..count]);
 		}
+		self.digest.finalize_reset().to_vec()
 	}
 
 	fn match_path(&mut self, path: Option<&str>) -> String {
