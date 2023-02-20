@@ -42,6 +42,7 @@ pub enum RngType {
 	JitterRng,
 	Pcg32,
 	XorShiftRng,
+	Uuidv4
 }
 
 pub struct RandomNumberGenerator {
@@ -104,6 +105,11 @@ impl RandomNumberGenerator {
 				let mut rng =
 					rand_xorshift::XorShiftRng::from_entropy();
 				rng.fill_bytes(&mut buffer);
+			}
+			RngType::Uuidv4 => {
+				let uuid = uuid::Uuid::new_v4();
+				print!("{}", uuid.hyphenated().to_string());
+				std::process::exit(0);
 			}
 		}
 		let buffer_clone = buffer.clone();
