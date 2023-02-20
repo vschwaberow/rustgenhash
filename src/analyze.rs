@@ -100,6 +100,13 @@ impl HashAnalyzer {
         self.hash.chars().all(|c| c.is_digit(16))
     }
 
+    pub fn is_belthash(&self) -> bool {
+        if self.hash.len() != 64 {
+            return false;
+        }
+        self.hash.chars().all(|c| c.is_digit(16))
+    }
+
     pub fn is_sha512(&self) -> bool {
         if self.hash.len() != 128 {
             return false;
@@ -226,6 +233,9 @@ impl HashAnalyzer {
         }
         if self.is_bcrypt() {
             possible_hashes.push(String::from("bcrypt"));
+        }
+        if self.is_belthash() {
+            possible_hashes.push(String::from("BeltHash"));
         }
         if self.is_md4() {
             possible_hashes.push(String::from("MD4"));
