@@ -147,12 +147,42 @@ impl HashAnalyzer {
     
         true
     }
-    
 
+    pub fn is_bcrypt(&self) -> bool {
+        if !self.hash.starts_with("$2a$") {
+            return false;
+        }
+    
+        let params: Vec<&str> = self.hash.split('$').collect();
+        if params.len() != 4 {
+            return false;
+        }
+    
+        let cost = params[2].parse::<u32>().ok();
+        if cost.is_none() {
+            return false;
+        }
+    
+        let salt = params[3].get(..22);
+        if salt.is_none() {
+            return false;
+        }
+    
+        let hash = params[3].get(22..);
+        if hash.is_none() || hash.unwrap().len() != 31 {
+            return false;
+        }
+    
+        true
+    }    
+    
     pub fn detect_possible_hashes(&self) -> Vec<String> {
         let mut possible_hashes = Vec::new();
         if self.is_balloon() {
             possible_hashes.push(String::from("Balloon"));
+        }
+        if self.is_bcrypt() {
+            possible_hashes.push(String::from("bcrypt"));
         }
         if self.is_md4() {
             possible_hashes.push(String::from("MD4"));
