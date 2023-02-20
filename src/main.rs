@@ -20,6 +20,7 @@ Author(s): Volker Schwaberow
 mod app;
 mod hash;
 mod random;
+mod analyze;
 
 fn main() {
 	app::run()
