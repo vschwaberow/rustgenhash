@@ -175,7 +175,50 @@ impl HashAnalyzer {
     
         true
     }    
+
+    pub fn is_scrypt(&self) -> bool {
+        if !self.hash.starts_with("$") {
+            return false;
+        }
     
+        let params: Vec<&str> = self.hash.split('$').collect();
+        if params.len() != 5 {
+            return false;
+        }
+    
+        let version = params[1].parse::<u32>().ok();
+        if version != Some(1) && version != Some(2) {
+            return false;
+        }
+    
+        let param_values: Vec<&str> = params[2].split(',').collect();
+        if param_values.len() != 3 {
+            return false;
+        }
+    
+        let mut memory_cost = None;
+        let mut block_size = None;
+        let mut parallelism = None;
+        for value in param_values {
+            let parts: Vec<&str> = value.split('=').collect();
+            if parts.len() != 2 {
+                return false;
+            }
+            match parts[0] {
+                "N" => memory_cost = parts[1].parse::<u32>().ok(),
+                "r" => block_size = parts[1].parse::<u32>().ok(),
+                "p" => parallelism = parts[1].parse::<u32>().ok(),
+                _ => return false,
+            }
+        }
+    
+        if memory_cost.is_none() || block_size.is_none() || parallelism.is_none() {
+            return false;
+        }
+    
+        true
+    }
+        
     pub fn detect_possible_hashes(&self) -> Vec<String> {
         let mut possible_hashes = Vec::new();
         if self.is_balloon() {
@@ -189,6 +232,9 @@ impl HashAnalyzer {
         }
         if self.is_md5() {
             possible_hashes.push(String::from("MD5"));
+        }
+        if self.is_scrypt() {
+            possible_hashes.push(String::from("scrypt"));
         }
         if self.is_sha1() {
             possible_hashes.push(String::from("SHA1"));
