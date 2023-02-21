@@ -23,6 +23,7 @@ use crate::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
 use std::io::BufRead;
+use analyze::HashAnalyzer;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
 Written by {author-with-newline}{about-with-newline}
@@ -444,7 +445,7 @@ pub fn run() {
 				}
 			};
 
-			let h = analyze::HashAnalyzer::from_string(st);
+			let h = HashAnalyzer::from_string(st);
 			let out = h.detect_possible_hashes();
 			print!("Possible class of hash: ");
 			for o in out {
