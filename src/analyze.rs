@@ -101,7 +101,7 @@ impl HashAnalyzer {
     }
 
     pub fn is_blake2(&self) -> bool {
-        if self.hash.len() != 64 {
+        if self.hash.len() != 128 {
             return false;
         }
         self.hash.chars().all(|c| c.is_digit(16))
@@ -124,7 +124,6 @@ impl HashAnalyzer {
     pub fn is_argon2(&self) -> bool {
 
         if !self.hash.starts_with("$argon2") {
-            dbg!("not argon2");
             return false;
         }
 
