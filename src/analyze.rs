@@ -130,7 +130,6 @@ impl HashAnalyzer {
 
         let params: Vec<&str> = self.hash[1..].split('$').collect();
         if params.len() < 5 {
-            dbg!("not enough params");
             return false;
         }
 
