@@ -100,8 +100,14 @@ impl HashAnalyzer {
         self.hash.chars().all(|c| c.is_digit(16))
     }
 
-    pub fn is_blake2(&self) -> bool {
+    pub fn is_blake2b(&self) -> bool {
         if self.hash.len() != 128 {
+            return false;
+        }
+        self.hash.chars().all(|c| c.is_digit(16))
+    }
+    pub fn is_blake2s(&self) -> bool {
+        if self.hash.len() != 64 {
             return false;
         }
         self.hash.chars().all(|c| c.is_digit(16))
@@ -245,8 +251,11 @@ impl HashAnalyzer {
         if self.is_belthash() {
             possible_hashes.push(String::from("BeltHash"));
         }
-        if self.is_blake2() {
-            possible_hashes.push(String::from("Blake2"));
+        if self.is_blake2b() {
+            possible_hashes.push(String::from("Blake2b"));
+        }
+        if self.is_blake2s() {
+            possible_hashes.push(String::from("Blake2s"));
         }
         if self.is_md4() {
             possible_hashes.push(String::from("MD4"));
