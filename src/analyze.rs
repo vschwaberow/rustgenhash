@@ -101,7 +101,7 @@ impl HashAnalyzer {
     }
 
     pub fn is_fsb160(&self) -> bool {
-        if self.hash.len() != 64 {
+        if self.hash.len() != 40 {
             return false;
         }
         self.hash.chars().all(|c| c.is_digit(16))
