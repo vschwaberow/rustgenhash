@@ -452,7 +452,6 @@ pub fn run() {
 				print!("{} ", o);
 			}
 			println!();
-
 		}
 		_ => {}
 	}
