@@ -156,6 +156,9 @@ impl HashAnalyzer {
 			.nth(1)
 			.and_then(|s| s.parse::<u32>().ok());
 		let others = params[2].split(",").collect::<Vec<&str>>();
+		if others.len() != 3 {
+			return false;
+		}
 		let memory_cost = others[0]
 			.split('=')
 			.nth(1)
