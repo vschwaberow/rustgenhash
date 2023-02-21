@@ -246,7 +246,15 @@ impl HashAnalyzer {
     
         true
     }
-        
+
+    pub fn is_uuid_v4(&self) -> bool {
+        let re = regex::Regex::new(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
+        match re {
+            Ok(re) => re.is_match(&self.hash),
+            Err(_) => false,
+        }
+    }
+
     pub fn detect_possible_hashes(&self) -> Vec<String> {
         let mut possible_hashes = Vec::new();
         if self.is_balloon() {
@@ -290,6 +298,9 @@ impl HashAnalyzer {
         }
         if self.is_pbkdf2() {
             possible_hashes.push(String::from("PBKDF2"));
+        }
+        if self.is_uuid_v4() {
+            possible_hashes.push(String::from("UUIDv4"));
         }
         possible_hashes.sort();
         possible_hashes
