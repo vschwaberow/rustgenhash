@@ -19,7 +19,7 @@ Author(s): Volker Schwaberow
 */
 
 pub struct HashAnalyzer {
-    hash: String,
+    pub hash: String,
 }
 
 impl HashAnalyzer {
@@ -122,21 +122,24 @@ impl HashAnalyzer {
     }
 
     pub fn is_argon2(&self) -> bool {
+
         if !self.hash.starts_with("$argon2") {
+            dbg!("not argon2");
             return false;
         }
 
-        let params: Vec<&str> = self.hash.split('$').collect();
-        if params.len() < 6 {
+        let params: Vec<&str> = self.hash[1..].split('$').collect();
+        if params.len() < 5 {
+            dbg!("not enough params");
             return false;
         }
 
-        let version = params[2].parse::<u32>().ok();
-        let memory_cost = params[3].split('=').nth(1).and_then(|s| s.parse::<u32>().ok());
-        let time_cost = params[4].split('=').nth(1).and_then(|s| s.parse::<u32>().ok());
-        let parallelism = params[5].split('=').nth(1).and_then(|s| s.parse::<u32>().ok());
-
-        version == Some(0x13) && memory_cost.is_some() && time_cost.is_some() && parallelism.is_some()
+        let version = params[1].split("=").nth(1).and_then(|s| s.parse::<u32>().ok());
+        let others = params[2].split(",").collect::<Vec<&str>>();
+        let memory_cost = others[0].split('=').nth(1).and_then(|s| s.parse::<u32>().ok());
+        let time_cost = others[1].split('=').nth(1).and_then(|s| s.parse::<u32>().ok());
+        let parallelism = others[2].split('=').nth(1).and_then(|s| s.parse::<u32>().ok());
+        version.is_some() && memory_cost.is_some() && time_cost.is_some() && parallelism.is_some()
     }
 
     pub fn is_pbkdf2(&self) -> bool {
@@ -271,7 +274,9 @@ impl HashAnalyzer {
         if self.is_pbkdf2() {
             possible_hashes.push(String::from("PBKDF2"));
         }
+        possible_hashes.sort();
         possible_hashes
+        
     }
 
 
