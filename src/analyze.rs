@@ -228,49 +228,34 @@ impl HashAnalyzer {
 	}
 
 	pub fn is_scrypt(&self) -> bool {
-		if !self.hash.starts_with("$") {
+		if !self.hash.starts_with("$scrypt") {
 			return false;
 		}
 
-		let params: Vec<&str> = self.hash.split('$').collect();
-		if params.len() != 5 {
+		let params: Vec<&str> = self.hash[1..].split('$').collect();
+		if params.len() < 4 {
 			return false;
 		}
 
-		let version = params[1].parse::<u32>().ok();
-		if version != Some(1) && version != Some(2) {
+		let others = params[1].split(",").collect::<Vec<&str>>();
+		if others.len() != 3 {
 			return false;
 		}
+		let logarithm = others[0]
+			.split('=')
+			.nth(1)
+			.and_then(|s| s.parse::<u32>().ok());
+		let block_size_factor = others[1]
+			.split('=')
+			.nth(1)
+			.and_then(|s| s.parse::<u32>().ok());
+		let parallelization = others[2]
+			.split('=')
+			.nth(1)
+			.and_then(|s| s.parse::<u32>().ok());
 
-		let param_values: Vec<&str> = params[2].split(',').collect();
-		if param_values.len() != 3 {
-			return false;
-		}
+		logarithm.is_some() && block_size_factor.is_some() && parallelization.is_some()
 
-		let mut memory_cost = None;
-		let mut block_size = None;
-		let mut parallelism = None;
-		for value in param_values {
-			let parts: Vec<&str> = value.split('=').collect();
-			if parts.len() != 2 {
-				return false;
-			}
-			match parts[0] {
-				"N" => memory_cost = parts[1].parse::<u32>().ok(),
-				"r" => block_size = parts[1].parse::<u32>().ok(),
-				"p" => parallelism = parts[1].parse::<u32>().ok(),
-				_ => return false,
-			}
-		}
-
-		if memory_cost.is_none()
-			|| block_size.is_none()
-			|| parallelism.is_none()
-		{
-			return false;
-		}
-
-		true
 	}
 
 	pub fn is_uuid_v4(&self) -> bool {
