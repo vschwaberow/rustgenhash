@@ -2,7 +2,7 @@
 
 rustgenhash is a tool to generate hashes on the commandline from stdio.
 
-It can be used to generate single or multiple hashes for usage in password databases or even in penetration testing scenarios where you want to test password cracking tools.
+It can be used to generate single or multiple hashes for usage in password databases or even in penetration testing scenarios where you want to test password cracking tools. It can also help to identify the nature of a provided hash.
 
 ## Install
 
@@ -17,6 +17,7 @@ cargo install rustgenhash
 Rustgenhash has a command line interface which allows you to set the utility into a specific operating mode. The current
 modes are
 
+- analyze
 - random
 - stdio
 - string
