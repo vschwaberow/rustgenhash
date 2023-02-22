@@ -114,6 +114,34 @@ impl HashAnalyzer {
 		self.hash.chars().all(|c| c.is_digit(16))
 	}
 
+	pub fn is_fsb224(&self) -> bool {
+		if self.hash.len() != 56 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_fsb256(&self) -> bool {
+		if self.hash.len() != 64 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_fsb384(&self) -> bool {
+		if self.hash.len() != 96 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_fsb512(&self) -> bool {
+		if self.hash.len() != 128 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_blake2b(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
@@ -290,6 +318,18 @@ impl HashAnalyzer {
 		}
 		if self.is_fsb160() {
 			possible_hashes.push(String::from("FSB160"));
+		}
+		if self.is_fsb224() {
+			possible_hashes.push(String::from("FSB224"));
+		}
+		if self.is_fsb256() {
+			possible_hashes.push(String::from("FSB256"));
+		}
+		if self.is_fsb384() {
+			possible_hashes.push(String::from("FSB384"));
+		}
+		if self.is_fsb512() {
+			possible_hashes.push(String::from("FSB512"));
 		}
 		if self.is_md4() {
 			possible_hashes.push(String::from("MD4"));
