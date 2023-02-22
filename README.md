@@ -24,7 +24,7 @@ modes are
 - file
 
 After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
-or file to be hashed. The stdio mode allows you to pipe to the `rustgenhash` command. The tool will hash the passed
+or file to be hashed. The stdio mode allows you to pipe to the `rgh` command. The tool will hash the passed
 lines from the stdio (useful for hashing password lists).
 
 The file mode supports hashing of multiple files in a directory and currently works non-recursive.
@@ -32,23 +32,29 @@ The file mode supports hashing of multiple files in a directory and currently wo
 Scheme for string hashing:
 
 ```bash
-rustgenhash string -a <algorithm> <string>
+rgh string -a <algorithm> <string>
 ```
 
 Scheme for file hashing:
 
 ```bash
-rustgenhash file -a <algorithm> <filename or directory>
+rgh file -a <algorithm> <filename or directory>
 ```
 
 Scheme for string hashing from stdio:
 
 ```bash
-cat myfile | rustgenhash stdio -a <algorithm>
+cat myfile | rgh stdio -a <algorithm>
 ```
 
 ```bash
-echo "mypassword" | rustgenhash stdio -a <algorithm>
+echo "mypassword" | rgh stdio -a <algorithm>
+```
+
+Scheme for analyzing a hash:
+
+```bash
+rgh analyze -a <algorithm> <hash>
 ```
 
 You can list all supported algorithms over the help function.
