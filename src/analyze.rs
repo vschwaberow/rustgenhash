@@ -155,6 +155,19 @@ impl HashAnalyzer {
 		self.hash.chars().all(|c| c.is_digit(16))
 	}
 
+	pub fn is_gost94(&self) -> bool {
+		if self.hash.len() != 64 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_gost94ua(&self) -> bool {
+		if self.hash.len() != 64 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
 	pub fn is_belthash(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
@@ -331,6 +344,12 @@ impl HashAnalyzer {
 		}
 		if self.is_fsb512() {
 			possible_hashes.push(String::from("FSB512"));
+		}
+		if self.is_gost94() {
+			possible_hashes.push(String::from("GOST94"));
+		}
+		if self.is_gost94ua() {
+			possible_hashes.push(String::from("GOST94-ua"));
 		}
 		if self.is_md4() {
 			possible_hashes.push(String::from("MD4"));
