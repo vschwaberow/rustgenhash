@@ -285,8 +285,9 @@ impl HashAnalyzer {
 			.nth(1)
 			.and_then(|s| s.parse::<u32>().ok());
 
-		logarithm.is_some() && block_size_factor.is_some() && parallelization.is_some()
-
+		logarithm.is_some()
+			&& block_size_factor.is_some()
+			&& parallelization.is_some()
 	}
 
 	pub fn is_uuid_v4(&self) -> bool {
