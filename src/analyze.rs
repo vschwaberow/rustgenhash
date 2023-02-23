@@ -114,6 +114,13 @@ impl HashAnalyzer {
 		self.hash.chars().all(|c| c.is_digit(16))
 	}
 
+	pub fn is_tiger(&self) -> bool {
+		if self.hash.len() != 48 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_fsb160(&self) -> bool {
 		if self.hash.len() != 40 {
 			return false;
@@ -410,6 +417,9 @@ impl HashAnalyzer {
 		}
 		if self.is_sha512() {
 			possible_hashes.push(String::from("SHA512"));
+		}
+		if self.is_tiger() {
+			possible_hashes.push(String::from("Tiger"));
 		}
 		if self.is_argon2() {
 			possible_hashes.push(String::from("Argon2"));
