@@ -121,6 +121,41 @@ impl HashAnalyzer {
 		self.hash.chars().all(|c| c.is_digit(16))
 	}
 
+	pub fn is_shabal192(&self) -> bool {
+		if self.hash.len() != 48 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_shabal224(&self) -> bool {
+		if self.hash.len() != 56 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_shabal256(&self) -> bool {
+		if self.hash.len() != 64 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_shabal384(&self) -> bool {
+		if self.hash.len() != 96 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_shabal512(&self) -> bool {
+		if self.hash.len() != 128 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_fsb160(&self) -> bool {
 		if self.hash.len() != 40 {
 			return false;
@@ -417,6 +452,21 @@ impl HashAnalyzer {
 		}
 		if self.is_sha512() {
 			possible_hashes.push(String::from("SHA512"));
+		}
+		if self.is_shabal192() {
+			possible_hashes.push(String::from("Shabal192"));
+		}
+		if self.is_shabal224() {
+			possible_hashes.push(String::from("Shabal224"));
+		}
+		if self.is_shabal256() {
+			possible_hashes.push(String::from("Shabal256"));
+		}
+		if self.is_shabal384() {
+			possible_hashes.push(String::from("Shabal384"));
+		}
+		if self.is_shabal512() {
+			possible_hashes.push(String::from("Shabal512"));
 		}
 		if self.is_tiger() {
 			possible_hashes.push(String::from("Tiger"));
