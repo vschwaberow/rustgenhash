@@ -182,6 +182,22 @@ impl HashAnalyzer {
 		self.hash.chars().all(|c| c.is_digit(16))
 	}
 
+	pub fn is_ripe160(&self) -> bool {
+		if self.hash.len() != 40 {
+			return false;
+		}
+		self.hash
+			.chars()
+			.all(|c| c.is_digit(16) || c.is_ascii_lowercase())
+	}
+
+	pub fn is_ripemd320(&self) -> bool {
+		if self.hash.len() != 80 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_sha512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
@@ -369,6 +385,12 @@ impl HashAnalyzer {
 		}
 		if self.is_scrypt() {
 			possible_hashes.push(String::from("scrypt"));
+		}
+		if self.is_ripe160() {
+			possible_hashes.push(String::from("RIPE160"));
+		}
+		if self.is_ripemd320() {
+			possible_hashes.push(String::from("RIPEMD320"));
 		}
 		if self.is_sha1() {
 			possible_hashes.push(String::from("SHA1"));
