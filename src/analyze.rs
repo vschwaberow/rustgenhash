@@ -107,6 +107,20 @@ impl HashAnalyzer {
 			.all(|c| c.is_digit(16) || c.is_ascii_lowercase())
 	}
 
+	pub fn is_streebog256(&self) -> bool {
+		if self.hash.len() != 64 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_streebog512(&self) -> bool {
+		if self.hash.len() != 128 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_sha256(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
@@ -489,6 +503,12 @@ impl HashAnalyzer {
 		}
 		if self.is_sm3() {
 			possible_hashes.push(String::from("SM3"));
+		}
+		if self.is_streebog256() {
+			possible_hashes.push(String::from("Streebog256"));
+		}
+		if self.is_streebog512() {
+			possible_hashes.push(String::from("Streebog512"));
 		}
 		possible_hashes.sort();
 		possible_hashes
