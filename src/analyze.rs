@@ -198,6 +198,13 @@ impl HashAnalyzer {
 		self.hash.chars().all(|c| c.is_digit(16))
 	}
 
+	pub fn is_sha384(&self) -> bool {
+		if self.hash.len() != 96 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_sha512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
@@ -397,6 +404,9 @@ impl HashAnalyzer {
 		}
 		if self.is_sha256() {
 			possible_hashes.push(String::from("SHA256"));
+		}
+		if self.is_sha384() {
+			possible_hashes.push(String::from("SHA384"));
 		}
 		if self.is_sha512() {
 			possible_hashes.push(String::from("SHA512"));
