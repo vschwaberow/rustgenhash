@@ -254,6 +254,13 @@ impl HashAnalyzer {
 		self.hash.chars().all(|c| c.is_digit(16))
 	}
 
+	pub fn is_sm3(&self) -> bool {
+		if self.hash.len() != 64 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_argon2(&self) -> bool {
 		if !self.hash.starts_with("$argon2") {
 			return false;
@@ -479,6 +486,9 @@ impl HashAnalyzer {
 		}
 		if self.is_uuid_v4() {
 			possible_hashes.push(String::from("UUIDv4"));
+		}
+		if self.is_sm3() {
+			possible_hashes.push(String::from("SM3"));
 		}
 		possible_hashes.sort();
 		possible_hashes
