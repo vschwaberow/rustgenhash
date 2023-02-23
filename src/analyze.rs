@@ -336,6 +336,34 @@ impl HashAnalyzer {
 		true
 	}
 
+	pub fn is_sha3_224(&self) -> bool {
+		if self.hash.len() != 56 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_sha3_256(&self) -> bool {
+		if self.hash.len() != 64 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_sha3_384(&self) -> bool {
+		if self.hash.len() != 96 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
+	pub fn is_sha3_512(&self) -> bool {
+		if self.hash.len() != 128 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_bcrypt(&self) -> bool {
 		if !self.hash.starts_with("$2a$") {
 			return false;
@@ -509,6 +537,18 @@ impl HashAnalyzer {
 		}
 		if self.is_streebog512() {
 			possible_hashes.push(String::from("Streebog512"));
+		}
+		if self.is_sha3_224() {
+			possible_hashes.push(String::from("SHA3-224"));
+		}
+		if self.is_sha3_256() {
+			possible_hashes.push(String::from("SHA3-256"));
+		}
+		if self.is_sha3_384() {
+			possible_hashes.push(String::from("SHA3-384"));
+		}
+		if self.is_sha3_512() {
+			possible_hashes.push(String::from("SHA3-512"));
 		}
 		possible_hashes.sort();
 		possible_hashes
