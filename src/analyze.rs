@@ -392,6 +392,13 @@ impl HashAnalyzer {
 		true
 	}
 
+	pub fn is_whirlpool(&self) -> bool {
+		if self.hash.len() != 128 {
+			return false;
+		}
+		self.hash.chars().all(|c| c.is_digit(16))
+	}
+
 	pub fn is_scrypt(&self) -> bool {
 		if !self.hash.starts_with("$scrypt") {
 			return false;
@@ -549,6 +556,9 @@ impl HashAnalyzer {
 		}
 		if self.is_sha3_512() {
 			possible_hashes.push(String::from("SHA3-512"));
+		}
+		if self.is_whirlpool() {
+			possible_hashes.push(String::from("Whirlpool"));
 		}
 		possible_hashes.sort();
 		possible_hashes
