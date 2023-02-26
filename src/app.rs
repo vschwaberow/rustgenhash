@@ -299,7 +299,7 @@ fn build_cli() -> clap::Command {
 		)
 		.subcommand(
 			clap::command!("analyze")
-				.about("analyze a hash")
+				.about("Analyze a hash")
 				.display_order(1)
 				.arg(
 					Arg::new("INPUTSTRING")
