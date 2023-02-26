@@ -1,3 +1,4 @@
+use crate::analyze;
 /*
 Copyright 2022 Volker Schwaberow <volker@schwaberow.de>
 Permission is hereby granted, free of charge, to any person obtaining a
@@ -22,6 +23,7 @@ use crate::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
 use std::io::BufRead;
+use analyze::HashAnalyzer;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
 Written by {author-with-newline}{about-with-newline}
@@ -296,6 +298,18 @@ fn build_cli() -> clap::Command {
 				),
 		)
 		.subcommand(
+			clap::command!("analyze")
+				.about("Analyze a hash")
+				.display_order(1)
+				.arg(
+					Arg::new("INPUTSTRING")
+						.help("String to analyze")
+						.required(true),
+				)
+				.arg_required_else_help(true)
+		)
+
+		.subcommand(
 			clap::command!("generate-auto-completions")
 				.about("Generate shell completions")
 				.arg(
@@ -420,6 +434,28 @@ pub fn run() {
 			let out =
 				RandomNumberGenerator::new(a).generate(*len, option);
 			println!("{}", out);
+		}
+		Some (("analyze", s)) => {
+			let st = s.get_one::<String>("INPUTSTRING");
+			let st = match st {
+				Some(s) => s,
+				None => {
+					println!("No string provided.");
+					std::process::exit(1);
+				}
+			};
+
+			let h = HashAnalyzer::from_string(st);
+			let out = h.detect_possible_hashes();
+			if out.len() == 0 {
+				println!("No possible hash class found.");
+				std::process::exit(1);
+			}
+			print!("Possible class of hash: ");
+			for o in out {
+				print!("{} ", o);
+			}
+			println!();
 		}
 		_ => {}
 	}
