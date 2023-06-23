@@ -286,10 +286,10 @@ impl HashAnalyzer {
 		}
 
 		let version = params[1]
-			.split("=")
+			.split('=')
 			.nth(1)
 			.and_then(|s| s.parse::<u32>().ok());
-		let others = params[2].split(",").collect::<Vec<&str>>();
+		let others = params[2].split(',').collect::<Vec<&str>>();
 		if others.len() != 3 {
 			return false;
 		}
@@ -340,28 +340,28 @@ impl HashAnalyzer {
 		if self.hash.len() != 56 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha3_256(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha3_384(&self) -> bool {
 		if self.hash.len() != 96 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha3_512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_bcrypt(&self) -> bool {
@@ -409,7 +409,7 @@ impl HashAnalyzer {
 			return false;
 		}
 
-		let others = params[1].split(",").collect::<Vec<&str>>();
+		let others = params[1].split(',').collect::<Vec<&str>>();
 		if others.len() != 3 {
 			return false;
 		}

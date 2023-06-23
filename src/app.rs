@@ -446,7 +446,7 @@ pub fn run() {
 
 			let h = HashAnalyzer::from_string(st);
 			let out = h.detect_possible_hashes();
-			if out.len() == 0 {
+			if out.is_empty() {
 				println!("No possible hash class found.");
 				std::process::exit(1);
 			}

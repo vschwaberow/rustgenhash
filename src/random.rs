@@ -108,7 +108,7 @@ impl RandomNumberGenerator {
 			}
 			RngType::Uuidv4 => {
 				let uuid = uuid::Uuid::new_v4();
-				print!("{}", uuid.hyphenated().to_string());
+				print!("{}", uuid.hyphenated());
 				std::process::exit(0);
 			}
 		}
@@ -120,7 +120,7 @@ impl RandomNumberGenerator {
 			}
 			OutputOptions::HexBase64 => {
 				let mut hex = hex::encode(&buffer_clone);
-				hex.push_str(" ");
+				hex.push(' ');
 				hex.push_str(&encode_config(
 					&buffer_clone,
 					URL_SAFE_NO_PAD,

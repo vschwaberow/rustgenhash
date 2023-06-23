@@ -61,7 +61,7 @@ impl PHash {
 		let mut output = [0; 64];
 		bcrypt_pbkdf::bcrypt_pbkdf(
 			password.as_bytes(),
-			&salt,
+			salt,
 			36,
 			&mut output,
 		)
@@ -126,7 +126,7 @@ impl PHash {
 			salt.as_salt(),
 		)
 		.unwrap_or_else(|_| {
-			eprintln!("Error: {}", "Could not hash PBKDF2 password");
+			eprintln!("Error: Could not hash PBKDF2 password");
 			std::process::exit(1);
 		});
 		println!("{} {}", password_hash, password);
