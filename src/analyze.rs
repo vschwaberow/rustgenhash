@@ -81,21 +81,21 @@ impl HashAnalyzer {
 		if self.hash.len() != 32 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_md5(&self) -> bool {
 		if self.hash.len() != 32 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_groestl(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha1(&self) -> bool {
@@ -104,138 +104,138 @@ impl HashAnalyzer {
 		}
 		self.hash
 			.chars()
-			.all(|c| c.is_digit(16) || c.is_ascii_lowercase())
+			.all(|c| c.is_ascii_hexdigit() || c.is_ascii_lowercase())
 	}
 
 	pub fn is_streebog256(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_streebog512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha256(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_tiger(&self) -> bool {
 		if self.hash.len() != 48 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_shabal192(&self) -> bool {
 		if self.hash.len() != 48 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_shabal224(&self) -> bool {
 		if self.hash.len() != 56 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_shabal256(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_shabal384(&self) -> bool {
 		if self.hash.len() != 96 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_shabal512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_fsb160(&self) -> bool {
 		if self.hash.len() != 40 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_fsb224(&self) -> bool {
 		if self.hash.len() != 56 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_fsb256(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_fsb384(&self) -> bool {
 		if self.hash.len() != 96 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_fsb512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_blake2b(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 	pub fn is_blake2s(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_gost94(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_gost94ua(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 	pub fn is_belthash(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_ripe160(&self) -> bool {
@@ -244,35 +244,35 @@ impl HashAnalyzer {
 		}
 		self.hash
 			.chars()
-			.all(|c| c.is_digit(16) || c.is_ascii_lowercase())
+			.all(|c| c.is_ascii_hexdigit() || c.is_ascii_lowercase())
 	}
 
 	pub fn is_ripemd320(&self) -> bool {
 		if self.hash.len() != 80 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha384(&self) -> bool {
 		if self.hash.len() != 96 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sm3(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_argon2(&self) -> bool {
@@ -286,10 +286,10 @@ impl HashAnalyzer {
 		}
 
 		let version = params[1]
-			.split("=")
+			.split('=')
 			.nth(1)
 			.and_then(|s| s.parse::<u32>().ok());
-		let others = params[2].split(",").collect::<Vec<&str>>();
+		let others = params[2].split(',').collect::<Vec<&str>>();
 		if others.len() != 3 {
 			return false;
 		}
@@ -340,28 +340,28 @@ impl HashAnalyzer {
 		if self.hash.len() != 56 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha3_256(&self) -> bool {
 		if self.hash.len() != 64 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha3_384(&self) -> bool {
 		if self.hash.len() != 96 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_sha3_512(&self) -> bool {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_bcrypt(&self) -> bool {
@@ -396,7 +396,7 @@ impl HashAnalyzer {
 		if self.hash.len() != 128 {
 			return false;
 		}
-		self.hash.chars().all(|c| c.is_digit(16))
+		self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_scrypt(&self) -> bool {
@@ -409,7 +409,7 @@ impl HashAnalyzer {
 			return false;
 		}
 
-		let others = params[1].split(",").collect::<Vec<&str>>();
+		let others = params[1].split(',').collect::<Vec<&str>>();
 		if others.len() != 3 {
 			return false;
 		}

@@ -17,10 +17,10 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 Author(s): Volker Schwaberow
 */
+mod analyze;
 mod app;
 mod hash;
 mod random;
-mod analyze;
 
 fn main() {
 	app::run()
