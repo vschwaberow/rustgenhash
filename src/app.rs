@@ -20,10 +20,10 @@ Author(s): Volker Schwaberow
 */
 use crate::hash::{PHash, RHash};
 use crate::random::{RandomNumberGenerator, RngType};
+use analyze::HashAnalyzer;
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
 use std::io::BufRead;
-use analyze::HashAnalyzer;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
 Written by {author-with-newline}{about-with-newline}
@@ -306,9 +306,8 @@ fn build_cli() -> clap::Command {
 						.help("String to analyze")
 						.required(true),
 				)
-				.arg_required_else_help(true)
+				.arg_required_else_help(true),
 		)
-
 		.subcommand(
 			clap::command!("generate-auto-completions")
 				.about("Generate shell completions")
@@ -435,7 +434,7 @@ pub fn run() {
 				RandomNumberGenerator::new(a).generate(*len, option);
 			println!("{}", out);
 		}
-		Some (("analyze", s)) => {
+		Some(("analyze", s)) => {
 			let st = s.get_one::<String>("INPUTSTRING");
 			let st = match st {
 				Some(s) => s,

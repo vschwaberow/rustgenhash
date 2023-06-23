@@ -42,7 +42,7 @@ pub enum RngType {
 	JitterRng,
 	Pcg32,
 	XorShiftRng,
-	Uuidv4
+	Uuidv4,
 }
 
 pub struct RandomNumberGenerator {
