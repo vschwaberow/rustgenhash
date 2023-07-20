@@ -22,6 +22,7 @@ modes are
 - stdio
 - string
 - file
+- header
 
 After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
 or file to be hashed. The stdio mode allows you to pipe to the `rgh` command. The tool will hash the passed
@@ -55,6 +56,12 @@ Scheme for analyzing a hash:
 
 ```bash
 rgh analyze -a <algorithm> <hash>
+```
+
+Scheme for generating a [HHHash](https://www.foo.be/2023/07/HTTP-Headers-Hashing_HHHash) of a provided url:
+
+```bash
+rgh header -u www.google.de
 ```
 
 You can list all supported algorithms over the help function.
