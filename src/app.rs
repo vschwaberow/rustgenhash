@@ -1,28 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: app.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
+
 use crate::analyze;
-/*
-Copyright 2022 Volker Schwaberow <volker@schwaberow.de>
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including without
-limitation the rights to use, copy, modify, merge, publish, distribute,
-sublicense, and/or sell copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-Author(s): Volker Schwaberow
-*/
 use crate::hash::{PHash, RHash};
+use crate::hhhash::generate_hhhash;
 use crate::random::{RandomNumberGenerator, RngType};
 use analyze::HashAnalyzer;
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
+use std::error::Error;
 use std::io::BufRead;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
@@ -318,9 +307,18 @@ fn build_cli() -> clap::Command {
 						.help("Shell to generate completions for"),
 				),
 		)
+		.subcommand(
+			clap::command!("header")
+				.about("Generate a HHHash of HTTP header")
+				.arg(
+					Arg::new("URL")
+						.help("URL to fetch")
+						.required(true),
+				),
+		)
 }
 
-pub fn run() {
+pub fn run() -> Result<(), Box<dyn Error>> {
 	let capp = build_cli();
 	let m = capp.get_matches();
 
@@ -456,8 +454,16 @@ pub fn run() {
 			}
 			println!();
 		}
+		Some(("header", s)) => {
+			// get url from
+			let url = s.get_one::<String>("URL").unwrap();
+			let url = url.clone();
+			let hash = generate_hhhash(url)?;
+			println!("{}", hash);
+		}
 		_ => {}
 	}
+	Ok(())
 }
 
 fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
