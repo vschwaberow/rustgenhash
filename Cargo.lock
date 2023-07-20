@@ -1232,6 +1232,7 @@ dependencies = [
  "sha2",
  "sha3",
  "shabal",
+ "skein",
  "sm3",
  "streebog",
  "tempfile",
@@ -1415,6 +1416,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "skein"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f412279217fa74b69094bf6b5cde63dd0ece9b85d94fedda9bbfdfb2666125cf"
+dependencies = [
+ "digest",
+ "threefish",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1487,6 +1498,12 @@ dependencies = [
  "rustix 0.37.23",
  "windows-sys",
 ]
+
+[[package]]
+name = "threefish"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a693d0c8cf16973fac5a93fbe47b8c6452e7097d4fcac49f3d7a18e39c76e62e"
 
 [[package]]
 name = "tiger"
