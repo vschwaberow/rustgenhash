@@ -1,27 +1,27 @@
-name: Build
-
 on:
   release:
     types: [created]
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  release:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable]
+        include:
+          - target: x86_64-pc-windows-gnu
+            archive: zip
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz tar.xz tar.zst
+          - target: x86_64-apple-darwin
+            archive: zip
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@master
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          rust-version: ${{ matrix.rust }}
-      - name: Build release
-        run: cargo build --release
-      - name: Archive release
-        uses: actions/upload-artifact@v2
-        with:
-          name: release-${{ matrix.os }}
-          path: target/release/rgh
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
