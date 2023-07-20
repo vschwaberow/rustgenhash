@@ -584,6 +584,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ebdb29d2ea9ed0083cd8cece49bbd968021bd99b0849edb4a9a7ee0fdf6a4e0"
 
 [[package]]
+name = "hex-literal"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
+
+[[package]]
 name = "hmac"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -734,6 +740,17 @@ name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
+
+[[package]]
+name = "jh"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f65735f9e73adc203417d2e05352aef71d7e832ec090f65de26c96c9ec563aa5"
+dependencies = [
+ "digest",
+ "hex-literal 0.4.1",
+ "ppv-lite86",
+]
 
 [[package]]
 name = "js-sys"
@@ -1191,7 +1208,8 @@ dependencies = [
  "gost94",
  "groestl",
  "hex",
- "hex-literal",
+ "hex-literal 0.3.4",
+ "jh",
  "md-5",
  "md2",
  "md4",
@@ -1214,6 +1232,7 @@ dependencies = [
  "sha2",
  "sha3",
  "shabal",
+ "skein",
  "sm3",
  "streebog",
  "tempfile",
@@ -1397,6 +1416,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "skein"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f412279217fa74b69094bf6b5cde63dd0ece9b85d94fedda9bbfdfb2666125cf"
+dependencies = [
+ "digest",
+ "threefish",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1469,6 +1498,12 @@ dependencies = [
  "rustix 0.37.23",
  "windows-sys",
 ]
+
+[[package]]
+name = "threefish"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a693d0c8cf16973fac5a93fbe47b8c6452e7097d4fcac49f3d7a18e39c76e62e"
 
 [[package]]
 name = "tiger"

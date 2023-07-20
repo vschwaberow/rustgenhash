@@ -24,6 +24,7 @@ use pbkdf2::{
 use std::{collections::HashMap, io::Read};
 
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
+use skein::{consts::U32,Skein1024, Skein256, Skein512};
 
 pub struct PHash {}
 
@@ -153,6 +154,10 @@ impl RHash {
 				"GOST94" => Box::new(gost94::Gost94Test::new()),
 				"GOST94UA" => Box::new(gost94::Gost94UA::new()),
 				"GROESTL" => Box::new(groestl::Groestl256::new()),
+				"JH224" => Box::new(jh::Jh224::new()),
+				"JH256" => Box::new(jh::Jh256::new()),
+				"JH384" => Box::new(jh::Jh384::new()),
+				"JH512" => Box::new(jh::Jh512::new()),
 				"MD2" => Box::new(md2::Md2::new()),
 				"MD5" => Box::new(md5::Md5::new()),
 				"MD4" => Box::new(md4::Md4::new()),
@@ -172,6 +177,9 @@ impl RHash {
 				"SHABAL256" => Box::new(shabal::Shabal256::new()),
 				"SHABAL384" => Box::new(shabal::Shabal384::new()),
 				"SHABAL512" => Box::new(shabal::Shabal512::new()),
+				"SKEIN256" => Box::new(Skein256::<U32>::new()),
+				"SKEIN512" => Box::new(Skein512::<U32>::new()),
+				"SKEIN1024" => Box::new(Skein1024::<U32>::new()),
 				"SM3" => Box::new(sm3::Sm3::new()),
 				"STREEBOG256" => {
 					Box::new(streebog::Streebog256::new())
