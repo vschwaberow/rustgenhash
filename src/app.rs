@@ -81,6 +81,28 @@ pub enum Algorithm {
 	Whirlpool,
 }
 
+const ARGON2_PROPERTIES: AlgorithmProperties = AlgorithmProperties {
+	file_support: false,
+};
+const PBKDF2_PROPERTIES: AlgorithmProperties = AlgorithmProperties {
+	file_support: false,
+};
+const SCRYPT_PROPERTIES: AlgorithmProperties = AlgorithmProperties {
+	file_support: false,
+};
+const SHACRYPT_PROPERTIES: AlgorithmProperties =
+	AlgorithmProperties {
+		file_support: false,
+	};
+const BCRYPT_PROPERTIES: AlgorithmProperties = AlgorithmProperties {
+	file_support: false,
+};
+const BALLOON_PROPERTIES: AlgorithmProperties = AlgorithmProperties {
+	file_support: false,
+};
+const DEFAULT_PROPERTIES: AlgorithmProperties =
+	AlgorithmProperties { file_support: true };
+
 struct AlgorithmProperties {
 	file_support: bool,
 }
@@ -88,27 +110,15 @@ struct AlgorithmProperties {
 impl Algorithm {
 	fn properties(&self) -> AlgorithmProperties {
 		match *self {
-			Algorithm::Argon2 => AlgorithmProperties {
-				file_support: false,
-			},
+			Algorithm::Argon2 => ARGON2_PROPERTIES,
 			Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
-				AlgorithmProperties {
-					file_support: false,
-				}
+				PBKDF2_PROPERTIES
 			}
-			Algorithm::Scrypt => AlgorithmProperties {
-				file_support: false,
-			},
-			Algorithm::Shacrypt => AlgorithmProperties {
-				file_support: false,
-			},
-			Algorithm::Bcrypt => AlgorithmProperties {
-				file_support: false,
-			},
-			Algorithm::Balloon => AlgorithmProperties {
-				file_support: false,
-			},
-			_ => AlgorithmProperties { file_support: true },
+			Algorithm::Scrypt => SCRYPT_PROPERTIES,
+			Algorithm::Shacrypt => SHACRYPT_PROPERTIES,
+			Algorithm::Bcrypt => BCRYPT_PROPERTIES,
+			Algorithm::Balloon => BALLOON_PROPERTIES,
+			_ => DEFAULT_PROPERTIES,
 		}
 	}
 }
