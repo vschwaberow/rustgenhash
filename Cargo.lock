@@ -1197,6 +1197,7 @@ dependencies = [
  "streebog",
  "tempfile",
  "tiger",
+ "url",
  "uuid",
  "whirlpool",
 ]

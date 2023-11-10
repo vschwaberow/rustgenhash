@@ -71,5 +71,6 @@ sm3 = "0.4.1"
 streebog = "0.10.2"
 tempfile = "3.3.0"
 tiger = "0.2.1"
+url = "2.4.1"
 uuid = { version = "1.3.0", features = ["v1", "v3", "v4", "v5", "v6", "v7", "v8"] }
 whirlpool = "0.10.4"
