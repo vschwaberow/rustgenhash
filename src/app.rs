@@ -30,6 +30,7 @@ pub enum OutputOptions {
 
 #[derive(clap::ValueEnum, Debug, Clone)]
 pub enum Algorithm {
+	Ascon,
 	Argon2,
 	Balloon,
 	Bcrypt,
@@ -81,6 +82,10 @@ pub enum Algorithm {
 	Whirlpool,
 }
 
+const ASCON_PROPERTIES: AlgorithmProperties = AlgorithmProperties {
+	file_support: false,
+};
+
 const ARGON2_PROPERTIES: AlgorithmProperties = AlgorithmProperties {
 	file_support: false,
 };
@@ -110,6 +115,7 @@ struct AlgorithmProperties {
 impl Algorithm {
 	fn properties(&self) -> AlgorithmProperties {
 		match *self {
+			Algorithm::Ascon => ASCON_PROPERTIES,
 			Algorithm::Argon2 => ARGON2_PROPERTIES,
 			Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
 				PBKDF2_PROPERTIES
@@ -130,6 +136,9 @@ fn hash_string(
 ) {
 	use Algorithm as alg;
 	match algor {
+		alg::Ascon => {
+			PHash::hash_ascon(password);
+		}
 		alg::Argon2 => {
 			PHash::hash_argon2(password);
 		}

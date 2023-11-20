@@ -9,6 +9,7 @@ use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
 	Argon2,
 };
+use ascon_hash::AsconHash;
 use balloon_hash::{
 	password_hash::{
 		rand_core::OsRng as BalOsRng, SaltString as BalSaltString,
@@ -24,11 +25,18 @@ use pbkdf2::{
 use std::{collections::HashMap, io::Read};
 
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
-use skein::{consts::U32,Skein1024, Skein256, Skein512};
+use skein::{consts::U32, Skein1024, Skein256, Skein512};
 
 pub struct PHash {}
 
 impl PHash {
+	pub fn hash_ascon(password: &str) {
+		let mut hasher = AsconHash::new();
+		Digest::update(&mut hasher, password.as_bytes());
+		let result = hasher.finalize();
+		println!("{} {}", hex::encode(result), password);
+	}
+
 	pub fn hash_argon2(password: &str) {
 		let salt = SaltString::generate(&mut OsRng);
 		let argon2 = Argon2::default();
