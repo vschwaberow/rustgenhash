@@ -211,96 +211,74 @@ impl RHash {
 		&mut self,
 		file: &str,
 		output: OutputOptions,
-	) {
-		let md = std::fs::metadata(file).map_err(|e| {
-			eprintln!("Error: {}", e);
-			std::process::exit(1);
-		});
-		let md = match md {
-			Ok(m) => m,
-			Err(e) => {
-				eprintln!("Error: {:?}", e);
-				std::process::exit(1);
-			}
-		};
+	) -> Result<(), Box<dyn std::error::Error>> {
+		let md = std::fs::metadata(file)?;
 		if md.is_file() {
-			self.read_buffered(file);
+			let hashed_file = self.read_buffered(file);
 			match output {
 				OutputOptions::Base64 => {
 					println!(
 						"{} {}",
-						base64::encode(self.read_buffered(file)),
+						base64::encode(&hashed_file),
 						file
 					);
 				}
 				OutputOptions::Hex => {
 					println!(
 						"{} {}",
-						hex::encode(self.read_buffered(file)),
+						hex::encode(&hashed_file),
 						file
 					);
 				}
 				OutputOptions::HexBase64 => {
 					println!(
 						"{} {} {}",
-						hex::encode(self.read_buffered(file)),
-						base64::encode(self.read_buffered(file)),
+						hex::encode(&hashed_file),
+						base64::encode(&hashed_file),
 						file
 					);
 				}
 			}
 		} else if md.is_dir() {
-			let files = std::fs::read_dir(file);
-			let mut files = match files {
-				Ok(f) => f,
-				Err(e) => {
-					eprintln!("Error: {}", e);
-					std::process::exit(1);
-				}
-			};
+			let mut files = std::fs::read_dir(file)?;
 			while let Some(Ok(entry)) = files.next() {
 				if entry.path().is_file() {
-					match output {
-						OutputOptions::Base64 => {
-							let path = self
-								.match_path(entry.path().to_str());
-							println!(
-								"{} {}",
-								base64::encode(
-									self.read_buffered(&path)
-								),
-								&path
-							);
-						}
-						OutputOptions::Hex => {
-							let path = self
-								.match_path(entry.path().to_str());
-							println!(
-								"{} {}",
-								hex::encode(
-									self.read_buffered(&path)
-								),
-								&path
-							);
-						}
-						OutputOptions::HexBase64 => {
-							let path = self
-								.match_path(entry.path().to_str());
-							println!(
-								"{} {} {}",
-								hex::encode(
-									self.read_buffered(&path)
-								),
-								base64::encode(
-									self.read_buffered(&path)
-								),
-								&path
-							);
-						}
-					}
+					let path = self.match_path(entry.path().to_str());
+					let hashed_file = self.read_buffered(&path);
+					self.print_hashed_file(
+						&hashed_file,
+						&path,
+						output.clone(),
+					)?;
 				}
 			}
 		}
+		Ok(())
+	}
+
+	fn print_hashed_file(
+		&self,
+		hashed_file: &[u8],
+		path: &str,
+		output: OutputOptions,
+	) -> Result<(), Box<dyn std::error::Error>> {
+		match output {
+			OutputOptions::Base64 => {
+				println!("{} {}", base64::encode(hashed_file), path);
+			}
+			OutputOptions::Hex => {
+				println!("{} {}", hex::encode(hashed_file), path);
+			}
+			OutputOptions::HexBase64 => {
+				println!(
+					"{} {} {}",
+					hex::encode(hashed_file),
+					base64::encode(hashed_file),
+					path
+				);
+			}
+		}
+		Ok(())
 	}
 
 	pub fn read_buffered(&mut self, file: &str) -> Vec<u8> {
