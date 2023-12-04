@@ -190,7 +190,14 @@ fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
 		std::process::exit(1);
 	}
 	let alg_s = format!("{:?}", alg).to_uppercase();
-	RHash::new(&alg_s).process_file(input, option);
+	let result = RHash::new(&alg_s).process_file(input, option);
+	match result {
+		Ok(r) => println!("{:?}", r),
+		Err(e) => {
+			eprintln!("Error: {}", e);
+			std::process::exit(1);
+		}
+	}
 }
 
 fn build_cli() -> clap::Command {
