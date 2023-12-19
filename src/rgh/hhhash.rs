@@ -10,7 +10,9 @@ use std::error::Error;
 use std::time::Duration;
 use url::Url;
 
-fn parse_url(url: &str) -> Result<Url, Box<dyn std::error::Error>> {
+pub fn parse_url(
+	url: &str,
+) -> Result<Url, Box<dyn std::error::Error>> {
 	let parsed_url = match Url::parse(url) {
 		Ok(url) => match url.scheme() {
 			"http" | "https" => url,
@@ -51,39 +53,4 @@ pub fn generate_hhhash(
 	let hash = format!("hhh:1:{}", hex::encode(hash));
 
 	Ok(hash)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_parse_urls() {
-		let url = "https://www.example.com";
-		let parsed_url = parse_url(url).unwrap();
-		assert_eq!(parsed_url.scheme(), "https");
-		assert_eq!(parsed_url.host_str(), Some("www.example.com"));
-	}
-
-	#[test]
-	fn test_parse_url_with_path() {
-		let url = "https://www.example.com/foo/bar";
-		let parsed_url = parse_url(url).unwrap();
-		assert_eq!(parsed_url.scheme(), "https");
-		assert_eq!(parsed_url.host_str(), Some("www.example.com"));
-		assert_eq!(parsed_url.path(), "/foo/bar");
-	}
-
-	#[test]
-	fn test_generate() {
-		let url = "https://www.example.com";
-		let hash = generate_hhhash(url.to_string()).unwrap();
-		assert!(hash.starts_with("hhh:1:"));
-	}
-	#[test]
-	fn test_generate_with_error() {
-		let url = "www2.schwaberow.de";
-		let hash = generate_hhhash(url.to_string());
-		assert!(hash.is_err());
-	}
 }

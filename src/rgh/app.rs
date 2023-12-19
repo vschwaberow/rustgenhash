@@ -506,33 +506,3 @@ fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
 		&mut std::io::stdout(),
 	);
 }
-
-#[test]
-fn test_function_hash_string() {
-	use Algorithm as alg;
-	use OutputOptions as opt;
-	hash_string(alg::Argon2, "test", opt::Hex);
-	hash_string(alg::Md5, "password", opt::Hex);
-	hash_string(alg::Sha1, "password", opt::Hex);
-	hash_string(alg::Sha256, "password", opt::Hex);
-	hash_string(alg::Sha512, "password", opt::Hex);
-	hash_string(alg::Md5, "password", opt::Base64);
-	hash_string(alg::Sha1, "password", opt::Base64);
-	hash_string(alg::Sha256, "password", opt::Base64);
-	hash_string(alg::Sha512, "password", opt::Base64);
-	hash_string(alg::Md5, "password", opt::HexBase64);
-	hash_string(alg::Sha3_512, "password", opt::HexBase64);
-}
-#[test]
-fn test_function_hash_file() {
-	use Algorithm as alg;
-	use OutputOptions as opt;
-	hash_file(alg::Md5, "Cargo.toml", opt::Hex);
-	hash_file(alg::Sha1, "Cargo.toml", opt::Hex);
-	hash_file(alg::Sha256, "Cargo.toml", opt::Hex);
-	hash_file(alg::Sha512, "Cargo.toml", opt::Hex);
-	hash_file(alg::Md5, "Cargo.toml", opt::Base64);
-	hash_file(alg::Sha1, "Cargo.toml", opt::Base64);
-	hash_file(alg::Sha256, "Cargo.toml", opt::Base64);
-	hash_file(alg::Sha512, "Cargo.toml", opt::Base64);
-}
