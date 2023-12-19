@@ -178,6 +178,10 @@ impl HashAnalyzer {
 		self.check_hash(64)
 	}
 
+	pub fn is_ascon(&self) -> bool {
+		self.check_hash(128)
+	}
+
 	pub fn is_argon2(&self) -> bool {
 		if !self.hash.starts_with("$argon2") {
 			return false;
@@ -450,5 +454,106 @@ impl HashAnalyzer {
 		}
 		possible_hashes.sort();
 		possible_hashes
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_analyze_argon2() {
+		let hash = HashAnalyzer::from_string(
+			"$argon2id$v=19$m=4096,t=3,p=1$aN8J49cAi1VFS560uw5vsw$wskiYeq9UkHSgzpulEDHauTHOJ9Nz2dOf+0OcfAULU0",
+		);
+		assert!(hash.is_argon2());
+	}
+
+	#[test]
+	fn test_analyze_ascon() {
+		let hash = HashAnalyzer::from_string(
+			"1c0fe130cdde2e5018892d7749f859ab65858a19312174427576717694352734c53ba393b5ef475ee4c49f26ccd489b35cc4c72ce511b5a67e6f19e95d69db43",
+		);
+		assert!(hash.is_ascon());
+	}
+
+	#[test]
+	fn test_balloon() {
+		let hash = HashAnalyzer::from_string(
+			"$balloon$1$m=65536,t=2,p=1$e3b0c44298fc1c149afbf4c8996fb924"
+		);
+		assert!(hash.is_balloon());
+	}
+
+	#[test]
+	fn test_analyze_md4() {
+		let hash = HashAnalyzer::from_string(
+			"31d6cfe0d16ae931b73c59d7e0c089c0",
+		);
+		assert!(hash.is_md4());
+	}
+
+	#[test]
+	fn test_analyze_md5() {
+		let hash = HashAnalyzer::from_string(
+			"d41d8cd98f00b204e9800998ecf8427e",
+		);
+		assert!(hash.is_md5());
+	}
+
+	#[test]
+	fn test_analyze_groestl() {
+		let hash = HashAnalyzer::from_string(
+			"5fc07d8c8d9d54bf2733c8f3d4d2aa8b3f1603970001fc987f1cdecde18f520f",
+		);
+		assert!(hash.is_groestl());
+	}
+
+	#[test]
+	fn test_analyze_sha1() {
+		let hash = HashAnalyzer::from_string(
+			"da39a3ee5e6b4b0d3255bfef95601890afd80709",
+		);
+		assert!(hash.is_sha1());
+	}
+
+	#[test]
+	fn test_analyze_streebog256() {
+		let hash = HashAnalyzer::from_string(
+			"5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+		);
+		assert!(hash.is_streebog256());
+	}
+
+	#[test]
+	fn test_analyze_streebog512() {
+		let hash = HashAnalyzer::from_string(
+			"1c0fe130cdde2e5018892d7749f859ab65858a19312174427576717694352734c53ba393b5ef475ee4c49f26ccd489b35cc4c72ce511b5a67e6f19e95d69db43",
+		);
+		assert!(hash.is_streebog512());
+	}
+
+	#[test]
+	fn test_analyze_sha256() {
+		let hash = HashAnalyzer::from_string(
+			"5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+		);
+		assert!(hash.is_sha256());
+	}
+
+	#[test]
+	fn test_analyze_sha512() {
+		let hash = HashAnalyzer::from_string(
+			"1c0fe130cdde2e5018892d7749f859ab65858a19312174427576717694352734c53ba393b5ef475ee4c49f26ccd489b35cc4c72ce511b5a67e6f19e95d69db43",
+		);
+		assert!(hash.is_sha512());
+	}
+
+	#[test]
+	fn test_analyze_tiger() {
+		let hash = HashAnalyzer::from_string(
+			"3293ac630c13f0245f92bbb1766e16167a4e58492dde73f3",
+		);
+		assert!(hash.is_tiger());
 	}
 }
