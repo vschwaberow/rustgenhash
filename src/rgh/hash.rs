@@ -4,7 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
-use crate::app::OutputOptions;
+use crate::rgh::app::OutputOptions;
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
 	Argon2,
@@ -301,7 +301,6 @@ impl RHash {
 		}
 	}
 }
-
 
 #[test]
 fn test_argon2() {

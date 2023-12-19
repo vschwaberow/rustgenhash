@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "cryptography"]
 
 [[bin]]
 name = "rgh"
-path = "src/main.rs"
+path = "src/bin/main.rs"
 
 [profile.release]
 strip = "symbols"

@@ -4,11 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
-mod analyze;
-mod app;
-mod hash;
-mod hhhash;
-mod random;
+use rustgenhash::rgh::app;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	app::run()?;
