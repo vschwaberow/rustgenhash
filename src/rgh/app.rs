@@ -4,11 +4,10 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
-use crate::analyze;
-use crate::hash::{PHash, RHash};
-use crate::hhhash::generate_hhhash;
-use crate::random::{RandomNumberGenerator, RngType};
-use analyze::HashAnalyzer;
+use crate::rgh::analyze::HashAnalyzer;
+use crate::rgh::hash::{PHash, RHash};
+use crate::rgh::hhhash::generate_hhhash;
+use crate::rgh::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
 use std::error::Error;

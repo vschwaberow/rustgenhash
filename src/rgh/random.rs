@@ -4,7 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
-use crate::app::OutputOptions;
+use crate::rgh::app::OutputOptions;
 use base64::{encode_config, URL_SAFE_NO_PAD};
 use getrandom::getrandom;
 use rand::thread_rng;
