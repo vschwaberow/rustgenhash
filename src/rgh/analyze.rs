@@ -457,4 +457,6 @@ impl HashAnalyzer {
 	}
 }
 
-
+pub fn compare_hashes(hash1: &str, hash2: &str) -> bool {
+	hash1.to_lowercase() == hash2.to_lowercase()
+}
