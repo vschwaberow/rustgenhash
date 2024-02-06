@@ -461,23 +461,18 @@ pub fn compare_hashes(hash1: &str, hash2: &str) -> bool {
 	hash1.to_lowercase() == hash2.to_lowercase()
 }
 
-pub fn compare_file_hashes(file_src: &str, file_dst: &str) -> bool {
-	let hash_src = std::fs::read_to_string(file_src);
-	let hash_dst = std::fs::read_to_string(file_dst);
+pub fn compare_file_hashes(file_src: &str, file_dst: &str) -> Result<bool, std::io::Error> {
+	let hash_src = std::fs::read_to_string(file_src)?;
+	let hash_dst = std::fs::read_to_string(file_dst)?;
 
-	match (hash_src, hash_dst) {
-		(Ok(hash_src), Ok(hash_dst)) => {
-			let hash_src_lines: Vec<&str> = hash_src.lines().collect();
-			let hash_dst_lines: Vec<&str> = hash_dst.lines().collect();
-			let mut line_number = 1;
-			for (src, dst) in hash_src_lines.iter().zip(hash_dst_lines.iter()) {
-				if src == dst {
-					println!("Line {}: {} == {}", line_number, src, dst);
-				}
-				line_number += 1;
-			}
-			true
+	let hash_src_lines: Vec<&str> = hash_src.lines().collect();
+	let hash_dst_lines: Vec<&str> = hash_dst.lines().collect();
+	let mut line_number = 1;
+	for (src, dst) in hash_src_lines.iter().zip(hash_dst_lines.iter()) {
+		if src == dst {
+			println!("Line {}: {} == {}", line_number, src, dst);
 		}
-		_ => false,
+		line_number += 1;
 	}
+	Ok(true)
 }
