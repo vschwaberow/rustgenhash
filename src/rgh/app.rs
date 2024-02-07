@@ -4,6 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
+use crate::rgh::analyze::compare_hashes;
 use crate::rgh::analyze::HashAnalyzer;
 use crate::rgh::hash::{PHash, RHash};
 use crate::rgh::hhhash::generate_hhhash;
@@ -330,6 +331,20 @@ fn build_cli() -> clap::Command {
 				.arg_required_else_help(true),
 		)
 		.subcommand(
+			clap::command!("compare-string")
+				.about("Compare two strings")
+				.arg(
+					Arg::new("STRING1")
+						.help("First string to compare")
+						.required(true),
+				)
+				.arg(
+					Arg::new("STRING2")
+						.help("Second string to compare")
+						.required(true),
+				),
+		)
+		.subcommand(
 			clap::command!("generate-auto-completions")
 				.about("Generate shell completions")
 				.arg(
@@ -378,6 +393,31 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				}
 			};
 			hash_string(a, st, option);
+		}
+		Some(("compare-string", s)) => {
+			let st1 = s.get_one::<String>("STRING1");
+			let st1 = match st1 {
+				Some(s) => s,
+				None => {
+					println!("No string provided.");
+					std::process::exit(1);
+				}
+			};
+			let st2 = s.get_one::<String>("STRING2");
+			let st2 = match st2 {
+				Some(s) => s,
+				None => {
+					println!("No string provided.");
+					std::process::exit(1);
+				}
+			};
+			if compare_hashes(st1, st2) {
+				println!("The hashes are equal.");
+				std::process::exit(0);
+			} else {
+				println!("The hashes are not equal.");
+				std::process::exit(1);
+			}
 		}
 		Some(("file", s)) => {
 			let f = s.get_one::<String>("FILE");
