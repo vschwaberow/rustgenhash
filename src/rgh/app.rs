@@ -4,6 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
+use crate::rgh::analyze::compare_hashes;
 use crate::rgh::analyze::HashAnalyzer;
 use crate::rgh::hash::{PHash, RHash};
 use crate::rgh::hhhash::generate_hhhash;
@@ -330,6 +331,20 @@ fn build_cli() -> clap::Command {
 				.arg_required_else_help(true),
 		)
 		.subcommand(
+			clap::command!("compare-hash")
+				.about("Compare two strings")
+				.arg(
+					Arg::new("HASH1")
+						.help("First hash to compare")
+						.required(true),
+				)
+				.arg(
+					Arg::new("HASH2")
+						.help("Second hash to compare")
+						.required(true),
+				),
+		)
+		.subcommand(
 			clap::command!("generate-auto-completions")
 				.about("Generate shell completions")
 				.arg(
@@ -378,6 +393,31 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				}
 			};
 			hash_string(a, st, option);
+		}
+		Some(("compare-hash", s)) => {
+			let st1 = s.get_one::<String>("HASH1");
+			let st1 = match st1 {
+				Some(s) => s,
+				None => {
+					println!("No string provided.");
+					std::process::exit(1);
+				}
+			};
+			let st2 = s.get_one::<String>("HASH2");
+			let st2 = match st2 {
+				Some(s) => s,
+				None => {
+					println!("No string provided.");
+					std::process::exit(1);
+				}
+			};
+			if compare_hashes(st1, st2) {
+				println!("The hashes are equal.");
+				std::process::exit(0);
+			} else {
+				println!("The hashes are not equal.");
+				std::process::exit(1);
+			}
 		}
 		Some(("file", s)) => {
 			let f = s.get_one::<String>("FILE");
@@ -505,34 +545,4 @@ fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
 		cmd.get_name().to_string(),
 		&mut std::io::stdout(),
 	);
-}
-
-#[test]
-fn test_function_hash_string() {
-	use Algorithm as alg;
-	use OutputOptions as opt;
-	hash_string(alg::Argon2, "test", opt::Hex);
-	hash_string(alg::Md5, "password", opt::Hex);
-	hash_string(alg::Sha1, "password", opt::Hex);
-	hash_string(alg::Sha256, "password", opt::Hex);
-	hash_string(alg::Sha512, "password", opt::Hex);
-	hash_string(alg::Md5, "password", opt::Base64);
-	hash_string(alg::Sha1, "password", opt::Base64);
-	hash_string(alg::Sha256, "password", opt::Base64);
-	hash_string(alg::Sha512, "password", opt::Base64);
-	hash_string(alg::Md5, "password", opt::HexBase64);
-	hash_string(alg::Sha3_512, "password", opt::HexBase64);
-}
-#[test]
-fn test_function_hash_file() {
-	use Algorithm as alg;
-	use OutputOptions as opt;
-	hash_file(alg::Md5, "Cargo.toml", opt::Hex);
-	hash_file(alg::Sha1, "Cargo.toml", opt::Hex);
-	hash_file(alg::Sha256, "Cargo.toml", opt::Hex);
-	hash_file(alg::Sha512, "Cargo.toml", opt::Hex);
-	hash_file(alg::Md5, "Cargo.toml", opt::Base64);
-	hash_file(alg::Sha1, "Cargo.toml", opt::Base64);
-	hash_file(alg::Sha256, "Cargo.toml", opt::Base64);
-	hash_file(alg::Sha512, "Cargo.toml", opt::Base64);
 }

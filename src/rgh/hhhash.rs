@@ -10,7 +10,9 @@ use std::error::Error;
 use std::time::Duration;
 use url::Url;
 
-fn parse_url(url: &str) -> Result<Url, Box<dyn std::error::Error>> {
+pub fn parse_url(
+	url: &str,
+) -> Result<Url, Box<dyn std::error::Error>> {
 	let parsed_url = match Url::parse(url) {
 		Ok(url) => match url.scheme() {
 			"http" | "https" => url,
