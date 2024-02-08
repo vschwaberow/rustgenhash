@@ -331,16 +331,16 @@ fn build_cli() -> clap::Command {
 				.arg_required_else_help(true),
 		)
 		.subcommand(
-			clap::command!("compare-string")
+			clap::command!("compare-hash")
 				.about("Compare two strings")
 				.arg(
-					Arg::new("STRING1")
-						.help("First string to compare")
+					Arg::new("HASH1")
+						.help("First hash to compare")
 						.required(true),
 				)
 				.arg(
-					Arg::new("STRING2")
-						.help("Second string to compare")
+					Arg::new("HASH2")
+						.help("Second hash to compare")
 						.required(true),
 				),
 		)
@@ -394,8 +394,8 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			};
 			hash_string(a, st, option);
 		}
-		Some(("compare-string", s)) => {
-			let st1 = s.get_one::<String>("STRING1");
+		Some(("compare-hash", s)) => {
+			let st1 = s.get_one::<String>("HASH1");
 			let st1 = match st1 {
 				Some(s) => s,
 				None => {
@@ -403,7 +403,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 					std::process::exit(1);
 				}
 			};
-			let st2 = s.get_one::<String>("STRING2");
+			let st2 = s.get_one::<String>("HASH2");
 			let st2 = match st2 {
 				Some(s) => s,
 				None => {
