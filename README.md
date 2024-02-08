@@ -18,6 +18,7 @@ Rustgenhash has a command line interface which allows you to set the utility int
 modes are
 
 - analyze
+- compare-hash
 - random
 - stdio
 - string
@@ -62,6 +63,12 @@ Scheme for generating a [HHHash](https://www.foo.be/2023/07/HTTP-Headers-Hashing
 
 ```bash
 rgh header www.google.de
+```
+
+Scheme for comparing a hash:
+
+```bash
+rgh compare-string <hash1> <hash2>
 ```
 
 You can list all supported algorithms over the help function.
