@@ -14,6 +14,8 @@ use clap_complete::{generate, Generator, Shell};
 use std::error::Error;
 use std::io::BufRead;
 
+use super::analyze::compare_file_hashes;
+
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
 Written by {author-with-newline}{about-with-newline}
 {usage-heading} {usage}
@@ -345,6 +347,20 @@ fn build_cli() -> clap::Command {
 				),
 		)
 		.subcommand(
+			clap::command!("compare-file-hashes")
+				.about("Compare two files with hashes")
+				.arg(
+					Arg::new("FILE1")
+						.help("First file to compare")
+						.required(true),
+				)
+				.arg(
+					Arg::new("FILE2")
+						.help("Second file to compare")
+						.required(true),
+				),
+		)
+		.subcommand(
 			clap::command!("generate-auto-completions")
 				.about("Generate shell completions")
 				.arg(
@@ -394,23 +410,36 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			};
 			hash_string(a, st, option);
 		}
+		Some(("compare-file-hashes", s)) => {
+			let file1 = s.get_one::<String>("FILE1");
+			let file2 = s.get_one::<String>("FILE2");
+			let file1 = file1.unwrap_or_else(|| {
+				println!("No file provided.");
+				std::process::exit(1);
+			});
+			let file2 = file2.unwrap_or_else(|| {
+				println!("No file provided.");
+				std::process::exit(1);
+			});
+			match compare_file_hashes(file1, file2) {
+				Ok(_) => println!("File operation complete."),
+				Err(e) => {
+					eprintln!("Error comparing files: {}", e);
+					std::process::exit(1);
+				}
+			}
+		}
 		Some(("compare-hash", s)) => {
 			let st1 = s.get_one::<String>("HASH1");
-			let st1 = match st1 {
-				Some(s) => s,
-				None => {
-					println!("No string provided.");
-					std::process::exit(1);
-				}
-			};
 			let st2 = s.get_one::<String>("HASH2");
-			let st2 = match st2 {
-				Some(s) => s,
-				None => {
-					println!("No string provided.");
-					std::process::exit(1);
-				}
-			};
+			let st1 = st1.unwrap_or_else(|| {
+				println!("No hash provided.");
+				std::process::exit(1);
+			});
+			let st2 = st2.unwrap_or_else(|| {
+				println!("No hash provided.");
+				std::process::exit(1);
+			});
 			if compare_hashes(st1, st2) {
 				println!("The hashes are equal.");
 				std::process::exit(0);
