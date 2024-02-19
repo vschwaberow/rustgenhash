@@ -428,21 +428,15 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 		}
 		Some(("compare-hash", s)) => {
 			let st1 = s.get_one::<String>("HASH1");
-			let st1 = match st1 {
-				Some(s) => s,
-				None => {
-					println!("No string provided.");
-					std::process::exit(1);
-				}
-			};
 			let st2 = s.get_one::<String>("HASH2");
-			let st2 = match st2 {
-				Some(s) => s,
-				None => {
-					println!("No string provided.");
-					std::process::exit(1);
-				}
-			};
+			let st1 = st1.unwrap_or_else(|| {
+				println!("No hash provided.");
+				std::process::exit(1);
+			});
+			let st2 = st2.unwrap_or_else(|| {
+				println!("No hash provided.");
+				std::process::exit(1);
+			});
 			if compare_hashes(st1, st2) {
 				println!("The hashes are equal.");
 				std::process::exit(0);
