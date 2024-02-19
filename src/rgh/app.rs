@@ -422,8 +422,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				std::process::exit(1);
 			});
 			match compare_file_hashes(file1, file2) {
-				Ok(_) => println!("The hashes are equal."),
-				Err(_) => println!("The hashes are not equal."),
+				Ok(_) => println!("File operation complete."),
+				Err(e) => {
+					eprintln!("Error comparing files: {}", e);
+					std::process::exit(1);
+				}
 			}
 		}
 		Some(("compare-hash", s)) => {
