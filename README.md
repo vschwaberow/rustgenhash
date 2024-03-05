@@ -71,6 +71,12 @@ Scheme for comparing a hash:
 rgh compare-string <hash1> <hash2>
 ```
 
+Scheme for comparing hash files with each other:
+
+```bash
+rgh compare-file <file1> <file2>
+```
+
 You can list all supported algorithms over the help function.
 ## Contribution 
 
