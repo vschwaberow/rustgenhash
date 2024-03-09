@@ -194,7 +194,7 @@ fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
 	let alg_s = format!("{:?}", alg).to_uppercase();
 	let result = RHash::new(&alg_s).process_file(input, option);
 	match result {
-		Ok(r) => println!("{:?}", r),
+		Ok(_) => {},
 		Err(e) => {
 			eprintln!("Error: {}", e);
 			std::process::exit(1);
