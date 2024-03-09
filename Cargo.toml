@@ -35,6 +35,7 @@ base64 = "0.13.0"
 bcrypt-pbkdf = "0.9.0"
 belt-hash = "0.1.0"
 blake2 = "0.10.4"
+blake3 = { version = "1.5.0", features = ["traits-preview"] }
 clap = { version = "4.0.10", features = ["derive", "cargo"] }
 clap_complete = "4.0.2"
 digest = { version = "0.10.5", features = ["std"] }
