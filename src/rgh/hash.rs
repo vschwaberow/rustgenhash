@@ -154,6 +154,7 @@ impl RHash {
 				"BELTHASH" => Box::new(belt_hash::BeltHash::new()),
 				"BLAKE2B" => Box::new(blake2::Blake2b512::new()),
 				"BLAKE2S" => Box::new(blake2::Blake2s256::new()),
+				"BLAKE3" => Box::new(blake3::Hasher::new()),
 				"FSB160" => Box::new(fsb::Fsb160::new()),
 				"FSB224" => Box::new(fsb::Fsb224::new()),
 				"FSB256" => Box::new(fsb::Fsb256::new()),
@@ -301,4 +302,3 @@ impl RHash {
 		}
 	}
 }
-

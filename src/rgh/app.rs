@@ -39,6 +39,7 @@ pub enum Algorithm {
 	Belthash,
 	Blake2b,
 	Blake2s,
+	Blake3,
 	Fsb160,
 	Fsb224,
 	Fsb256,
