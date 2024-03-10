@@ -1187,7 +1187,7 @@ checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
 
 [[package]]
 name = "rustgenhash"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "argon2",
  "ascon-hash",
