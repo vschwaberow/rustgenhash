@@ -140,6 +140,10 @@ impl HashAnalyzer {
 		self.check_hash(128)
 	}
 
+	pub fn is_blake3(&self) -> bool {
+		self.check_hash(64)
+	}
+
 	pub fn is_blake2b(&self) -> bool {
 		self.check_hash(128)
 	}
@@ -344,6 +348,9 @@ impl HashAnalyzer {
 		if self.is_belthash() {
 			possible_hashes.push(String::from("BeltHash"));
 		}
+		if self.is_blake3() {
+			possible_hashes.push(String::from("Blake3"));
+		}
 		if self.is_blake2b() {
 			possible_hashes.push(String::from("Blake2b"));
 		}
@@ -461,14 +468,18 @@ pub fn compare_hashes(hash1: &str, hash2: &str) -> bool {
 	hash1.to_lowercase() == hash2.to_lowercase()
 }
 
-pub fn compare_file_hashes(file_src: &str, file_dst: &str) -> Result<bool, std::io::Error> {
+pub fn compare_file_hashes(
+	file_src: &str,
+	file_dst: &str,
+) -> Result<bool, std::io::Error> {
 	let hash_src = std::fs::read_to_string(file_src)?;
 	let hash_dst = std::fs::read_to_string(file_dst)?;
 
 	let hash_src_lines: Vec<&str> = hash_src.lines().collect();
 	let hash_dst_lines: Vec<&str> = hash_dst.lines().collect();
 	let mut line_number = 1;
-	for (src, dst) in hash_src_lines.iter().zip(hash_dst_lines.iter()) {
+	for (src, dst) in hash_src_lines.iter().zip(hash_dst_lines.iter())
+	{
 		if src == dst {
 			println!("Line {}: {} == {}", line_number, src, dst);
 		}
