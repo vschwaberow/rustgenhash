@@ -31,9 +31,7 @@ pub struct PHash {}
 
 impl PHash {
 	pub fn hash_ascon(password: &str) {
-		let mut hasher = AsconHash::new();
-		Digest::update(&mut hasher, password.as_bytes());
-		let result = hasher.finalize();
+		let result = AsconHash::digest(password.as_bytes());
 		println!("{} {}", hex::encode(result), password);
 	}
 
