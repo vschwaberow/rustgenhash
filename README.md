@@ -18,6 +18,7 @@ Rustgenhash has a command line interface which allows you to set the utility int
 modes are
 
 - analyze
+- benchmark
 - compare-hash
 - random
 - stdio
@@ -75,6 +76,12 @@ Scheme for comparing hash files with each other:
 
 ```bash
 rgh compare-file <file1> <file2>
+```
+
+Scheme for benchmarking a hash algorithm:
+
+```bash
+rgh benchmark -a <algorithm> -i <iterations>
 ```
 
 You can list all supported algorithms over the help function.
