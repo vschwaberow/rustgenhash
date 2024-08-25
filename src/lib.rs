@@ -7,6 +7,7 @@
 pub mod rgh {
 	pub mod analyze;
 	pub mod app;
+	pub mod benchmark;
 	pub mod hash;
 	pub mod hhhash;
 	pub mod random;
