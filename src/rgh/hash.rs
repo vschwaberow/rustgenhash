@@ -27,27 +27,52 @@ use std::{collections::HashMap, io::Read};
 use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
 use skein::{consts::U32, Skein1024, Skein256, Skein512};
 
-pub struct PHash {}
+macro_rules! impl_hash_function {
+	($name:ident, $hasher:expr) => {
+		pub fn $name(password: &str) {
+			let result = $hasher(password.as_bytes());
+			println!("{} {}", hex::encode(result), password);
+		}
+	};
+}
 
-impl PHash {
-	pub fn hash_ascon(password: &str) {
-		let result = AsconHash::digest(password.as_bytes());
-		println!("{} {}", hex::encode(result), password);
-	}
-
-	pub fn hash_argon2(password: &str) {
-		let salt = SaltString::generate(&mut OsRng);
-		let argon2 = Argon2::default();
-		let password_hash =
-			match argon2.hash_password(password.as_bytes(), &salt) {
+macro_rules! impl_password_hash {
+	($name:ident, $hasher:expr, $salt_gen:expr) => {
+		pub fn $name(password: &str) {
+			let salt = $salt_gen;
+			let password_hash = match $hasher
+				.hash_password(password.as_bytes(), &salt)
+			{
 				Ok(hash) => hash.to_string(),
 				Err(e) => {
 					println!("Error hashing password: {}", e);
 					return;
 				}
 			};
-		println!("{} {}", password_hash, password);
-	}
+			println!("{} {}", password_hash, password);
+		}
+	};
+}
+
+pub struct PHash {}
+
+impl PHash {
+	impl_hash_function!(hash_ascon, AsconHash::digest);
+	impl_password_hash!(
+		hash_argon2,
+		Argon2::default(),
+		SaltString::generate(&mut OsRng)
+	);
+	impl_password_hash!(
+		hash_balloon,
+		Balloon::<sha2::Sha256>::default(),
+		BalSaltString::generate(&mut BalOsRng)
+	);
+	impl_password_hash!(
+		hash_scrypt,
+		Scrypt,
+		ScSaltString::generate(&mut OsRng)
+	);
 
 	pub fn hash_bcrypt(password: &str) {
 		let salt = SaltString::generate(&mut OsRng);
@@ -81,20 +106,6 @@ impl PHash {
 		println!("{} {}", password_hash, password);
 	}
 
-	pub fn hash_balloon(password: &str) {
-		let salt = BalSaltString::generate(&mut BalOsRng);
-		let balloon = Balloon::<sha2::Sha256>::default();
-		let password_hash =
-			match balloon.hash_password(password.as_bytes(), &salt) {
-				Ok(hash) => hash.to_string(),
-				Err(e) => {
-					println!("Error hashing password: {}", e);
-					return;
-				}
-			};
-		println!("{} {}", password_hash, password);
-	}
-
 	pub fn hash_pbkdf2(password: &str, pb_scheme: &str) {
 		let pb_scheme_hmap: HashMap<&str, &str> = [
 			("pbkdf2sha256", "pbkdf2-sha256"),
@@ -125,19 +136,17 @@ impl PHash {
 		});
 		println!("{} {}", password_hash, password);
 	}
+}
 
-	pub fn hash_scrypt(password: &str) {
-		let salt = ScSaltString::generate(&mut OsRng);
-		let password_hash =
-			match Scrypt.hash_password(password.as_bytes(), &salt) {
-				Ok(hash) => hash.to_string(),
-				Err(e) => {
-					println!("Error hashing password: {}", e);
-					return;
-				}
-			};
-		println!("{} {}", password_hash, password);
-	}
+macro_rules! create_hasher {
+    ($alg:expr, $($pattern:expr => $hasher:expr),+ $(,)?) => {
+        match $alg {
+            $(
+                $pattern => Box::new($hasher),
+            )+
+            _ => panic!("Unknown algorithm"),
+        }
+    };
 }
 
 #[derive(Clone)]
@@ -148,56 +157,51 @@ pub struct RHash {
 impl RHash {
 	pub fn new(alg: &str) -> Self {
 		Self {
-			digest: match alg {
-				"BELTHASH" => Box::new(belt_hash::BeltHash::new()),
-				"BLAKE2B" => Box::new(blake2::Blake2b512::new()),
-				"BLAKE2S" => Box::new(blake2::Blake2s256::new()),
-				"BLAKE3" => Box::new(blake3::Hasher::new()),
-				"FSB160" => Box::new(fsb::Fsb160::new()),
-				"FSB224" => Box::new(fsb::Fsb224::new()),
-				"FSB256" => Box::new(fsb::Fsb256::new()),
-				"FSB384" => Box::new(fsb::Fsb384::new()),
-				"FSB512" => Box::new(fsb::Fsb512::new()),
-				"GOST94" => Box::new(gost94::Gost94Test::new()),
-				"GOST94UA" => Box::new(gost94::Gost94UA::new()),
-				"GROESTL" => Box::new(groestl::Groestl256::new()),
-				"JH224" => Box::new(jh::Jh224::new()),
-				"JH256" => Box::new(jh::Jh256::new()),
-				"JH384" => Box::new(jh::Jh384::new()),
-				"JH512" => Box::new(jh::Jh512::new()),
-				"MD2" => Box::new(md2::Md2::new()),
-				"MD5" => Box::new(md5::Md5::new()),
-				"MD4" => Box::new(md4::Md4::new()),
-				"RIPEMD160" => Box::new(ripemd::Ripemd160::new()),
-				"RIPEMD320" => Box::new(ripemd::Ripemd320::new()),
-				"SHA1" => Box::new(sha1::Sha1::new()),
-				"SHA224" => Box::new(sha2::Sha224::new()),
-				"SHA256" => Box::new(sha2::Sha256::new()),
-				"SHA384" => Box::new(sha2::Sha384::new()),
-				"SHA512" => Box::new(sha2::Sha512::new()),
-				"SHA3_224" => Box::new(sha3::Sha3_224::new()),
-				"SHA3_256" => Box::new(sha3::Sha3_256::new()),
-				"SHA3_384" => Box::new(sha3::Sha3_384::new()),
-				"SHA3_512" => Box::new(sha3::Sha3_512::new()),
-				"SHABAL192" => Box::new(shabal::Shabal192::new()),
-				"SHABAL224" => Box::new(shabal::Shabal224::new()),
-				"SHABAL256" => Box::new(shabal::Shabal256::new()),
-				"SHABAL384" => Box::new(shabal::Shabal384::new()),
-				"SHABAL512" => Box::new(shabal::Shabal512::new()),
-				"SKEIN256" => Box::new(Skein256::<U32>::new()),
-				"SKEIN512" => Box::new(Skein512::<U32>::new()),
-				"SKEIN1024" => Box::new(Skein1024::<U32>::new()),
-				"SM3" => Box::new(sm3::Sm3::new()),
-				"STREEBOG256" => {
-					Box::new(streebog::Streebog256::new())
-				}
-				"STREEBOG512" => {
-					Box::new(streebog::Streebog512::new())
-				}
-				"TIGER" => Box::new(tiger::Tiger::new()),
-				"WHIRLPOOL" => Box::new(whirlpool::Whirlpool::new()),
-				_ => panic!("Unknown algorithm"),
-			},
+			digest: create_hasher!(alg,
+				"BELTHASH" => belt_hash::BeltHash::new(),
+				"BLAKE2B" => blake2::Blake2b512::new(),
+				"BLAKE2S" => blake2::Blake2s256::new(),
+				"BLAKE3" => blake3::Hasher::new(),
+				"FSB160" => fsb::Fsb160::new(),
+				"FSB224" => fsb::Fsb224::new(),
+				"FSB256" => fsb::Fsb256::new(),
+				"FSB384" => fsb::Fsb384::new(),
+				"FSB512" => fsb::Fsb512::new(),
+				"GOST94" => gost94::Gost94Test::new(),
+				"GOST94UA" => gost94::Gost94UA::new(),
+				"GROESTL" => groestl::Groestl256::new(),
+				"JH224" => jh::Jh224::new(),
+				"JH256" => jh::Jh256::new(),
+				"JH384" => jh::Jh384::new(),
+				"JH512" => jh::Jh512::new(),
+				"MD2" => md2::Md2::new(),
+				"MD5" => md5::Md5::new(),
+				"MD4" => md4::Md4::new(),
+				"RIPEMD160" => ripemd::Ripemd160::new(),
+				"RIPEMD320" => ripemd::Ripemd320::new(),
+				"SHA1" => sha1::Sha1::new(),
+				"SHA224" => sha2::Sha224::new(),
+				"SHA256" => sha2::Sha256::new(),
+				"SHA384" => sha2::Sha384::new(),
+				"SHA512" => sha2::Sha512::new(),
+				"SHA3_224" => sha3::Sha3_224::new(),
+				"SHA3_256" => sha3::Sha3_256::new(),
+				"SHA3_384" => sha3::Sha3_384::new(),
+				"SHA3_512" => sha3::Sha3_512::new(),
+				"SHABAL192" => shabal::Shabal192::new(),
+				"SHABAL224" => shabal::Shabal224::new(),
+				"SHABAL256" => shabal::Shabal256::new(),
+				"SHABAL384" => shabal::Shabal384::new(),
+				"SHABAL512" => shabal::Shabal512::new(),
+				"SKEIN256" => Skein256::<U32>::new(),
+				"SKEIN512" => Skein512::<U32>::new(),
+				"SKEIN1024" => Skein1024::<U32>::new(),
+				"SM3" => sm3::Sm3::new(),
+				"STREEBOG256" => streebog::Streebog256::new(),
+				"STREEBOG512" => streebog::Streebog512::new(),
+				"TIGER" => tiger::Tiger::new(),
+				"WHIRLPOOL" => whirlpool::Whirlpool::new(),
+			),
 		}
 	}
 
@@ -214,29 +218,27 @@ impl RHash {
 		let md = std::fs::metadata(file)?;
 		if md.is_file() {
 			let hashed_file = self.read_buffered(file)?;
-			let string = match self.format_hashed_file(
-				&hashed_file,
-				file,
-				output,
-			) {
-				Ok(result) => result,
-				Err(error) => panic!("Error: {}", error),
-			};
+			let string =
+				self.format_hashed_file(&hashed_file, file, output)?;
 			self.print_hashed_file(&string);
 		} else if md.is_dir() {
-			let mut files = std::fs::read_dir(file)?;
-			while let Some(Ok(entry)) = files.next() {
+			for entry in std::fs::read_dir(file)? {
+				let entry = entry?;
 				if entry.path().is_file() {
-					let path = self.match_path(entry.path().to_str());
-					let hashed_file = self.read_buffered(&path)?;
-					let string = match self.format_hashed_file(
+					let path_buf = entry.path();
+					let path =
+						path_buf.to_str().ok_or_else(|| {
+							std::io::Error::new(
+								std::io::ErrorKind::InvalidData,
+								"Invalid path",
+							)
+						})?;
+					let hashed_file = self.read_buffered(path)?;
+					let string = self.format_hashed_file(
 						&hashed_file,
-						&path,
+						path,
 						output.clone(),
-					) {
-						Ok(result) => result,
-						Err(error) => panic!("Error: {}", error),
-					};
+					)?;
 					self.print_hashed_file(&string);
 				}
 			}
@@ -254,32 +256,29 @@ impl RHash {
 		path: &str,
 		output: OutputOptions,
 	) -> Result<String, Box<dyn std::error::Error>> {
-		match output {
-			OutputOptions::Base64 => Ok(format!(
-				"{} {}",
-				base64::encode(hashed_file),
-				path
-			)),
-			OutputOptions::Hex => {
-				Ok(format!("{} {}", hex::encode(hashed_file), path))
+		Ok(match output {
+			OutputOptions::Base64 => {
+				format!("{} {}", base64::encode(hashed_file), path)
 			}
-			OutputOptions::HexBase64 => Ok(format!(
+			OutputOptions::Hex => {
+				format!("{} {}", hex::encode(hashed_file), path)
+			}
+			OutputOptions::HexBase64 => format!(
 				"{} {} {}",
 				hex::encode(hashed_file),
 				base64::encode(hashed_file),
 				path
-			)),
-		}
+			),
+		})
 	}
 
 	pub fn read_buffered(
 		&mut self,
 		file: &str,
 	) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-		let f = std::fs::File::open(file)?;
-		let mut f = std::io::BufReader::new(f);
-		let buffer_size = f.capacity();
-		let mut buffer = vec![0; buffer_size];
+		let mut f =
+			std::io::BufReader::new(std::fs::File::open(file)?);
+		let mut buffer = vec![0; f.capacity()];
 		loop {
 			let count = f.read(&mut buffer)?;
 			if count == 0 {
@@ -288,15 +287,5 @@ impl RHash {
 			self.digest.update(&buffer[..count]);
 		}
 		Ok(self.digest.finalize_reset().to_vec())
-	}
-
-	fn match_path(&mut self, path: Option<&str>) -> String {
-		match path {
-			Some(t) => t.to_string(),
-			None => {
-				eprintln!("Error: Invalid path");
-				std::process::exit(1);
-			}
-		}
 	}
 }
