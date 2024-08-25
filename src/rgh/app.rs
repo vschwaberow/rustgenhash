@@ -6,6 +6,7 @@
 
 use crate::rgh::analyze::compare_hashes;
 use crate::rgh::analyze::HashAnalyzer;
+use crate::rgh::benchmark::run_benchmarks;
 use crate::rgh::hash::{PHash, RHash};
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::random::{RandomNumberGenerator, RngType};
@@ -195,7 +196,7 @@ fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
 	let alg_s = format!("{:?}", alg).to_uppercase();
 	let result = RHash::new(&alg_s).process_file(input, option);
 	match result {
-		Ok(_) => {},
+		Ok(_) => {}
 		Err(e) => {
 			eprintln!("Error: {}", e);
 			std::process::exit(1);
@@ -380,6 +381,26 @@ fn build_cli() -> clap::Command {
 						.required(true),
 				),
 		)
+		        .subcommand(
+            clap::command!("benchmark")
+                .about("Run benchmarks for hash functions")
+                .arg(
+                    Arg::new("algorithms")
+                        .short('a')
+                        .long("algorithms")
+                        .value_parser(clap::value_parser!(Algorithm))
+         //               .multiple_values(true)
+                        .help("Specify algorithms to benchmark (default: all)")
+                )
+                .arg(
+                    Arg::new("iterations")
+                        .short('i')
+                        .long("iterations")
+                        .value_parser(clap::value_parser!(u32))
+                        .default_value("100")
+                        .help("Number of iterations for each benchmark")
+                )
+        )
 }
 
 pub fn run() -> Result<(), Box<dyn Error>> {
@@ -562,6 +583,23 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			let url = url.clone();
 			let hash = generate_hhhash(url)?;
 			println!("{}", hash);
+		}
+		Some(("benchmark", sub_m)) => {
+			let algorithms: Vec<Algorithm> = sub_m
+				.get_many("algorithms")
+				.map(|v| v.cloned().collect())
+				.unwrap_or_else(|| {
+					vec![
+						Algorithm::Md5,
+						Algorithm::Sha256,
+						Algorithm::Blake2b,
+						Algorithm::Argon2,
+						// Add more default algorithms as needed
+					]
+				});
+			let iterations =
+				*sub_m.get_one::<u32>("iterations").unwrap();
+			run_benchmarks(&algorithms, iterations);
 		}
 		_ => {}
 	}
