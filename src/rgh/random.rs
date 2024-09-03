@@ -17,7 +17,7 @@ pub trait Rng {
 		buffer: &mut [u8],
 	) -> Result<(), Box<dyn Error>>;
 }
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Copy, Clone)]
 pub enum RngType {
 	GetRandom,
 	ThreadRng,
@@ -29,6 +29,33 @@ pub enum RngType {
 	Pcg32,
 	XorShiftRng,
 	Uuidv4,
+}
+
+impl std::fmt::Display for RngType {
+	fn fmt(
+		&self,
+		f: &mut std::fmt::Formatter<'_>,
+	) -> std::fmt::Result {
+		write!(f, "{:?}", self)
+	}
+}
+
+impl RngType {
+	pub fn iter() -> impl Iterator<Item = RngType> {
+		vec![
+			RngType::GetRandom,
+			RngType::ThreadRng,
+			RngType::OsRng,
+			RngType::ChaChaRng,
+			RngType::Hc128Rng,
+			RngType::IsaacRng,
+			RngType::JitterRng,
+			RngType::Pcg32,
+			RngType::XorShiftRng,
+			RngType::Uuidv4,
+		]
+		.into_iter()
+	}
 }
 
 pub struct RandomNumberGenerator {
