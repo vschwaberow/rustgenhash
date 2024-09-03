@@ -25,6 +25,7 @@ modes are
 - string
 - file
 - header
+- interactive
 
 After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
 or file to be hashed. The stdio mode allows you to pipe to the `rgh` command. The tool will hash the passed
@@ -85,6 +86,13 @@ rgh benchmark -a <algorithm> -i <iterations>
 ```
 
 You can list all supported algorithms over the help function.
+
+Lastly, the tool offers the interactive mode:
+
+```bash
+rgh interactive
+```
+
 ## Contribution 
 
 If you want to contribute to this project, please feel free to do so. I am happy to accept pull requests. Any help is appreciated. If you have any questions, please feel free to contact me.
