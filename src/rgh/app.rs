@@ -12,8 +12,11 @@ use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg};
 use clap_complete::{generate, Generator, Shell};
+use colored::*;
+use dialoguer::{Input, MultiSelect, Select};
 use std::error::Error;
 use std::io::BufRead;
+use strum::{EnumIter, IntoEnumIterator};
 
 use super::analyze::compare_file_hashes;
 
@@ -24,14 +27,23 @@ Written by {author-with-newline}{about-with-newline}
 {all-args}{after-help}
 ";
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Copy, EnumIter, Clone)]
 pub enum OutputOptions {
 	Hex,
 	Base64,
 	HexBase64,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+impl std::fmt::Display for OutputOptions {
+	fn fmt(
+		&self,
+		f: &mut std::fmt::Formatter<'_>,
+	) -> std::fmt::Result {
+		write!(f, "{:?}", self)
+	}
+}
+
+#[derive(clap::ValueEnum, Debug, Copy, Clone, EnumIter)]
 pub enum Algorithm {
 	Ascon,
 	Argon2,
@@ -114,6 +126,15 @@ const DEFAULT_PROPERTIES: AlgorithmProperties =
 
 struct AlgorithmProperties {
 	file_support: bool,
+}
+
+impl std::fmt::Display for Algorithm {
+	fn fmt(
+		&self,
+		f: &mut std::fmt::Formatter<'_>,
+	) -> std::fmt::Result {
+		write!(f, "{:?}", self)
+	}
 }
 
 impl Algorithm {
@@ -204,6 +225,211 @@ fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
 	}
 }
 
+fn interactive_hash_string() -> Result<(), Box<dyn Error>> {
+	let input = Input::<String>::new()
+		.with_prompt("Enter the string to hash")
+		.interact_text()?;
+
+	let algorithm = select_algorithm()?;
+	let output_option = select_output_option()?;
+
+	hash_string(algorithm, &input, output_option);
+	Ok(())
+}
+
+fn interactive_hash_file() -> Result<(), Box<dyn Error>> {
+	let file_path = Input::<String>::new()
+		.with_prompt("Enter the file path")
+		.interact_text()?;
+
+	let algorithm = select_algorithm()?;
+	let output_option = select_output_option()?;
+
+	hash_file(algorithm, &file_path, output_option);
+	Ok(())
+}
+
+fn interactive_analyze_hash() -> Result<(), Box<dyn Error>> {
+	let hash = Input::<String>::new()
+		.with_prompt("Enter the hash to analyze")
+		.interact_text()?;
+
+	let analyzer = HashAnalyzer::from_string(&hash);
+	let possible_hashes = analyzer.detect_possible_hashes();
+
+	if possible_hashes.is_empty() {
+		println!("{}", "No possible hash class found.".yellow());
+	} else {
+		println!("{}", "Possible class of hash:".green());
+		for hash_type in possible_hashes {
+			println!("  {}", hash_type);
+		}
+	}
+
+	Ok(())
+}
+
+fn interactive_compare_hashes() -> Result<(), Box<dyn Error>> {
+	let hash1 = Input::<String>::new()
+		.with_prompt("Enter the first hash")
+		.interact_text()?;
+
+	let hash2 = Input::<String>::new()
+		.with_prompt("Enter the second hash")
+		.interact_text()?;
+
+	if compare_hashes(&hash1, &hash2) {
+		println!("{}", "The hashes are equal.".green());
+	} else {
+		println!("{}", "The hashes are not equal.".red());
+	}
+
+	Ok(())
+}
+
+fn interactive_compare_file_hashes() -> Result<(), Box<dyn Error>> {
+	let file1 = Input::<String>::new()
+		.with_prompt("Enter the path to the first file")
+		.interact_text()?;
+
+	let file2 = Input::<String>::new()
+		.with_prompt("Enter the path to the second file")
+		.interact_text()?;
+
+	match compare_file_hashes(&file1, &file2) {
+		Ok(_) => println!("{}", "File operation complete.".green()),
+		Err(e) => println!(
+			"{}",
+			format!("Error comparing files: {}", e).red()
+		),
+	}
+
+	Ok(())
+}
+
+fn select_rng_type() -> Result<RngType, Box<dyn Error>> {
+	let rng_types: Vec<_> = RngType::iter().collect();
+	let selection = Select::new()
+		.with_prompt("Select a random number generator type")
+		.items(&rng_types)
+		.interact()?;
+
+	Ok(rng_types[selection])
+}
+
+fn interactive_generate_random() -> Result<(), Box<dyn Error>> {
+	let rng_type = select_rng_type()?;
+	let length = Input::<u64>::new()
+		.with_prompt("Enter the length of the random string")
+		.default(32)
+		.interact()?;
+
+	let output_option = select_output_option()?;
+
+	let out = RandomNumberGenerator::new(rng_type)
+		.generate(length, output_option);
+	println!("{}", out);
+
+	Ok(())
+}
+
+fn interactive_generate_hhhash() -> Result<(), Box<dyn Error>> {
+	let url = Input::<String>::new()
+		.with_prompt("Enter the URL to fetch")
+		.interact_text()?;
+
+	let hash = generate_hhhash(url)?;
+	println!("{}", hash);
+
+	Ok(())
+}
+
+fn interactive_run_benchmarks() -> Result<(), Box<dyn Error>> {
+	let algorithms = MultiSelect::new()
+		.with_prompt("Select algorithms to benchmark")
+		.items(&Algorithm::iter().collect::<Vec<_>>())
+		.interact()?;
+
+	let iterations = Input::<u32>::new()
+		.with_prompt("Enter the number of iterations")
+		.default(100)
+		.interact()?;
+
+	let selected_algorithms: Vec<Algorithm> = algorithms
+		.into_iter()
+		.map(|i| Algorithm::iter().nth(i).unwrap())
+		.collect();
+
+	run_benchmarks(&selected_algorithms, iterations);
+
+	Ok(())
+}
+
+fn select_algorithm() -> Result<Algorithm, Box<dyn Error>> {
+	let algorithms: Vec<_> = Algorithm::iter().collect();
+	let selection = Select::new()
+		.with_prompt("Select an algorithm")
+		.items(&algorithms)
+		.interact()?;
+
+	Ok(algorithms[selection])
+}
+
+fn select_output_option() -> Result<OutputOptions, Box<dyn Error>> {
+	let options = vec![
+		OutputOptions::Hex,
+		OutputOptions::Base64,
+		OutputOptions::HexBase64,
+	];
+	let selection = Select::new()
+		.with_prompt("Select output format")
+		.items(&options)
+		.interact()?;
+
+	Ok(options[selection])
+}
+
+fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
+	println!("{}", "Welcome to the Interactive Mode!".green().bold());
+
+	let actions = vec![
+		"Hash a string",
+		"Hash a file",
+		"Analyze a hash",
+		"Compare hashes",
+		"Compare file hashes",
+		"Generate random string",
+		"Generate HHHash of HTTP header",
+		"Run benchmarks",
+		"Exit",
+	];
+
+	loop {
+		let selection = Select::new()
+			.with_prompt("Choose an action")
+			.items(&actions)
+			.interact()?;
+
+		match selection {
+			0 => interactive_hash_string()?,
+			1 => interactive_hash_file()?,
+			2 => interactive_analyze_hash()?,
+			3 => interactive_compare_hashes()?,
+			4 => interactive_compare_file_hashes()?,
+			5 => interactive_generate_random()?,
+			6 => interactive_generate_hhhash()?,
+			7 => interactive_run_benchmarks()?,
+			8 => {
+				println!("{}", "Goodbye!".cyan());
+				break;
+			}
+			_ => unreachable!(),
+		}
+	}
+
+	Ok(())
+}
+
 fn build_cli() -> clap::Command {
 	clap::Command::new(clap::crate_name!())
 		.color(clap::ColorChoice::Never)
@@ -224,6 +450,9 @@ fn build_cli() -> clap::Command {
 				)
 				.arg_required_else_help(true)
 				.display_order(3)
+				.arg(
+					Arg::new("interactive")
+				)
 				.arg(
 					Arg::new("algorithm")
 						.short('a')
@@ -372,6 +601,9 @@ fn build_cli() -> clap::Command {
 						.help("Shell to generate completions for"),
 				),
 		)
+		.subcommand(clap::command!("interactive")
+			.about("Enter interactive mode")
+		)
 		.subcommand(
 			clap::command!("header")
 				.about("Generate a HHHash of HTTP header")
@@ -408,6 +640,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 	let m = capp.get_matches();
 
 	match m.subcommand() {
+		Some(("interactive", _)) => {
+			run_interactive_mode()?;
+		}
 		Some(("string", s)) => {
 			let st = s.get_one::<String>("INPUTSTRING");
 			let st = match st {
