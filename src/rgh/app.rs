@@ -578,7 +578,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			println!();
 		}
 		Some(("header", s)) => {
-			// get url from
 			let url = s.get_one::<String>("URL").unwrap();
 			let url = url.clone();
 			let hash = generate_hhhash(url)?;
