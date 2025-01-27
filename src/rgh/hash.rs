@@ -6,26 +6,122 @@
 
 use crate::rgh::app::OutputOptions;
 use argon2::{
-	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-	Argon2,
+    password_hash::{
+        rand_core::OsRng, PasswordHasher, SaltString,
+    },
+    Argon2,
 };
 use ascon_hash::AsconHash;
 use balloon_hash::{
-	password_hash::{
-		rand_core::OsRng as BalOsRng, SaltString as BalSaltString,
-	},
-	Balloon,
+    password_hash::{
+        rand_core::OsRng as BalOsRng, SaltString as BalSaltString,
+    },
+    Balloon,
+    Algorithm as BalAlgorithm,
+    Params as BalParams,
 };
 use blake2::Digest;
 use digest::DynDigest;
 use pbkdf2::{
-	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
-	Pbkdf2,
+    password_hash::{Ident as PbIdent, SaltString as PbSaltString},
+    Pbkdf2,
 };
 use std::{collections::HashMap, io::Read};
-
-use scrypt::{password_hash::SaltString as ScSaltString, Scrypt};
+use scrypt::{password_hash::SaltString as ScSaltString, Scrypt, Params as ScryptParams};
 use skein::{consts::U32, Skein1024, Skein256, Skein512};
+
+#[derive(Clone, Debug)]
+pub struct Argon2Config {
+    pub mem_cost: u32,
+    pub time_cost: u32,
+    pub parallelism: u32,
+}
+
+impl Default for Argon2Config {
+    fn default() -> Self {
+        Argon2Config {
+            mem_cost: 65536,
+            time_cost: 3,
+            parallelism: 4,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ScryptConfig {
+    pub log_n: u8,
+    pub r: u32,
+    pub p: u32,
+}
+
+impl Default for ScryptConfig {
+    fn default() -> Self {
+        ScryptConfig {
+            log_n: 15,
+            r: 8,
+            p: 1,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BcryptConfig {
+    pub cost: u32,
+}
+
+impl Default for BcryptConfig {
+    fn default() -> Self {
+        BcryptConfig { cost: 12 }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Pbkdf2Config {
+    pub rounds: u32,
+    pub output_length: usize,
+}
+
+impl Default for Pbkdf2Config {
+    fn default() -> Self {
+        Pbkdf2Config {
+            rounds: 100_000,
+            output_length: 32,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BalloonConfig {
+    pub time_cost: u32,
+    pub memory_cost: u32,
+    pub parallelism: u32,
+}
+
+impl Default for BalloonConfig {
+    fn default() -> Self {
+        BalloonConfig {
+            time_cost: 3,
+            memory_cost: 65536,
+            parallelism: 4,
+        }
+    }
+}
+
+macro_rules! impl_password_hash_fn {
+    ($name:ident, $hasher:expr, $config:ty, $salt_gen:expr) => {
+        pub fn $name(password: &str, config: &$config) {
+            let salt = $salt_gen;
+            let password_hash = match $hasher(password, config, &salt) {
+                Ok(hash) => hash,
+                Err(e) => {
+                    println!("Error hashing password: {}", e);
+                    return;
+                }
+            };
+            println!("{} {}", password_hash, password);
+        }
+    };
+}
 
 macro_rules! impl_hash_function {
 	($name:ident, $hasher:expr) => {
@@ -36,106 +132,127 @@ macro_rules! impl_hash_function {
 	};
 }
 
-macro_rules! impl_password_hash {
-	($name:ident, $hasher:expr, $salt_gen:expr) => {
-		pub fn $name(password: &str) {
-			let salt = $salt_gen;
-			let password_hash = match $hasher
-				.hash_password(password.as_bytes(), &salt)
-			{
-				Ok(hash) => hash.to_string(),
-				Err(e) => {
-					println!("Error hashing password: {}", e);
-					return;
-				}
-			};
-			println!("{} {}", password_hash, password);
-		}
-	};
-}
-
 pub struct PHash {}
 
 impl PHash {
 	impl_hash_function!(hash_ascon, AsconHash::digest);
-	impl_password_hash!(
-		hash_argon2,
-		Argon2::default(),
-		SaltString::generate(&mut OsRng)
-	);
-	impl_password_hash!(
+
+    impl_password_hash_fn!(
+        hash_argon2,
+        Self::hash_argon2_impl,
+        Argon2Config,
+        SaltString::generate(&mut OsRng)
+    );
+
+    fn hash_argon2_impl(password: &str, config: &Argon2Config, salt: &SaltString) -> Result<String, argon2::password_hash::Error> {
+        let argon2 = Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            argon2::Params::new(
+                config.mem_cost,
+                config.time_cost,
+                config.parallelism,
+                None,
+            ).unwrap()
+        );
+        let password_hash = argon2.hash_password(password.as_bytes(), salt)?;
+        Ok(password_hash.to_string())
+    }
+
+	impl_password_hash_fn!(
 		hash_balloon,
-		Balloon::<sha2::Sha256>::default(),
+		Self::hash_balloon_impl,
+		BalloonConfig,
 		BalSaltString::generate(&mut BalOsRng)
 	);
-	impl_password_hash!(
+
+    fn hash_balloon_impl(password: &str, config: &BalloonConfig, salt: &BalSaltString) -> Result<String, balloon_hash::password_hash::Error> {
+        let balloon = Balloon::<sha2::Sha256>::new(
+            BalAlgorithm::Balloon,
+            BalParams::new(config.time_cost, config.memory_cost, config.parallelism).unwrap(),
+            None,
+        );
+        let password_hash = balloon.hash_password(password.as_bytes(), salt)?;
+        Ok(password_hash.to_string())
+    }
+
+
+	impl_password_hash_fn!(
 		hash_scrypt,
-		Scrypt,
+		Self::hash_scrypt_impl,
+		ScryptConfig,
 		ScSaltString::generate(&mut OsRng)
 	);
 
-	pub fn hash_bcrypt(password: &str) {
-		let salt = SaltString::generate(&mut OsRng);
-		let salt = salt.as_ref().as_bytes();
-		let mut output = [0; 64];
-		bcrypt_pbkdf::bcrypt_pbkdf(
-			password.as_bytes(),
-			salt,
-			36,
-			&mut output,
-		)
-		.unwrap_or_else(|e| {
-			eprintln!("Error: {}", e);
-			std::process::exit(1);
-		});
-		println!("{} {}", hex::encode(output), password);
-	}
+    fn hash_scrypt_impl(password: &str, config: &ScryptConfig, salt: &ScSaltString) -> Result<String, scrypt::password_hash::Error> {
+        let scrypt_params = ScryptParams::new(config.log_n, config.r, config.p).unwrap();
+        let scrypt = Scrypt;
+        let password_hash = scrypt.hash_password_customized(password.as_bytes(), None, None, scrypt_params, salt.as_salt())?;
+        Ok(password_hash.to_string())
+    }
 
-	pub fn hash_sha_crypt(password: &str) {
-		let params = sha_crypt::Sha512Params::new(10_000)
-			.unwrap_or_else(|e| {
-				println!("Error: {:?}", e);
-				std::process::exit(1);
-			});
-		let password_hash =
-			sha_crypt::sha512_simple(password, &params)
-				.unwrap_or_else(|e| {
-					println!("Error: {:?}", e);
-					std::process::exit(1);
-				});
-		println!("{} {}", password_hash, password);
-	}
+    pub fn hash_bcrypt(password: &str, config: &BcryptConfig) {
+        let salt = SaltString::generate(&mut OsRng);
+        let salt = salt.as_ref().as_bytes();
+        let mut output = [0; 64];
+        bcrypt_pbkdf::bcrypt_pbkdf(
+            password.as_bytes(),
+            salt,
+            config.cost,
+            &mut output,
+        )
+        .unwrap_or_else(|e| {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        });
+        println!("{} {}", hex::encode(output), password);
+    }
 
-	pub fn hash_pbkdf2(password: &str, pb_scheme: &str) {
-		let pb_scheme_hmap: HashMap<&str, &str> = [
-			("pbkdf2sha256", "pbkdf2-sha256"),
-			("pbkdf2sha512", "pbkdf2-sha512"),
-		]
-		.iter()
-		.cloned()
-		.collect();
+    pub fn hash_sha_crypt(password: &str) {
+        let params = sha_crypt::Sha512Params::new(10_000)
+            .unwrap_or_else(|e| {
+                println!("Error: {:?}", e);
+                std::process::exit(1);
+            });
+        let password_hash =
+            sha_crypt::sha512_simple(password, &params)
+                .unwrap_or_else(|e| {
+                    println!("Error: {:?}", e);
+                    std::process::exit(1);
+                });
+        println!("{} {}", password_hash, password);
+    }
 
-		let pb_s = pb_scheme_hmap.get(pb_scheme).unwrap_or(&"NONE");
-		let algorithm = PbIdent::new(pb_s).unwrap();
-		let salt = PbSaltString::generate(&mut OsRng);
-		let params = pbkdf2::Params {
-			output_length: 32,
-			rounds: 100_000,
-		};
-		let password_hash = pbkdf2::Pbkdf2::hash_password_customized(
-			&Pbkdf2,
-			password.as_bytes(),
-			Some(algorithm),
-			None,
-			params,
-			salt.as_salt(),
-		)
-		.unwrap_or_else(|_| {
-			eprintln!("Error: Could not hash PBKDF2 password");
-			std::process::exit(1);
-		});
-		println!("{} {}", password_hash, password);
-	}
+    pub fn hash_pbkdf2(password: &str, pb_scheme: &str, config: &Pbkdf2Config) {
+        let pb_scheme_hmap: HashMap<&str, &str> = [
+            ("pbkdf2sha256", "pbkdf2-sha256"),
+            ("pbkdf2sha512", "pbkdf2-sha512"),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
+        let pb_s = pb_scheme_hmap.get(pb_scheme).unwrap_or(&"NONE");
+        let algorithm = PbIdent::new(pb_s).unwrap();
+        let salt = PbSaltString::generate(&mut OsRng);
+        let params = pbkdf2::Params {
+            output_length: config.output_length,
+            rounds: config.rounds,
+        };
+        let password_hash = pbkdf2::Pbkdf2::hash_password_customized(
+            &Pbkdf2,
+            password.as_bytes(),
+            Some(algorithm),
+            None,
+            params,
+            salt.as_salt(),
+        )
+        .unwrap_or_else(|_| {
+            eprintln!("Error: Could not hash PBKDF2 password");
+            std::process::exit(1);
+        });
+        println!("{} {}", password_hash, password);
+    }
 }
 
 macro_rules! create_hasher {
