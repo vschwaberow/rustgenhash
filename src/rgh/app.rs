@@ -7,7 +7,10 @@
 use crate::rgh::analyze::compare_hashes;
 use crate::rgh::analyze::HashAnalyzer;
 use crate::rgh::benchmark::run_benchmarks;
-use crate::rgh::hash::{PHash, RHash, Argon2Config, ScryptConfig, BcryptConfig, Pbkdf2Config, BalloonConfig};
+use crate::rgh::hash::{
+	Argon2Config, BalloonConfig, BcryptConfig, PHash, Pbkdf2Config,
+	RHash, ScryptConfig,
+};
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg};
@@ -158,11 +161,11 @@ fn hash_string(
 	algor: Algorithm,
 	password: &str,
 	option: OutputOptions,
-    argon2_config: &Argon2Config,
-    scrypt_config: &ScryptConfig,
-    bcrypt_config: &BcryptConfig,
-    pbkdf2_config: &Pbkdf2Config,
-    balloon_config: &BalloonConfig,
+	argon2_config: &Argon2Config,
+	scrypt_config: &ScryptConfig,
+	bcrypt_config: &BcryptConfig,
+	pbkdf2_config: &Pbkdf2Config,
+	balloon_config: &BalloonConfig,
 ) {
 	use Algorithm as alg;
 	match algor {
@@ -172,9 +175,9 @@ fn hash_string(
 		alg::Argon2 => {
 			PHash::hash_argon2(password, argon2_config);
 		}
-        alg::Balloon => {
-            PHash::hash_balloon(password, balloon_config);
-        }
+		alg::Balloon => {
+			PHash::hash_balloon(password, balloon_config);
+		}
 		alg::Bcrypt => {
 			PHash::hash_bcrypt(password, bcrypt_config);
 		}
@@ -182,7 +185,7 @@ fn hash_string(
 			PHash::hash_pbkdf2(
 				password,
 				format!("{:?}", algor).to_lowercase().as_str(),
-                pbkdf2_config
+				pbkdf2_config,
 			);
 		}
 		alg::Scrypt => {
@@ -239,33 +242,41 @@ fn interactive_hash_string() -> Result<(), Box<dyn Error>> {
 	let algorithm = select_algorithm()?;
 	let output_option = select_output_option()?;
 
-    let mut argon2_config = Argon2Config::default();
-    let mut scrypt_config = ScryptConfig::default();
-    let mut bcrypt_config = BcryptConfig::default();
-    let mut pbkdf2_config = Pbkdf2Config::default();
-    let mut balloon_config = BalloonConfig::default();
+	let mut argon2_config = Argon2Config::default();
+	let mut scrypt_config = ScryptConfig::default();
+	let mut bcrypt_config = BcryptConfig::default();
+	let mut pbkdf2_config = Pbkdf2Config::default();
+	let mut balloon_config = BalloonConfig::default();
 
-    match algorithm {
-        Algorithm::Argon2 => {
-            argon2_config = get_argon2_config_interactive()?;
-        }
-        Algorithm::Scrypt => {
-            scrypt_config = get_scrypt_config_interactive()?;
-        }
-        Algorithm::Bcrypt => {
-            bcrypt_config = get_bcrypt_config_interactive()?;
-        }
-        Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
-            pbkdf2_config = get_pbkdf2_config_interactive()?;
-        }
-        Algorithm::Balloon => {
-            balloon_config = get_balloon_config_interactive()?;
-        }
-        _ => {}
-    }
+	match algorithm {
+		Algorithm::Argon2 => {
+			argon2_config = get_argon2_config_interactive()?;
+		}
+		Algorithm::Scrypt => {
+			scrypt_config = get_scrypt_config_interactive()?;
+		}
+		Algorithm::Bcrypt => {
+			bcrypt_config = get_bcrypt_config_interactive()?;
+		}
+		Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
+			pbkdf2_config = get_pbkdf2_config_interactive()?;
+		}
+		Algorithm::Balloon => {
+			balloon_config = get_balloon_config_interactive()?;
+		}
+		_ => {}
+	}
 
-
-	hash_string(algorithm, &input, output_option, &argon2_config, &scrypt_config, &bcrypt_config, &pbkdf2_config, &balloon_config);
+	hash_string(
+		algorithm,
+		&input,
+		output_option,
+		&argon2_config,
+		&scrypt_config,
+		&bcrypt_config,
+		&pbkdf2_config,
+		&balloon_config,
+	);
 	Ok(())
 }
 
@@ -421,130 +432,138 @@ fn select_output_option() -> Result<OutputOptions, Box<dyn Error>> {
 	Ok(options[selection])
 }
 
-fn get_argon2_config_interactive() -> Result<Argon2Config, Box<dyn Error>> {
-    let mem_cost: u32 = Input::new()
-        .with_prompt("Argon2 memory cost (KiB)")
-        .default(65536)
-        .interact_text()?;
-    let time_cost: u32 = Input::new()
-        .with_prompt("Argon2 time cost (iterations)")
-        .default(3)
-        .interact_text()?;
-    let parallelism: u32 = Input::new()
-        .with_prompt("Argon2 parallelism")
-        .default(4)
-        .interact_text()?;
+fn get_argon2_config_interactive(
+) -> Result<Argon2Config, Box<dyn Error>> {
+	let mem_cost: u32 = Input::new()
+		.with_prompt("Argon2 memory cost (KiB)")
+		.default(65536)
+		.interact_text()?;
+	let time_cost: u32 = Input::new()
+		.with_prompt("Argon2 time cost (iterations)")
+		.default(3)
+		.interact_text()?;
+	let parallelism: u32 = Input::new()
+		.with_prompt("Argon2 parallelism")
+		.default(4)
+		.interact_text()?;
 
-    Ok(Argon2Config {
-        mem_cost,
-        time_cost,
-        parallelism,
-    })
+	Ok(Argon2Config {
+		mem_cost,
+		time_cost,
+		parallelism,
+	})
 }
 
-fn get_scrypt_config_interactive() -> Result<ScryptConfig, Box<dyn Error>> {
-    let log_n: u8 = Input::new()
-        .with_prompt("Scrypt log_n (2^n)")
-        .default(15)
-        .interact_text()?;
-    let r: u32 = Input::new()
-        .with_prompt("Scrypt r")
-        .default(8)
-        .interact_text()?;
-    let p: u32 = Input::new()
-        .with_prompt("Scrypt p")
-        .default(1)
-        .interact_text()?;
+fn get_scrypt_config_interactive(
+) -> Result<ScryptConfig, Box<dyn Error>> {
+	let log_n: u8 = Input::new()
+		.with_prompt("Scrypt log_n (2^n)")
+		.default(15)
+		.interact_text()?;
+	let r: u32 = Input::new()
+		.with_prompt("Scrypt r")
+		.default(8)
+		.interact_text()?;
+	let p: u32 = Input::new()
+		.with_prompt("Scrypt p")
+		.default(1)
+		.interact_text()?;
 
-    Ok(ScryptConfig { log_n, r, p })
+	Ok(ScryptConfig { log_n, r, p })
 }
 
-fn get_bcrypt_config_interactive() -> Result<BcryptConfig, Box<dyn Error>> {
-    let cost: u32 = Input::new()
-        .with_prompt("Bcrypt cost")
-        .default(12)
-        .interact_text()?;
+fn get_bcrypt_config_interactive(
+) -> Result<BcryptConfig, Box<dyn Error>> {
+	let cost: u32 = Input::new()
+		.with_prompt("Bcrypt cost")
+		.default(12)
+		.interact_text()?;
 
-    Ok(BcryptConfig { cost })
+	Ok(BcryptConfig { cost })
 }
 
-fn get_pbkdf2_config_interactive() -> Result<Pbkdf2Config, Box<dyn Error>> {
-    let rounds: u32 = Input::new()
-        .with_prompt("PBKDF2 rounds")
-        .default(100_000)
-        .interact_text()?;
-    let output_length: usize = Input::new()
-        .with_prompt("PBKDF2 output length (bytes)")
-        .default(32)
-        .interact_text()?;
+fn get_pbkdf2_config_interactive(
+) -> Result<Pbkdf2Config, Box<dyn Error>> {
+	let rounds: u32 = Input::new()
+		.with_prompt("PBKDF2 rounds")
+		.default(100_000)
+		.interact_text()?;
+	let output_length: usize = Input::new()
+		.with_prompt("PBKDF2 output length (bytes)")
+		.default(32)
+		.interact_text()?;
 
-    Ok(Pbkdf2Config { rounds, output_length })
+	Ok(Pbkdf2Config {
+		rounds,
+		output_length,
+	})
 }
 
-fn get_balloon_config_interactive() -> Result<BalloonConfig, Box<dyn Error>> {
-    let time_cost: u32 = Input::new()
-        .with_prompt("Balloon time cost (iterations)")
-        .default(3)
-        .interact_text()?;
-    let memory_cost: u32 = Input::new()
-        .with_prompt("Balloon memory cost (KiB)")
-        .default(65536)
-        .interact_text()?;
-    let parallelism: u32 = Input::new()
-        .with_prompt("Balloon parallelism")
-        .default(4).interact_text()?;
+fn get_balloon_config_interactive(
+) -> Result<BalloonConfig, Box<dyn Error>> {
+	let time_cost: u32 = Input::new()
+		.with_prompt("Balloon time cost (iterations)")
+		.default(3)
+		.interact_text()?;
+	let memory_cost: u32 = Input::new()
+		.with_prompt("Balloon memory cost (KiB)")
+		.default(65536)
+		.interact_text()?;
+	let parallelism: u32 = Input::new()
+		.with_prompt("Balloon parallelism")
+		.default(4)
+		.interact_text()?;
 
-		Ok(BalloonConfig {
-			time_cost,
-			memory_cost,
-			parallelism,
-		})
-	}
-	
-	
-	fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
-		println!("{}", "Welcome to the Interactive Mode!".green().bold());
-	
-		let actions = vec![
-			"Hash a string",
-			"Hash a file",
-			"Analyze a hash",
-			"Compare hashes",
-			"Compare file hashes",
-			"Generate random string",
-			"Generate HHHash of HTTP header",
-			"Run benchmarks",
-			"Exit",
-		];
-	
-		loop {
-			let selection = Select::new()
-				.with_prompt("Choose an action")
-				.items(&actions)
-				.interact()?;
-	
-			match selection {
-				0 => interactive_hash_string()?,
-				1 => interactive_hash_file()?,
-				2 => interactive_analyze_hash()?,
-				3 => interactive_compare_hashes()?,
-				4 => interactive_compare_file_hashes()?,
-				5 => interactive_generate_random()?,
-				6 => interactive_generate_hhhash()?,
-				7 => interactive_run_benchmarks()?,
-				8 => {
-					println!("{}", "Goodbye!".cyan());
-					break;
-				}
-				_ => unreachable!(),
+	Ok(BalloonConfig {
+		time_cost,
+		memory_cost,
+		parallelism,
+	})
+}
+
+fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
+	println!("{}", "Welcome to the Interactive Mode!".green().bold());
+
+	let actions = vec![
+		"Hash a string",
+		"Hash a file",
+		"Analyze a hash",
+		"Compare hashes",
+		"Compare file hashes",
+		"Generate random string",
+		"Generate HHHash of HTTP header",
+		"Run benchmarks",
+		"Exit",
+	];
+
+	loop {
+		let selection = Select::new()
+			.with_prompt("Choose an action")
+			.items(&actions)
+			.interact()?;
+
+		match selection {
+			0 => interactive_hash_string()?,
+			1 => interactive_hash_file()?,
+			2 => interactive_analyze_hash()?,
+			3 => interactive_compare_hashes()?,
+			4 => interactive_compare_file_hashes()?,
+			5 => interactive_generate_random()?,
+			6 => interactive_generate_hhhash()?,
+			7 => interactive_run_benchmarks()?,
+			8 => {
+				println!("{}", "Goodbye!".cyan());
+				break;
 			}
+			_ => unreachable!(),
 		}
-	
-		Ok(())
 	}
-	
-	fn build_cli() -> clap::Command {
-		clap::Command::new(clap::crate_name!())
+
+	Ok(())
+}
+
+fn build_cli() -> clap::Command {
+	clap::Command::new(clap::crate_name!())
 			.color(clap::ColorChoice::Never)
 			.help_template(HELP_TEMPLATE)
 			.bin_name(crate_name!())
@@ -830,278 +849,310 @@ fn get_balloon_config_interactive() -> Result<BalloonConfig, Box<dyn Error>> {
 							.help("Number of iterations for each benchmark")
 					)
 			)
-	}
-	
-	pub fn run() -> Result<(), Box<dyn Error>> {
-		let capp = build_cli();
-		let m = capp.get_matches();
-	
-		match m.subcommand() {
-			Some(("interactive", _)) => {
-				run_interactive_mode()?;
-			}
-			Some(("string", s)) => {
-				let st = s.get_one::<String>("INPUTSTRING");
-				let st = match st {
-					Some(s) => s,
-					None => {
-						println!("No string provided.");
-						std::process::exit(1);
-					}
-				};
-				let a = s.get_one::<Algorithm>("algorithm");
-				let a = match a {
-					Some(a) => a.clone(),
-					None => panic!("Algorithm not found."),
-				};
-				let option = s.get_one::<OutputOptions>("output");
-				let option = match option {
-					Some(o) => o.clone(),
-					None => {
-						println!("No output format provided.");
-						std::process::exit(1);
-					}
-				};
-				let argon2_config = Argon2Config {
-					mem_cost: *s.get_one::<u32>("argon2-mem-cost").unwrap(),
-					time_cost: *s.get_one::<u32>("argon2-time-cost").unwrap(),
-					parallelism: *s.get_one::<u32>("argon2-parallelism").unwrap(),
-				};
-				let scrypt_config = ScryptConfig {
-					log_n: *s.get_one::<u8>("scrypt-log-n").unwrap(),
-					r: *s.get_one::<u32>("scrypt-r").unwrap(),
-					p: *s.get_one::<u32>("scrypt-p").unwrap(),
-				};
-				let bcrypt_config = BcryptConfig {
-					cost: *s.get_one::<u32>("bcrypt-cost").unwrap(),
-				};
-				let pbkdf2_config = Pbkdf2Config {
-					rounds: *s.get_one::<u32>("pbkdf2-rounds").unwrap(),
-					output_length: *s.get_one::<usize>("pbkdf2-output-length").unwrap(),
-				};
-				let balloon_config = BalloonConfig {
-					time_cost: *s.get_one::<u32>("balloon-time-cost").unwrap(),
-					memory_cost: *s.get_one::<u32>("balloon-memory-cost").unwrap(),
-					parallelism: *s.get_one::<u32>("balloon-parallelism").unwrap(),
-				};
-	
-				hash_string(a, st, option, &argon2_config, &scrypt_config, &bcrypt_config, &pbkdf2_config, &balloon_config);
-			}
-			Some(("compare-file-hashes", s)) => {
-				let file1 = s.get_one::<String>("FILE1");
-				let file2 = s.get_one::<String>("FILE2");
-				let file1 = file1.unwrap_or_else(|| {
-					println!("No file provided.");
-					std::process::exit(1);
-				});
-				let file2 = file2.unwrap_or_else(|| {
-					println!("No file provided.");
-					std::process::exit(1);
-				});
-				match compare_file_hashes(file1, file2) {
-					Ok(_) => println!("File operation complete."),
-					Err(e) => {
-						eprintln!("Error comparing files: {}", e);
-						std::process::exit(1);
-					}
-				}
-			}
-			Some(("compare-hash", s)) => {
-				let st1 = s.get_one::<String>("HASH1");
-				let st2 = s.get_one::<String>("HASH2");
-				let st1 = st1.unwrap_or_else(|| {
-					println!("No hash provided.");
-					std::process::exit(1);
-				});
-				let st2 = st2.unwrap_or_else(|| {
-					println!("No hash provided.");
-					std::process::exit(1);
-				});
-				if compare_hashes(st1, st2) {
-					println!("The hashes are equal.");
-					std::process::exit(0);
-				} else {
-					println!("The hashes are not equal.");
-					std::process::exit(1);
-				}
-			}
-			Some(("file", s)) => {
-				let f = s.get_one::<String>("FILE");
-				let f = match f {
-					Some(f) => f,
-					None => {
-						println!("No file provided.");
-						std::process::exit(1);
-					}
-				};
-				let a = s.get_one::<Algorithm>("algorithm");
-				let a = match a {
-					Some(a) => a.clone(),
-					None => panic!("Algorithm not found."),
-				};
-				let option = s.get_one::<OutputOptions>("output");
-				let option = match option {
-					Some(o) => o.clone(),
-					None => {
-						println!("No output format provided.");
-						std::process::exit(1);
-					}
-				};
-				hash_file(a,f, option);
-			}
-			Some(("stdio", s)) => {
-				let stdin = std::io::stdin();
-				stdin.lock().lines().for_each(|l| {
-					let a = s.get_one::<Algorithm>("algorithm");
-					let a = match a {
-						Some(a) => a.clone(),
-						None => {
-							println!("Algorithm error. This should really not happen.");
-							std::process::exit(1);
-						}
-					};
-					let l = match l {
-						Ok(l) => l,
-						Err(e) => {
-							eprintln!("Error: {}", e);
-							std::process::exit(1);
-						}
-					};
-					let option = s.get_one::<OutputOptions>("output");
-					let option = match option {
-						Some(o) => o.clone(),
-						None => {
-							println!("No output format provided.");
-							std::process::exit(1);
-						}
-					};
-					let argon2_config = Argon2Config::default();
-					let scrypt_config = ScryptConfig::default();
-					let bcrypt_config = BcryptConfig::default();
-					let pbkdf2_config = Pbkdf2Config::default();
-					let balloon_config = BalloonConfig::default();
-	
-					hash_string(a, &l, option, &argon2_config, &scrypt_config, &bcrypt_config, &pbkdf2_config, &balloon_config);
-				});
-			}
-			Some(("generate-auto-completions", s)) => {
-				if let Some(gen) = s.get_one::<Shell>("SHELL") {
-					let mut capp = build_cli();
-					print_completions(*gen, &mut capp);
-				};
-			}
-			Some(("random", s)) => {
-				let a = s.get_one::<RngType>("algorithm");
-				let a = match a {
-					Some(a) => a.clone(),
-					None => panic!("Algorithm not found."),
-				};
-				let option = s.get_one::<OutputOptions>("output");
-				let option = match option {
-					Some(o) => o.clone(),
-					None => {
-						println!("No output format provided.");
-						std::process::exit(1);
-					}
-				};
-				let len = s.get_one::<u64>("length");
-				let len = match len {
-					Some(l) => l,
-					None => {
-						println!("No length provided.");
-						std::process::exit(1);
-					}
-				};
-				let out =
-					RandomNumberGenerator::new(a).generate(*len, option);
-				println!("{}", out);
-			}
-			Some(("analyze", s)) => {
-				let st = s.get_one::<String>("INPUTSTRING");
-				let st = match st {
-					Some(s) => s,
-					None => {
-						println!("No string provided.");
-						std::process::exit(1);
-					}
-				};
-	
-				let h = HashAnalyzer::from_string(st);
-				let out = h.detect_possible_hashes();
-				if out.is_empty() {
-					println!("No possible hash class found.");
-					std::process::exit(1);
-				}
-				print!("Possible class of hash: ");
-				for o in out {
-					print!("{} ", o);
-				}
-				println!();
-			}
-			Some(("header", s)) => {
-				let url = s.get_one::<String>("URL").unwrap();
-				let url = url.clone();
-				let hash = generate_hhhash(url)?;
-				println!("{}", hash);
-			}
-			Some(("benchmark", sub_m)) => {
-				let algorithms: Vec<Algorithm> = sub_m
-					.get_many("algorithms")
-					.map(|v| v.cloned().collect())
-					.unwrap_or_else(|| {
-						vec![
-							Algorithm::Md5,
-							Algorithm::Sha256,
-							Algorithm::Blake2b,
-							Algorithm::Argon2,
-							Algorithm::Sha1,
-							Algorithm::Sha512,
-							Algorithm::Blake3,
-							Algorithm::Blake2s,
-							Algorithm::Groestl,
-							Algorithm::Sha3_256,
-							Algorithm::Sha3_512,
-							Algorithm::Whirlpool,
-							Algorithm::Sm3,
-							Algorithm::Streebog256,
-							Algorithm::Streebog512,
-							Algorithm::Ripemd160,
-							Algorithm::Ripemd320,
-							Algorithm::Tiger,
-							Algorithm::Gost94,
-							Algorithm::Gost94ua,
-							Algorithm::Fsb160,
-							Algorithm::Fsb224,
-							Algorithm::Fsb256,
-							Algorithm::Fsb384,
-							Algorithm::Fsb512,
-							Algorithm::Shabal192,
-							Algorithm::Shabal224,
-							Algorithm::Shabal256,
-							Algorithm::Shabal384,
-							Algorithm::Shabal512,
-							Algorithm::Bcrypt,
-							Algorithm::Scrypt,
-							Algorithm::Pbkdf2Sha256,
-							Algorithm::Pbkdf2Sha512,
-							Algorithm::Balloon,
-							Algorithm::Ascon,
-						]
-					});
-				let iterations =
-					*sub_m.get_one::<u32>("iterations").unwrap();
-				run_benchmarks(&algorithms, iterations);
-			}
-			_ => {}
+}
+
+pub fn run() -> Result<(), Box<dyn Error>> {
+	let capp = build_cli();
+	let m = capp.get_matches();
+
+	match m.subcommand() {
+		Some(("interactive", _)) => {
+			run_interactive_mode()?;
 		}
-		Ok(())
+		Some(("string", s)) => {
+			let st = s.get_one::<String>("INPUTSTRING");
+			let st = match st {
+				Some(s) => s,
+				None => {
+					println!("No string provided.");
+					std::process::exit(1);
+				}
+			};
+			let a = s.get_one::<Algorithm>("algorithm");
+			let a = match a {
+				Some(a) => a.clone(),
+				None => panic!("Algorithm not found."),
+			};
+			let option = s.get_one::<OutputOptions>("output");
+			let option = match option {
+				Some(o) => o.clone(),
+				None => {
+					println!("No output format provided.");
+					std::process::exit(1);
+				}
+			};
+			let argon2_config = Argon2Config {
+				mem_cost: *s
+					.get_one::<u32>("argon2-mem-cost")
+					.unwrap(),
+				time_cost: *s
+					.get_one::<u32>("argon2-time-cost")
+					.unwrap(),
+				parallelism: *s
+					.get_one::<u32>("argon2-parallelism")
+					.unwrap(),
+			};
+			let scrypt_config = ScryptConfig {
+				log_n: *s.get_one::<u8>("scrypt-log-n").unwrap(),
+				r: *s.get_one::<u32>("scrypt-r").unwrap(),
+				p: *s.get_one::<u32>("scrypt-p").unwrap(),
+			};
+			let bcrypt_config = BcryptConfig {
+				cost: *s.get_one::<u32>("bcrypt-cost").unwrap(),
+			};
+			let pbkdf2_config = Pbkdf2Config {
+				rounds: *s.get_one::<u32>("pbkdf2-rounds").unwrap(),
+				output_length: *s
+					.get_one::<usize>("pbkdf2-output-length")
+					.unwrap(),
+			};
+			let balloon_config = BalloonConfig {
+				time_cost: *s
+					.get_one::<u32>("balloon-time-cost")
+					.unwrap(),
+				memory_cost: *s
+					.get_one::<u32>("balloon-memory-cost")
+					.unwrap(),
+				parallelism: *s
+					.get_one::<u32>("balloon-parallelism")
+					.unwrap(),
+			};
+
+			hash_string(
+				a,
+				st,
+				option,
+				&argon2_config,
+				&scrypt_config,
+				&bcrypt_config,
+				&pbkdf2_config,
+				&balloon_config,
+			);
+		}
+		Some(("compare-file-hashes", s)) => {
+			let file1 = s.get_one::<String>("FILE1");
+			let file2 = s.get_one::<String>("FILE2");
+			let file1 = file1.unwrap_or_else(|| {
+				println!("No file provided.");
+				std::process::exit(1);
+			});
+			let file2 = file2.unwrap_or_else(|| {
+				println!("No file provided.");
+				std::process::exit(1);
+			});
+			match compare_file_hashes(file1, file2) {
+				Ok(_) => println!("File operation complete."),
+				Err(e) => {
+					eprintln!("Error comparing files: {}", e);
+					std::process::exit(1);
+				}
+			}
+		}
+		Some(("compare-hash", s)) => {
+			let st1 = s.get_one::<String>("HASH1");
+			let st2 = s.get_one::<String>("HASH2");
+			let st1 = st1.unwrap_or_else(|| {
+				println!("No hash provided.");
+				std::process::exit(1);
+			});
+			let st2 = st2.unwrap_or_else(|| {
+				println!("No hash provided.");
+				std::process::exit(1);
+			});
+			if compare_hashes(st1, st2) {
+				println!("The hashes are equal.");
+				std::process::exit(0);
+			} else {
+				println!("The hashes are not equal.");
+				std::process::exit(1);
+			}
+		}
+		Some(("file", s)) => {
+			let f = s.get_one::<String>("FILE");
+			let f = match f {
+				Some(f) => f,
+				None => {
+					println!("No file provided.");
+					std::process::exit(1);
+				}
+			};
+			let a = s.get_one::<Algorithm>("algorithm");
+			let a = match a {
+				Some(a) => a.clone(),
+				None => panic!("Algorithm not found."),
+			};
+			let option = s.get_one::<OutputOptions>("output");
+			let option = match option {
+				Some(o) => o.clone(),
+				None => {
+					println!("No output format provided.");
+					std::process::exit(1);
+				}
+			};
+			hash_file(a, f, option);
+		}
+		Some(("stdio", s)) => {
+			let stdin = std::io::stdin();
+			stdin.lock().lines().for_each(|l| {
+				let a = s.get_one::<Algorithm>("algorithm");
+				let a = match a {
+					Some(a) => a.clone(),
+					None => {
+						println!("Algorithm error. This should really not happen.");
+						std::process::exit(1);
+					}
+				};
+				let l = match l {
+					Ok(l) => l,
+					Err(e) => {
+						eprintln!("Error: {}", e);
+						std::process::exit(1);
+					}
+				};
+				let option = s.get_one::<OutputOptions>("output");
+				let option = match option {
+					Some(o) => o.clone(),
+					None => {
+						println!("No output format provided.");
+						std::process::exit(1);
+					}
+				};
+				let argon2_config = Argon2Config::default();
+				let scrypt_config = ScryptConfig::default();
+				let bcrypt_config = BcryptConfig::default();
+				let pbkdf2_config = Pbkdf2Config::default();
+				let balloon_config = BalloonConfig::default();
+
+				hash_string(
+					a,
+					&l,
+					option,
+					&argon2_config,
+					&scrypt_config,
+					&bcrypt_config,
+					&pbkdf2_config,
+					&balloon_config,
+				);
+			});
+		}
+		Some(("generate-auto-completions", s)) => {
+			if let Some(gen) = s.get_one::<Shell>("SHELL") {
+				let mut capp = build_cli();
+				print_completions(*gen, &mut capp);
+			};
+		}
+		Some(("random", s)) => {
+			let a = s.get_one::<RngType>("algorithm");
+			let a = match a {
+				Some(a) => a.clone(),
+				None => panic!("Algorithm not found."),
+			};
+			let option = s.get_one::<OutputOptions>("output");
+			let option = match option {
+				Some(o) => o.clone(),
+				None => {
+					println!("No output format provided.");
+					std::process::exit(1);
+				}
+			};
+			let len = s.get_one::<u64>("length");
+			let len = match len {
+				Some(l) => l,
+				None => {
+					println!("No length provided.");
+					std::process::exit(1);
+				}
+			};
+			let out =
+				RandomNumberGenerator::new(a).generate(*len, option);
+			println!("{}", out);
+		}
+		Some(("analyze", s)) => {
+			let st = s.get_one::<String>("INPUTSTRING");
+			let st = match st {
+				Some(s) => s,
+				None => {
+					println!("No string provided.");
+					std::process::exit(1);
+				}
+			};
+
+			let h = HashAnalyzer::from_string(st);
+			let out = h.detect_possible_hashes();
+			if out.is_empty() {
+				println!("No possible hash class found.");
+				std::process::exit(1);
+			}
+			print!("Possible class of hash: ");
+			for o in out {
+				print!("{} ", o);
+			}
+			println!();
+		}
+		Some(("header", s)) => {
+			let url = s.get_one::<String>("URL").unwrap();
+			let url = url.clone();
+			let hash = generate_hhhash(url)?;
+			println!("{}", hash);
+		}
+		Some(("benchmark", sub_m)) => {
+			let algorithms: Vec<Algorithm> = sub_m
+				.get_many("algorithms")
+				.map(|v| v.cloned().collect())
+				.unwrap_or_else(|| {
+					vec![
+						Algorithm::Md5,
+						Algorithm::Sha256,
+						Algorithm::Blake2b,
+						Algorithm::Argon2,
+						Algorithm::Sha1,
+						Algorithm::Sha512,
+						Algorithm::Blake3,
+						Algorithm::Blake2s,
+						Algorithm::Groestl,
+						Algorithm::Sha3_256,
+						Algorithm::Sha3_512,
+						Algorithm::Whirlpool,
+						Algorithm::Sm3,
+						Algorithm::Streebog256,
+						Algorithm::Streebog512,
+						Algorithm::Ripemd160,
+						Algorithm::Ripemd320,
+						Algorithm::Tiger,
+						Algorithm::Gost94,
+						Algorithm::Gost94ua,
+						Algorithm::Fsb160,
+						Algorithm::Fsb224,
+						Algorithm::Fsb256,
+						Algorithm::Fsb384,
+						Algorithm::Fsb512,
+						Algorithm::Shabal192,
+						Algorithm::Shabal224,
+						Algorithm::Shabal256,
+						Algorithm::Shabal384,
+						Algorithm::Shabal512,
+						Algorithm::Bcrypt,
+						Algorithm::Scrypt,
+						Algorithm::Pbkdf2Sha256,
+						Algorithm::Pbkdf2Sha512,
+						Algorithm::Balloon,
+						Algorithm::Ascon,
+					]
+				});
+			let iterations =
+				*sub_m.get_one::<u32>("iterations").unwrap();
+			run_benchmarks(&algorithms, iterations);
+		}
+		_ => {}
 	}
-	
-	fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
-		generate(
-			gen,
-			cmd,
-			cmd.get_name().to_string(),
-			&mut std::io::stdout(),
-		);
-	}
+	Ok(())
+}
+
+fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
+	generate(
+		gen,
+		cmd,
+		cmd.get_name().to_string(),
+		&mut std::io::stdout(),
+	);
+}

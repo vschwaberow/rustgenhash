@@ -1,0 +1,26 @@
+{
+  "id": "stdio_md5_lines",
+  "mode": "stdio",
+  "algorithm": "MD5",
+  "input": {
+    "lines": ["alice", "bob"],
+    "separator": "\n"
+  },
+  "expected_output": {
+    "digests": [
+      {
+        "source": "alice",
+        "digest": "6384e2b2184bcbf58eccf10ca7a6563c"
+      },
+      {
+        "source": "bob",
+        "digest": "9f9d51bc70ef21ca5c14f307980a29d8"
+      }
+    ]
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Validates batch hashing via stdio inputs.",
+    "skip_reason": null
+  }
+}

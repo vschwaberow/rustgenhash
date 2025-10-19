@@ -1,0 +1,18 @@
+{
+  "id": "compare_case_insensitive",
+  "mode": "compare",
+  "algorithm": "compare-string",
+  "input": {
+    "left": "ABC123",
+    "right": "abc123",
+    "case_sensitive": false
+  },
+  "expected_output": {
+    "matches": true
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Verifies compare-hash logic ignoring case.",
+    "skip_reason": null
+  }
+}

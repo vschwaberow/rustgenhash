@@ -1,0 +1,26 @@
+name: Audit Harness
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run audit harness
+        run: cargo test --test audit
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-summary
+          path: |
+            target/audit/summary.txt
+            target/audit/summary.json
+            target/audit/issues/
+          if-no-files-found: warn

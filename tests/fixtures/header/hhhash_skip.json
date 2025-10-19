@@ -1,0 +1,16 @@
+{
+  "id": "header_hhhash_skip",
+  "mode": "header",
+  "algorithm": "HHHash",
+  "input": {
+    "url": "https://example.com"
+  },
+  "expected_output": {
+    "reason": "Network-dependent"
+  },
+  "metadata": {
+    "severity": "low",
+    "notes": "Requires live HTTP headers; skipped in offline audit.",
+    "skip_reason": "Requires network access"
+  }
+}

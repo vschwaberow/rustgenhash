@@ -1,0 +1,16 @@
+{
+  "id": "benchmark_sha256_skip",
+  "mode": "benchmark",
+  "algorithm": "SHA256",
+  "input": {
+    "iterations": 1000
+  },
+  "expected_output": {
+    "reason": "Timing varies"
+  },
+  "metadata": {
+    "severity": "low",
+    "notes": "Benchmark timings vary by host; skip automated verification.",
+    "skip_reason": "Timing is platform-specific"
+  }
+}
