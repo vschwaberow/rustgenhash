@@ -1,0 +1,16 @@
+{
+  "id": "random_pr_skip",
+  "mode": "random",
+  "algorithm": "PRNG",
+  "input": {
+    "size": 16
+  },
+  "expected_output": {
+    "reason": "Non-deterministic"
+  },
+  "metadata": {
+    "severity": "low",
+    "notes": "Random output is intentionally non-deterministic; verified manually during releases.",
+    "skip_reason": "Non-deterministic output"
+  }
+}

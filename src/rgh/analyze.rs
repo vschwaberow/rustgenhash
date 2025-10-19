@@ -65,9 +65,9 @@ impl HashAnalyzer {
 		match parts.as_slice() {
 			["", "pbkdf2", hash_fn, iterations, salt, hash]
 				if ["MD5", "SHA1", "SHA256", "SHA512"]
-					.contains(hash_fn) && iterations
-					.parse::<u32>()
-					.is_ok() && !salt.is_empty()
+					.contains(hash_fn)
+					&& iterations.parse::<u32>().is_ok()
+					&& !salt.is_empty()
 					&& !hash.is_empty() =>
 			{
 				true
@@ -77,7 +77,8 @@ impl HashAnalyzer {
 				if pbkdf2_sha.starts_with("pbkdf2-sha")
 					&& params.starts_with("i=")
 					&& params.contains(",l=")
-					&& !salt.is_empty() && !hash.is_empty() =>
+					&& !salt.is_empty()
+					&& !hash.is_empty() =>
 			{
 				true
 			}

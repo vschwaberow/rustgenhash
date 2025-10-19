@@ -1,0 +1,16 @@
+{
+  "id": "interactive_skip",
+  "mode": "interactive",
+  "algorithm": "interactive",
+  "input": {
+    "scenario": "prompt"
+  },
+  "expected_output": {
+    "reason": "Requires terminal"
+  },
+  "metadata": {
+    "severity": "low",
+    "notes": "Interactive prompts require human input; documented manually.",
+    "skip_reason": "Requires TTY interaction"
+  }
+}

@@ -1,4 +1,6 @@
 /target
+target/audit/
+target/audit/issues/
 .idea
 rustgenhash.iml
 .vscode

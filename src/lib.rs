@@ -4,9 +4,12 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
+pub use serde::{Deserialize, Serialize};
+
 pub mod rgh {
 	pub mod analyze;
 	pub mod app;
+	pub mod audit;
 	pub mod benchmark;
 	pub mod hash;
 	pub mod hhhash;

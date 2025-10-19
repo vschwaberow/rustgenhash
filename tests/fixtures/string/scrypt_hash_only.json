@@ -1,0 +1,20 @@
+{
+  "id": "string_scrypt_hash_only",
+  "mode": "string",
+  "algorithm": "Scrypt",
+  "input": {
+    "value": "s3cret",
+    "salt": "MDEyMzQ1Njc4OWFiY2RlZg"
+  },
+  "expected_output": {
+    "digest": "$scrypt$ln=15,r=8,p=1$MDEyMzQ1Njc4OWFiY2RlZg$zwr4JhWFLaXXizl27P8+EkRqn+f495RUP6JmXczCFRw",
+    "format": "encoded",
+    "default_line": "$scrypt$ln=15,r=8,p=1$MDEyMzQ1Njc4OWFiY2RlZg$zwr4JhWFLaXXizl27P8+EkRqn+f495RUP6JmXczCFRw s3cret",
+    "hash_only_line": "$scrypt$ln=15,r=8,p=1$MDEyMzQ1Njc4OWFiY2RlZg$zwr4JhWFLaXXizl27P8+EkRqn+f495RUP6JmXczCFRw"
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Covers salted Scrypt output in hash-only mode.",
+    "skip_reason": null
+  }
+}

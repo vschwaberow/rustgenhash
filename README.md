@@ -37,18 +37,27 @@ Scheme for string hashing:
 
 ```bash
 rgh string -a <algorithm> <string>
+
+# Suppress plaintext echoes for scripting workflows
+rgh string -a <algorithm> --hash-only <string>
 ```
 
 Scheme for file hashing:
 
 ```bash
 rgh file -a <algorithm> <filename or directory>
+
+# Emit only digests when listing directory contents
+rgh file -a <algorithm> --hash-only <filename or directory>
 ```
 
 Scheme for string hashing from stdio:
 
 ```bash
 cat myfile | rgh stdio -a <algorithm>
+
+# Hash-only mode preserves one output token per input line
+cat myfile | rgh stdio -a <algorithm> --hash-only
 ```
 
 ```bash
@@ -92,6 +101,44 @@ Lastly, the tool offers the interactive mode:
 ```bash
 rgh interactive
 ```
+
+## Quality Audit
+
+Rustgenhash ships with an automated audit harness that replays curated fixtures
+across every CLI mode to guard against logical regressions.
+
+```bash
+cargo test --test audit
+```
+
+The audit produces deterministic artifacts under `target/audit/`:
+
+- `summary.txt` — human-readable overview with status, severity, and skip notes.
+- `summary.json` — machine-readable report suitable for pipelines.
+- `issues/` — (populated in later phases) markdown snippets for failures.
+
+Use `-- --case <fixture-id>` to focus on a single fixture during debugging:
+
+```bash
+cargo test --test audit -- --case string_sha256_basic
+```
+
+Fixtures that depend on non-deterministic behavior (e.g., benchmarking,
+interactive flows) are marked with a skip reason and reported as `SKIP` in the
+summary. When the audit fails, review the emitted severity, reproduction notes,
+and the JSON payload to pinpoint the mismatch.
+
+### Release Readiness
+
+Release managers must complete `docs/qa/release-readiness.md` before tagging:
+
+1. Ensure the GitHub Actions “Audit Harness” workflow passed on the target commit.
+2. Run `cargo test --test audit` locally and sync failures into
+   `docs/qa/logic-issues.md` via `scripts/audit/export_issue.sh`.
+3. Execute `scripts/audit/check_release.sh` to confirm zero failing fixtures and
+   no open issues remain.
+4. Record retest evidence (commit hashes, CI artifact URLs) in the checklist and
+   gather maintainer sign-offs.
 
 ## Contribution 
 

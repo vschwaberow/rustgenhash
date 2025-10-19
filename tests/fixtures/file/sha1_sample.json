@@ -1,0 +1,17 @@
+{
+  "id": "file_sha1_sample",
+  "mode": "file",
+  "algorithm": "SHA1",
+  "input": {
+    "path": "tests/fixtures/file/sample.txt"
+  },
+  "expected_output": {
+    "digest": "0e73db2191b802e1dd8443669e0e03c075dbd8e9",
+    "format": "hex"
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Hashes a small fixture file to confirm file mode.",
+    "skip_reason": null
+  }
+}

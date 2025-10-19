@@ -1,0 +1,20 @@
+{
+  "id": "string_bcrypt_hash_only",
+  "mode": "string",
+  "algorithm": "Bcrypt",
+  "input": {
+    "value": "s3cret",
+    "salt": "MDEyMzQ1Njc4OWFiY2RlZg"
+  },
+  "expected_output": {
+    "digest": "6a3e6ed5ac928d1633d76182d1617410e565aff5bd8796f2d92dcefe27d6e04c50756887eeb56a1f09110187424af91964fe6f873a1a680ef7e44a50c0431ed6",
+    "format": "hex",
+    "default_line": "6a3e6ed5ac928d1633d76182d1617410e565aff5bd8796f2d92dcefe27d6e04c50756887eeb56a1f09110187424af91964fe6f873a1a680ef7e44a50c0431ed6 s3cret",
+    "hash_only_line": "6a3e6ed5ac928d1633d76182d1617410e565aff5bd8796f2d92dcefe27d6e04c50756887eeb56a1f09110187424af91964fe6f873a1a680ef7e44a50c0431ed6"
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Ensures Bcrypt hex digests drop plaintext when hash-only is requested.",
+    "skip_reason": null
+  }
+}

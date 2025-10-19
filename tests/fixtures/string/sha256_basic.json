@@ -1,0 +1,19 @@
+{
+  "id": "string_sha256_basic",
+  "mode": "string",
+  "algorithm": "SHA256",
+  "input": {
+    "value": "rustgenhash"
+  },
+  "expected_output": {
+    "digest": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf",
+    "format": "hex",
+    "default_line": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf rustgenhash",
+    "hash_only_line": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf"
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Baseline deterministic hashing for string mode.",
+    "skip_reason": null
+  }
+}

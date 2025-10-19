@@ -1,0 +1,20 @@
+{
+  "id": "string_argon2_hash_only",
+  "mode": "string",
+  "algorithm": "Argon2",
+  "input": {
+    "value": "s3cret",
+    "salt": "MDEyMzQ1Njc4OWFiY2RlZg"
+  },
+  "expected_output": {
+    "digest": "$argon2id$v=19$m=65536,t=3,p=4$MDEyMzQ1Njc4OWFiY2RlZg$a7FoYtlzPIwfy3y3ORktIs3turwdlVrwKYvt43RfjQ4",
+    "format": "encoded",
+    "default_line": "$argon2id$v=19$m=65536,t=3,p=4$MDEyMzQ1Njc4OWFiY2RlZg$a7FoYtlzPIwfy3y3ORktIs3turwdlVrwKYvt43RfjQ4 s3cret",
+    "hash_only_line": "$argon2id$v=19$m=65536,t=3,p=4$MDEyMzQ1Njc4OWFiY2RlZg$a7FoYtlzPIwfy3y3ORktIs3turwdlVrwKYvt43RfjQ4"
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Verifies Argon2 hash-only output omits plaintext while preserving encoded parameters.",
+    "skip_reason": null
+  }
+}

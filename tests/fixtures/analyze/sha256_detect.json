@@ -1,0 +1,29 @@
+{
+  "id": "analyze_sha256_detect",
+  "mode": "analyze",
+  "algorithm": "analyzer",
+  "input": {
+    "hash": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf"
+  },
+  "expected_output": {
+    "candidates": [
+      "BeltHash",
+      "Blake2s",
+      "Blake3",
+      "GOST94",
+      "GOST94ua",
+      "Groestl",
+      "SHA256",
+      "SHA3-256",
+      "SM3",
+      "Shabal256",
+      "Streebog256"
+    ],
+    "is_exact": false
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Detects SHA256 hash characteristics.",
+    "skip_reason": null
+  }
+}
