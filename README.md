@@ -37,18 +37,27 @@ Scheme for string hashing:
 
 ```bash
 rgh string -a <algorithm> <string>
+
+# Suppress plaintext echoes for scripting workflows
+rgh string -a <algorithm> --hash-only <string>
 ```
 
 Scheme for file hashing:
 
 ```bash
 rgh file -a <algorithm> <filename or directory>
+
+# Emit only digests when listing directory contents
+rgh file -a <algorithm> --hash-only <filename or directory>
 ```
 
 Scheme for string hashing from stdio:
 
 ```bash
 cat myfile | rgh stdio -a <algorithm>
+
+# Hash-only mode preserves one output token per input line
+cat myfile | rgh stdio -a <algorithm> --hash-only
 ```
 
 ```bash

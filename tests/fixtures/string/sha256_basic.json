@@ -7,7 +7,9 @@
   },
   "expected_output": {
     "digest": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf",
-    "format": "hex"
+    "format": "hex",
+    "default_line": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf rustgenhash",
+    "hash_only_line": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf"
   },
   "metadata": {
     "severity": "high",

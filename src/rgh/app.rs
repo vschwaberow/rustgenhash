@@ -8,15 +8,15 @@ use crate::rgh::analyze::compare_hashes;
 use crate::rgh::analyze::HashAnalyzer;
 use crate::rgh::benchmark::run_benchmarks;
 use crate::rgh::hash::{
-	Argon2Config, BalloonConfig, BcryptConfig, PHash, Pbkdf2Config,
-	RHash, ScryptConfig,
+	assemble_output, Argon2Config, BalloonConfig, BcryptConfig,
+	PHash, Pbkdf2Config, RHash, ScryptConfig,
 };
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::random::{RandomNumberGenerator, RngType};
-use clap::{crate_name, Arg};
+use clap::{crate_name, Arg, ArgAction};
 use clap_complete::{generate, Generator, Shell};
 use colored::*;
-use dialoguer::{Input, MultiSelect, Select};
+use dialoguer::{Confirm, Input, MultiSelect, Select};
 use std::error::Error;
 use std::io::BufRead;
 use strum::{EnumIter, IntoEnumIterator};
@@ -166,65 +166,71 @@ fn hash_string(
 	bcrypt_config: &BcryptConfig,
 	pbkdf2_config: &Pbkdf2Config,
 	balloon_config: &BalloonConfig,
+	hash_only: bool,
 ) {
 	use Algorithm as alg;
 	match algor {
 		alg::Ascon => {
-			PHash::hash_ascon(password);
+			PHash::hash_ascon(password, hash_only);
 		}
 		alg::Argon2 => {
-			PHash::hash_argon2(password, argon2_config);
+			PHash::hash_argon2(password, argon2_config, hash_only);
 		}
 		alg::Balloon => {
-			PHash::hash_balloon(password, balloon_config);
+			PHash::hash_balloon(password, balloon_config, hash_only);
 		}
 		alg::Bcrypt => {
-			PHash::hash_bcrypt(password, bcrypt_config);
+			PHash::hash_bcrypt(password, bcrypt_config, hash_only);
 		}
 		alg::Pbkdf2Sha256 | alg::Pbkdf2Sha512 => {
+			let pb_scheme = format!("{:?}", algor).to_lowercase();
 			PHash::hash_pbkdf2(
 				password,
-				format!("{:?}", algor).to_lowercase().as_str(),
+				pb_scheme.as_str(),
 				pbkdf2_config,
+				hash_only,
 			);
 		}
 		alg::Scrypt => {
-			PHash::hash_scrypt(password, scrypt_config);
+			PHash::hash_scrypt(password, scrypt_config, hash_only);
 		}
 		alg::Shacrypt => {
-			PHash::hash_sha_crypt(password);
+			PHash::hash_sha_crypt(password, hash_only);
 		}
 		_ => {
 			let alg_s = format!("{:?}", algor).to_uppercase();
-			let b = RHash::new(&alg_s)
+			let digest = RHash::new(&alg_s)
 				.process_string(password.as_bytes());
-			match option {
-				OutputOptions::Hex => {
-					println!("{} {}", hex::encode(b), password)
-				}
+			let tokens = match option {
+				OutputOptions::Hex => vec![hex::encode(&digest)],
 				OutputOptions::Base64 => {
-					println!("{} {}", base64::encode(b), password)
+					vec![base64::encode(&digest)]
 				}
-				OutputOptions::HexBase64 => {
-					println!(
-						"{} {} {}",
-						hex::encode(&b),
-						base64::encode(&b),
-						password
-					);
-				}
-			}
+				OutputOptions::HexBase64 => vec![
+					hex::encode(&digest),
+					base64::encode(&digest),
+				],
+			};
+			let output =
+				assemble_output(hash_only, tokens, Some(password));
+			println!("{}", output);
 		}
 	}
 }
 
-fn hash_file(alg: Algorithm, input: &str, option: OutputOptions) {
+fn hash_file(
+	alg: Algorithm,
+	input: &str,
+	option: OutputOptions,
+	hash_only: bool,
+) {
 	if !alg.properties().file_support {
 		println!("Algorithm {:?} does not support file hashing", alg);
 		std::process::exit(1);
 	}
 	let alg_s = format!("{:?}", alg).to_uppercase();
-	let result = RHash::new(&alg_s).process_file(input, option);
+	let result =
+		RHash::new(&alg_s).process_file(input, option, hash_only);
 	match result {
 		Ok(_) => {}
 		Err(e) => {
@@ -267,6 +273,11 @@ fn interactive_hash_string() -> Result<(), Box<dyn Error>> {
 		_ => {}
 	}
 
+	let hash_only = Confirm::new()
+		.with_prompt("Print only the hash value?")
+		.default(false)
+		.interact()?;
+
 	hash_string(
 		algorithm,
 		&input,
@@ -276,6 +287,7 @@ fn interactive_hash_string() -> Result<(), Box<dyn Error>> {
 		&bcrypt_config,
 		&pbkdf2_config,
 		&balloon_config,
+		hash_only,
 	);
 	Ok(())
 }
@@ -287,8 +299,12 @@ fn interactive_hash_file() -> Result<(), Box<dyn Error>> {
 
 	let algorithm = select_algorithm()?;
 	let output_option = select_output_option()?;
+	let hash_only = Confirm::new()
+		.with_prompt("Print only the hash value?")
+		.default(false)
+		.interact()?;
 
-	hash_file(algorithm, &file_path, output_option);
+	hash_file(algorithm, &file_path, output_option, hash_only);
 	Ok(())
 }
 
@@ -678,66 +694,86 @@ fn build_cli() -> clap::Command {
 							.default_value("4")
 					)
 					.arg(
-						Arg::new("output")
-							.short('o')
-							.long("output")
-							.value_parser(clap::value_parser!(
-								OutputOptions
-							))
-							.help("Output format")
-							.default_value("hex")
-							.display_order(1),
-					),
+				Arg::new("output")
+					.short('o')
+					.long("output")
+					.value_parser(clap::value_parser!(
+						OutputOptions
+					))
+					.help("Output format")
+					.default_value("hex")
+					.display_order(1),
 			)
-			.subcommand(
-				clap::command!("file")
-					.about("Hash single file or single directory")
-					.arg(Arg::new("FILE").display_order(1).required(true))
-					.arg(
-						Arg::new("algorithm")
-							.display_order(2)
-							.value_parser(clap::value_parser!(Algorithm))
-							.help("Hashing algorithm to use")
-							.short('a')
-							.long("algorithm")
-							.required(true),
-					)
-					.arg(
-						Arg::new("output")
-							.short('o')
-							.long("output")
-							.value_parser(clap::value_parser!(
-								OutputOptions
-							))
-							.help("Output format")
-							.default_value("hex")
-							.display_order(1),
-					),
+			.arg(
+				Arg::new("hash-only")
+					.short('H')
+					.long("hash-only")
+					.help("Print only the hash value without the source input")
+					.action(ArgAction::SetTrue)
+					.display_order(1),
+			),
 			)
-			.subcommand(
-				clap::command!("stdio")
-					.about("Hash input from stdin")
-					.display_order(2)
-					.arg(
-						Arg::new("algorithm")
-							.required(true)
-							.short('a')
-							.long("algorithm")
-							.value_parser(clap::value_parser!(Algorithm))
-							.help("Hashing algorithm"),
-					)
-					.arg(
-						Arg::new("output")
-							.short('o')
-							.long("output")
-							.value_parser(clap::value_parser!(
-								OutputOptions
-							))
-							.help("Output format")
-							.default_value("hex")
-							.display_order(1),
-					),
-			)
+		.subcommand(
+			clap::command!("file")
+				.about("Hash single file or single directory")
+				.arg(Arg::new("FILE").display_order(1).required(true))
+				.arg(
+					Arg::new("algorithm")
+						.display_order(2)
+						.value_parser(clap::value_parser!(Algorithm))
+						.help("Hashing algorithm to use")
+						.short('a')
+						.long("algorithm")
+						.required(true),
+				)
+				.arg(
+					Arg::new("output")
+						.short('o')
+						.long("output")
+						.value_parser(clap::value_parser!(OutputOptions))
+						.help("Output format")
+						.default_value("hex")
+						.display_order(1),
+				)
+				.arg(
+					Arg::new("hash-only")
+						.short('H')
+						.long("hash-only")
+						.help("Print only the hash for each file entry")
+						.action(ArgAction::SetTrue)
+						.display_order(1),
+				),
+		)
+		.subcommand(
+			clap::command!("stdio")
+				.about("Hash input from stdin")
+				.display_order(2)
+				.arg(
+					Arg::new("algorithm")
+						.required(true)
+						.short('a')
+						.long("algorithm")
+						.value_parser(clap::value_parser!(Algorithm))
+						.help("Hashing algorithm"),
+				)
+				.arg(
+					Arg::new("output")
+						.short('o')
+						.long("output")
+						.value_parser(clap::value_parser!(OutputOptions))
+						.help("Output format")
+						.default_value("hex")
+						.display_order(1),
+				)
+				.arg(
+					Arg::new("hash-only")
+						.short('H')
+						.long("hash-only")
+						.help("Print only the hash for each input line")
+						.action(ArgAction::SetTrue)
+						.display_order(1),
+				),
+		)
 			.subcommand(
 				clap::command!("random")
 					.about("Generate random string")
@@ -870,12 +906,12 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			};
 			let a = s.get_one::<Algorithm>("algorithm");
 			let a = match a {
-				Some(a) => a.clone(),
+				Some(a) => *a,
 				None => panic!("Algorithm not found."),
 			};
 			let option = s.get_one::<OutputOptions>("output");
 			let option = match option {
-				Some(o) => o.clone(),
+				Some(o) => *o,
 				None => {
 					println!("No output format provided.");
 					std::process::exit(1);
@@ -917,6 +953,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 					.get_one::<u32>("balloon-parallelism")
 					.unwrap(),
 			};
+			let hash_only = s.get_flag("hash-only");
 
 			hash_string(
 				a,
@@ -927,6 +964,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				&bcrypt_config,
 				&pbkdf2_config,
 				&balloon_config,
+				hash_only,
 			);
 		}
 		Some(("compare-file-hashes", s)) => {
@@ -978,25 +1016,27 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			};
 			let a = s.get_one::<Algorithm>("algorithm");
 			let a = match a {
-				Some(a) => a.clone(),
+				Some(a) => *a,
 				None => panic!("Algorithm not found."),
 			};
 			let option = s.get_one::<OutputOptions>("output");
 			let option = match option {
-				Some(o) => o.clone(),
+				Some(o) => *o,
 				None => {
 					println!("No output format provided.");
 					std::process::exit(1);
 				}
 			};
-			hash_file(a, f, option);
+			let hash_only = s.get_flag("hash-only");
+			hash_file(a, f, option, hash_only);
 		}
 		Some(("stdio", s)) => {
 			let stdin = std::io::stdin();
+			let hash_only = s.get_flag("hash-only");
 			stdin.lock().lines().for_each(|l| {
 				let a = s.get_one::<Algorithm>("algorithm");
 				let a = match a {
-					Some(a) => a.clone(),
+					Some(a) => *a,
 					None => {
 						println!("Algorithm error. This should really not happen.");
 						std::process::exit(1);
@@ -1011,7 +1051,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				};
 				let option = s.get_one::<OutputOptions>("output");
 				let option = match option {
-					Some(o) => o.clone(),
+					Some(o) => *o,
 					None => {
 						println!("No output format provided.");
 						std::process::exit(1);
@@ -1032,6 +1072,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 					&bcrypt_config,
 					&pbkdf2_config,
 					&balloon_config,
+					hash_only,
 				);
 			});
 		}
@@ -1044,12 +1085,12 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 		Some(("random", s)) => {
 			let a = s.get_one::<RngType>("algorithm");
 			let a = match a {
-				Some(a) => a.clone(),
+				Some(a) => *a,
 				None => panic!("Algorithm not found."),
 			};
 			let option = s.get_one::<OutputOptions>("output");
 			let option = match option {
-				Some(o) => o.clone(),
+				Some(o) => *o,
 				None => {
 					println!("No output format provided.");
 					std::process::exit(1);

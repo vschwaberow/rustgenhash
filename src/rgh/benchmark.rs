@@ -64,7 +64,11 @@ pub fn run_benchmarks(algorithms: &[Algorithm], iterations: u32) {
 			}
 			Algorithm::Argon2 => benchmark_phash(
 				|password| {
-					PHash::hash_argon2(password, &argon2_config)
+					PHash::hash_argon2(
+						password,
+						&argon2_config,
+						false,
+					)
 				},
 				iterations,
 			),
@@ -130,23 +134,35 @@ pub fn run_benchmarks(algorithms: &[Algorithm], iterations: u32) {
 			}
 			Algorithm::Balloon => benchmark_phash(
 				|password| {
-					PHash::hash_balloon(password, &balloon_config)
+					PHash::hash_balloon(
+						password,
+						&balloon_config,
+						false,
+					)
 				},
 				iterations,
 			),
 			Algorithm::Bcrypt => benchmark_phash(
 				|password| {
-					PHash::hash_bcrypt(password, &bcrypt_config)
+					PHash::hash_bcrypt(
+						password,
+						&bcrypt_config,
+						false,
+					)
 				},
 				iterations,
 			),
 			Algorithm::Shacrypt => benchmark_phash(
-				|password| PHash::hash_sha_crypt(password),
+				|password| PHash::hash_sha_crypt(password, false),
 				iterations,
 			),
 			Algorithm::Scrypt => benchmark_phash(
 				|password| {
-					PHash::hash_scrypt(password, &scrypt_config)
+					PHash::hash_scrypt(
+						password,
+						&scrypt_config,
+						false,
+					)
 				},
 				iterations,
 			),
@@ -156,6 +172,7 @@ pub fn run_benchmarks(algorithms: &[Algorithm], iterations: u32) {
 						password,
 						"pbkdf2sha256",
 						&pbkdf2_config,
+						false,
 					)
 				},
 				iterations,
@@ -166,6 +183,7 @@ pub fn run_benchmarks(algorithms: &[Algorithm], iterations: u32) {
 						password,
 						"pbkdf2sha512",
 						&pbkdf2_config,
+						false,
 					)
 				},
 				iterations,

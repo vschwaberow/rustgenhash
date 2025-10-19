@@ -10,11 +10,15 @@
     "digests": [
       {
         "source": "alice",
-        "digest": "6384e2b2184bcbf58eccf10ca7a6563c"
+        "digest": "6384e2b2184bcbf58eccf10ca7a6563c",
+        "default_line": "6384e2b2184bcbf58eccf10ca7a6563c alice",
+        "hash_only_line": "6384e2b2184bcbf58eccf10ca7a6563c"
       },
       {
         "source": "bob",
-        "digest": "9f9d51bc70ef21ca5c14f307980a29d8"
+        "digest": "9f9d51bc70ef21ca5c14f307980a29d8",
+        "default_line": "9f9d51bc70ef21ca5c14f307980a29d8 bob",
+        "hash_only_line": "9f9d51bc70ef21ca5c14f307980a29d8"
       }
     ]
   },
