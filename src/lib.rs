@@ -13,6 +13,7 @@ pub mod rgh {
 	pub mod audit;
 	pub mod benchmark;
 	pub mod digest;
+	pub mod file;
 	pub mod hash;
 	pub mod hhhash;
 	pub mod kdf;

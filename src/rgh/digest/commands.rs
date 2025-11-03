@@ -6,7 +6,7 @@
 
 use crate::rgh::app::OutputOptions;
 use crate::rgh::hash::{
-	digest_bytes_to_string, digest_path_to_strings,
+	digest_bytes_to_string, digest_with_options, FileDigestOptions,
 };
 use std::error::Error;
 use std::io::{self, BufRead};
@@ -32,15 +32,11 @@ pub fn digest_string(
 
 /// Hash a file or directory path with the selected digest algorithm.
 pub fn digest_path(
-	algorithm: &str,
-	path: &str,
-	output: OutputOptions,
-	hash_only: bool,
+	options: FileDigestOptions,
 ) -> Result<(), Box<dyn Error>> {
-	let lines =
-		digest_path_to_strings(algorithm, path, output, hash_only)?;
-	for line in lines {
-		println!("{}", line);
+	let outcome = digest_with_options(&options)?;
+	if outcome.exit_code != 0 {
+		std::process::exit(outcome.exit_code);
 	}
 	Ok(())
 }

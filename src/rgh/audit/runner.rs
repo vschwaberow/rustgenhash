@@ -4,6 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use chrono::Utc;
 use clap::ValueEnum;
@@ -16,9 +17,15 @@ use super::{
 use crate::rgh::analyze::{compare_hashes, HashAnalyzer};
 use crate::rgh::app::{Algorithm, OutputOptions};
 use crate::rgh::benchmark::run_benchmarks_to_writer;
+use crate::rgh::file::{
+	DirectoryHashPlan, ErrorHandlingProfile, ErrorStrategy,
+	ProgressConfig, ProgressMode, SymlinkPolicy, ThreadStrategy,
+	WalkOrder,
+};
 use crate::rgh::hash::{
-	digest_bytes_to_string, digest_path_to_strings, Argon2Config,
-	BalloonConfig, BcryptConfig, PHash, Pbkdf2Config, ScryptConfig,
+	digest_bytes_to_string, digest_with_options_collect,
+	Argon2Config, BalloonConfig, BcryptConfig, FileDigestOptions,
+	PHash, Pbkdf2Config, ScryptConfig,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 
@@ -386,6 +393,118 @@ fn parse_output_option(value: Option<&str>) -> OutputOptions {
 	}
 }
 
+fn parse_symlink_policy(
+	value: &str,
+	case_id: &str,
+) -> Result<SymlinkPolicy, AuditError> {
+	match value.to_ascii_lowercase().as_str() {
+		"never" => Ok(SymlinkPolicy::Never),
+		"files" => Ok(SymlinkPolicy::Files),
+		"all" => Ok(SymlinkPolicy::All),
+		other => Err(AuditError::Invalid(format!(
+			"Fixture `{}` has invalid follow_symlinks option '{}'.",
+			case_id, other
+		))),
+	}
+}
+
+fn parse_thread_strategy(
+	value: &str,
+	case_id: &str,
+) -> Result<ThreadStrategy, AuditError> {
+	let trimmed = value.trim();
+	if trimmed.eq_ignore_ascii_case("auto") {
+		return Ok(ThreadStrategy::Auto);
+	}
+	let count: u16 = trimmed.parse().map_err(|_| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` has invalid thread count '{}'.",
+			case_id, trimmed
+		))
+	})?;
+	if count == 0 {
+		return Err(AuditError::Invalid(format!(
+			"Fixture `{}` thread count must be >= 1.",
+			case_id
+		)));
+	}
+	if count == 1 {
+		Ok(ThreadStrategy::Single)
+	} else {
+		Ok(ThreadStrategy::Fixed(count))
+	}
+}
+
+fn parse_mmap_threshold(
+	value: &str,
+	case_id: &str,
+) -> Result<Option<u64>, AuditError> {
+	let trimmed = value.trim();
+	if trimmed.is_empty() {
+		return Err(AuditError::Invalid(format!(
+			"Fixture `{}` mmap_threshold cannot be empty.",
+			case_id
+		)));
+	}
+	if trimmed.eq_ignore_ascii_case("off") {
+		return Ok(None);
+	}
+	let lower = trimmed.to_ascii_lowercase();
+	let mut split = lower.len();
+	for (idx, ch) in lower.char_indices() {
+		if !ch.is_ascii_digit() {
+			split = idx;
+			break;
+		}
+	}
+	let (number, suffix) = lower.split_at(split);
+	if number.is_empty() {
+		return Err(AuditError::Invalid(format!(
+			"Fixture `{}` has invalid mmap_threshold '{}'.",
+			case_id, trimmed
+		)));
+	}
+	let value: u64 = number.parse().map_err(|_| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` has invalid mmap_threshold '{}'.",
+			case_id, trimmed
+		))
+	})?;
+	let factor: u64 = match suffix {
+		"" | "b" => 1,
+		"k" | "kb" | "kib" => 1024,
+		"m" | "mb" | "mib" => 1024 * 1024,
+		"g" | "gb" | "gib" => 1024 * 1024 * 1024,
+		other => {
+			return Err(AuditError::Invalid(format!(
+				"Fixture `{}` has unsupported mmap_threshold suffix '{}'.",
+				case_id, other
+			)))
+		}
+	};
+	value.checked_mul(factor).map(Some).ok_or_else(|| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` mmap_threshold overflow.",
+			case_id
+		))
+	})
+}
+
+fn parse_error_strategy(
+	value: &str,
+	case_id: &str,
+) -> Result<ErrorStrategy, AuditError> {
+	match value.to_ascii_lowercase().as_str() {
+		"fail-fast" => Ok(ErrorStrategy::FailFast),
+		"continue" => Ok(ErrorStrategy::Continue),
+		"report-only" => Ok(ErrorStrategy::ReportOnly),
+		other => Err(AuditError::Invalid(format!(
+			"Fixture `{}` has invalid error_strategy '{}'.",
+			case_id, other
+		))),
+	}
+}
+
 fn run_digest_string_case(
 	case: &AuditCase,
 ) -> Result<Value, AuditError> {
@@ -461,39 +580,87 @@ fn run_digest_file_case(
 		.and_then(Value::as_str)
 		.unwrap_or("hex");
 	let output_option = parse_output_option(Some(format_value));
-	let defaults = digest_path_to_strings(
-		&case.algorithm,
-		path_str,
-		output_option,
-		false,
-	)
-	.map_err(|err| {
-		AuditError::Invalid(format!(
-			"Digest file command failed for fixture `{}`: {}",
-			case.id, err
-		))
-	})?;
-	let hash_only = digest_path_to_strings(
-		&case.algorithm,
-		path_str,
-		output_option,
-		true,
-	)
-	.map_err(|err| {
-		AuditError::Invalid(format!(
-			"Digest file command failed for fixture `{}`: {}",
-			case.id, err
-		))
-	})?;
-	if defaults.len() != hash_only.len() {
+	let recursive = case
+		.input
+		.get("recursive")
+		.and_then(Value::as_bool)
+		.unwrap_or(false);
+	let follow_policy = case
+		.input
+		.get("follow_symlinks")
+		.and_then(Value::as_str)
+		.unwrap_or("never");
+	let symlink_policy =
+		parse_symlink_policy(follow_policy, &case.id)?;
+	let threads_raw = case
+		.input
+		.get("threads")
+		.and_then(Value::as_str)
+		.unwrap_or("1");
+	let threads = parse_thread_strategy(threads_raw, &case.id)?;
+	let mmap_raw = case
+		.input
+		.get("mmap_threshold")
+		.and_then(Value::as_str)
+		.unwrap_or("64MiB");
+	let mmap_threshold = parse_mmap_threshold(mmap_raw, &case.id)?;
+	let error_strategy_raw = case
+		.input
+		.get("error_strategy")
+		.and_then(Value::as_str)
+		.unwrap_or("fail-fast");
+	let error_strategy =
+		parse_error_strategy(error_strategy_raw, &case.id)?;
+
+	let plan = DirectoryHashPlan {
+		root_path: PathBuf::from(path_str),
+		recursive,
+		follow_symlinks: symlink_policy,
+		order: WalkOrder::Lexicographic,
+		threads,
+		mmap_threshold,
+	};
+	let mut error_profile = ErrorHandlingProfile::default();
+	error_profile.strategy = error_strategy;
+	let progress = ProgressConfig {
+		mode: ProgressMode::Disabled,
+		throttle: Duration::from_millis(500),
+	};
+	let mut options = FileDigestOptions {
+		algorithm: case.algorithm.clone(),
+		plan,
+		output: output_option,
+		hash_only: false,
+		progress,
+		manifest_path: None,
+		error_profile,
+	};
+	let defaults =
+		digest_with_options_collect(&options).map_err(|err| {
+			AuditError::Invalid(format!(
+				"Digest file command failed for fixture `{}`: {}",
+				case.id, err
+			))
+		})?;
+	let default_lines = defaults.lines.clone();
+	options.hash_only = true;
+	let hash_only_result = digest_with_options_collect(&options)
+		.map_err(|err| {
+			AuditError::Invalid(format!(
+				"Digest file command failed for fixture `{}`: {}",
+				case.id, err
+			))
+		})?;
+	let hash_only_lines = hash_only_result.lines.clone();
+	if default_lines.len() != hash_only_lines.len() {
 		return Err(AuditError::Invalid(format!(
 			"Digest file command returned mismatched line counts for fixture `{}`",
 			case.id
 		)));
 	}
-	let mut entries = Vec::with_capacity(defaults.len());
+	let mut entries = Vec::with_capacity(default_lines.len());
 	for (default_line, hash_only_line) in
-		defaults.iter().zip(hash_only.iter())
+		default_lines.iter().zip(hash_only_lines.iter())
 	{
 		let digest = hash_only_line
 			.split_whitespace()
@@ -513,7 +680,11 @@ fn run_digest_file_case(
 	}
 	Ok(json!({
 		"format": format_value,
-		"entries": entries
+		"entries": entries,
+		"exit_code": defaults.exit_code,
+		"failure_count": defaults.summary.failure_count,
+		"should_write_manifest": defaults.should_write_manifest,
+		"fatal_error": defaults.fatal_error,
 	}))
 }
 

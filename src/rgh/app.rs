@@ -10,9 +10,16 @@ use crate::rgh::benchmark::{
 	digest_benchmark_presets, kdf_benchmark_presets, run_benchmarks,
 };
 use crate::rgh::digest::commands as digest_commands;
+use crate::rgh::file::{
+	DirectoryHashPlan, ErrorHandlingProfile, ErrorStrategy,
+	ProgressConfig, ProgressMode, SymlinkPolicy, ThreadStrategy,
+	WalkOrder,
+};
 use crate::rgh::hash::{
-	assemble_output, Argon2Config, BalloonConfig, BcryptConfig,
-	PHash, Pbkdf2Config, RHash, ScryptConfig,
+	assemble_output, compare_file_hashes, Argon2Config,
+	BalloonConfig, BcryptConfig, CompareDiffKind, CompareMode,
+	CompareSummary, FileDigestOptions, PHash, Pbkdf2Config, RHash,
+	ScryptConfig,
 };
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::kdf::commands as kdf_commands;
@@ -23,9 +30,9 @@ use colored::*;
 use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
 use std::error::Error;
 use std::io::{self, BufRead, Read};
+use std::path::PathBuf;
+use std::time::Duration;
 use strum::{EnumIter, IntoEnumIterator};
-
-use super::analyze::compare_file_hashes;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
 Written by {author-with-newline}{about-with-newline}
@@ -295,12 +302,30 @@ fn interactive_digest_file() -> Result<(), Box<dyn Error>> {
 		.default(false)
 		.interact()?;
 
-	digest_commands::digest_path(
-		&algorithm_label,
-		&path,
-		output_option,
+	let plan = DirectoryHashPlan {
+		root_path: PathBuf::from(&path),
+		recursive: false,
+		follow_symlinks: SymlinkPolicy::Never,
+		order: WalkOrder::Lexicographic,
+		threads: ThreadStrategy::Single,
+		mmap_threshold: Some(64 * 1024 * 1024),
+	};
+	let progress = ProgressConfig {
+		mode: ProgressMode::Auto,
+		throttle: Duration::from_millis(500),
+	};
+	let error_profile = ErrorHandlingProfile::default();
+	let options = FileDigestOptions {
+		algorithm: algorithm_label,
+		plan,
+		output: output_option,
 		hash_only,
-	)
+		progress,
+		manifest_path: None,
+		error_profile,
+	};
+
+	digest_commands::digest_path(options)
 }
 
 fn interactive_digest_menu() -> Result<(), Box<dyn Error>> {
@@ -458,6 +483,95 @@ fn interactive_compare_hashes() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
+fn describe_optional(value: &Option<String>) -> String {
+	value
+		.as_ref()
+		.map(|s| s.as_str())
+		.unwrap_or("<missing>")
+		.to_string()
+}
+
+fn render_compare_summary(summary: &CompareSummary) {
+	match summary.mode {
+		CompareMode::Manifest => {
+			println!("{}", "Mode: manifest comparison".cyan());
+		}
+		CompareMode::Text => {
+			println!("{}", "Mode: digest list comparison".cyan());
+		}
+	}
+
+	if summary.differences.is_empty() {
+		let scope = summary.left_entries.max(summary.right_entries);
+		match summary.mode {
+			CompareMode::Manifest => println!(
+				"{}",
+				format!("Manifests match across {} entries.", scope)
+					.green()
+			),
+			CompareMode::Text => println!(
+				"{}",
+				format!("Files match across {} lines.", scope)
+					.green()
+			),
+		}
+	} else {
+		println!(
+			"{}",
+			format!(
+				"Detected {} difference(s):",
+				summary.differences.len()
+			)
+			.yellow()
+		);
+		for diff in &summary.differences {
+			let message = match diff.kind {
+				CompareDiffKind::Changed => format!(
+					"changed: {} (expected {}, actual {})",
+					diff.identifier,
+					describe_optional(&diff.expected),
+					describe_optional(&diff.actual)
+				),
+				CompareDiffKind::MissingRight => format!(
+					"missing in candidate: {} (expected {})",
+					diff.identifier,
+					describe_optional(&diff.expected)
+				),
+				CompareDiffKind::MissingLeft => format!(
+					"extra in candidate: {} (actual {})",
+					diff.identifier,
+					describe_optional(&diff.actual)
+				),
+			};
+			println!("{}", message.red());
+		}
+	}
+
+	if summary.incomplete {
+		println!(
+			"{}",
+			format!(
+				"Comparison incomplete: baseline failures {}, candidate failures {}",
+				summary.left_failures, summary.right_failures
+			)
+			.yellow()
+		);
+	}
+
+	match summary.exit_code {
+		0 => println!("{}", "Comparison succeeded (exit 0).".green()),
+		1 => println!("{}", "Differences detected (exit 1).".red()),
+		2 => {
+			println!("{}", "Comparison incomplete (exit 2).".yellow())
+		}
+		code => println!(
+			"{}",
+			format!("Comparison finished with exit {}.", code)
+				.yellow()
+		),
+	}
+}
+
 fn interactive_compare_file_hashes() -> Result<(), Box<dyn Error>> {
 	let file1 = Input::<String>::new()
 		.with_prompt("Enter the path to the first file")
@@ -468,7 +582,17 @@ fn interactive_compare_file_hashes() -> Result<(), Box<dyn Error>> {
 		.interact_text()?;
 
 	match compare_file_hashes(&file1, &file2) {
-		Ok(_) => println!("{}", "File operation complete.".green()),
+		Ok(summary) => {
+			render_compare_summary(&summary);
+			println!(
+				"{}",
+				format!(
+					"(Interactive mode) exit code would be {}",
+					summary.exit_code
+				)
+				.cyan()
+			);
+		}
 		Err(e) => println!(
 			"{}",
 			format!("Error comparing files: {}", e).red()
@@ -763,40 +887,97 @@ fn build_cli() -> clap::Command {
 									.action(ArgAction::SetTrue),
 							),
 					)
-					.subcommand(
-						clap::command!("file")
-							.about("Hash the contents of a file or directory (non-recursive)")
-							.arg(
-								Arg::new("algorithm")
-									.short('a')
-									.long("algorithm")
-									.help("Digest algorithm identifier (e.g., sha256)")
-									.required(true),
-							)
-							.arg(
-								Arg::new("path")
-									.help("File or directory path to hash")
-									.required(true),
-							)
-							.arg(
-								Arg::new("output")
-									.short('o')
-									.long("output")
-									.value_parser(
-										clap::value_parser!(
-											OutputOptions
-										),
-									)
-									.help("Output format (hex, base64, hex+base64)")
-									.default_value("hex"),
-							)
-							.arg(
-								Arg::new("hash-only")
-									.long("hash-only")
-									.help("Emit only digests without file names")
-									.action(ArgAction::SetTrue),
-							),
-					)
+				.subcommand(
+					clap::command!("file")
+						.about("Hash the contents of a file or directory")
+						.arg(
+							Arg::new("algorithm")
+								.short('a')
+								.long("algorithm")
+								.help("Digest algorithm identifier (e.g., sha256)")
+								.required(true),
+						)
+						.arg(
+							Arg::new("path")
+								.help("File or directory path to hash")
+								.required(true),
+						)
+						.arg(
+							Arg::new("output")
+								.short('o')
+								.long("output")
+								.value_parser(
+									clap::value_parser!(
+										OutputOptions
+									),
+								)
+								.help("Output format (hex, base64, hex+base64)")
+								.default_value("hex"),
+						)
+						.arg(
+							Arg::new("hash-only")
+								.long("hash-only")
+								.help("Emit only digests without file names")
+								.action(ArgAction::SetTrue),
+						)
+						.arg(
+							Arg::new("recursive")
+								.long("recursive")
+								.help("Traverse directories recursively")
+								.action(ArgAction::SetTrue),
+						)
+						.arg(
+							Arg::new("follow-symlinks")
+								.long("follow-symlinks")
+								.value_parser(["never", "files", "all"])
+								.default_value("never")
+								.help("Control how symlinks are handled (never, files, all)"),
+						)
+						.arg(
+							Arg::new("threads")
+								.long("threads")
+								.default_value("1")
+								.help("Worker strategy: 1 (single), auto, or explicit count"),
+						)
+						.arg(
+							Arg::new("mmap-threshold")
+								.long("mmap-threshold")
+								.default_value("64MiB")
+								.help("Enable mmap for files ≥ threshold (use 'off' to disable)"),
+						)
+						.arg(
+							Arg::new("progress")
+								.long("progress")
+								.help("Force progress reporting on stderr")
+								.action(ArgAction::SetTrue)
+								.conflicts_with("no-progress"),
+						)
+						.arg(
+							Arg::new("no-progress")
+								.long("no-progress")
+								.help("Disable progress reporting")
+								.action(ArgAction::SetTrue),
+						)
+				.arg(
+					Arg::new("manifest")
+						.long("manifest")
+						.help(
+							"Write JSON manifest to this path (fail-fast suppresses the file)",
+						),
+				)
+				.arg(
+					Arg::new("error-strategy")
+						.long("error-strategy")
+						.value_parser(["fail-fast", "continue", "report-only"])
+						.default_value("fail-fast")
+					.help(
+						"Control error handling: fail-fast (exit 1), continue (exit 2 on failures), report-only (exit 0)",
+					),
+				)
+				.after_help(
+					"Exit codes: 0 = success/report-only, 1 = fail-fast abort, 2 = recoverable errors",
+				),
+		)
 					.subcommand(
 						clap::command!("stdio")
 							.about("Hash newline-delimited stdin input")
@@ -1308,20 +1489,45 @@ fn build_cli() -> clap::Command {
 							.required(true),
 					),
 			)
-			.subcommand(
-				clap::command!("compare-file-hashes")
-					.about("Compare two files with hashes")
-					.arg(
-						Arg::new("FILE1")
-							.help("First file to compare")
-							.required(true),
-					)
-					.arg(
-						Arg::new("FILE2")
-							.help("Second file to compare")
-							.required(true),
-					),
-			)
+		.subcommand(
+			clap::command!("compare-file")
+				.about("Compare manifest JSON or digest outputs for equality")
+				.alias("compare-file-hashes")
+				.arg(
+					Arg::new("manifest")
+						.long("manifest")
+						.value_name("BASELINE")
+						.help(
+							"Baseline manifest or digest list (defaults to first positional argument)",
+						)
+						.requires("against"),
+				)
+				.arg(
+					Arg::new("against")
+						.long("against")
+						.value_name("CANDIDATE")
+						.help(
+							"Manifest or digest list to compare against the baseline",
+						)
+						.requires("manifest"),
+				)
+				.arg(
+					Arg::new("FILE1")
+						.help("Baseline manifest or digest list")
+						.conflicts_with("manifest")
+						.required_unless_present("manifest"),
+				)
+				.arg(
+					Arg::new("FILE2")
+						.help("Comparison manifest or digest list")
+						.conflicts_with("against")
+						.required_unless_present("manifest"),
+				)
+				.after_help(
+					"Exit codes: 0 = identical, 1 = differences detected or incompatibility, 2 = comparison incomplete (manifest recorded failures)",
+				)
+				.arg_required_else_help(true),
+		)
 			.subcommand(
 				clap::command!("generate-auto-completions")
 					.about("Generate shell completions")
@@ -1389,18 +1595,67 @@ fn handle_digest_command(
 		Some(("file", args)) => {
 			let algorithm = args
 				.get_one::<String>("algorithm")
-				.expect("algorithm must be provided");
-			let path = args
-				.get_one::<String>("path")
-				.expect("path must be provided");
+				.expect("algorithm must be provided")
+				.clone();
 			let output = args
 				.get_one::<OutputOptions>("output")
 				.copied()
 				.unwrap_or(OutputOptions::Hex);
 			let hash_only = args.get_flag("hash-only");
-			digest_commands::digest_path(
-				algorithm, path, output, hash_only,
-			)
+			let recursive = args.get_flag("recursive");
+			let symlink_policy = args
+				.get_one::<String>("follow-symlinks")
+				.map(String::as_str)
+				.unwrap_or("never");
+			let symlink_policy = parse_symlink_policy(symlink_policy);
+			let thread_value = args
+				.get_one::<String>("threads")
+				.map(String::as_str)
+				.unwrap_or("1");
+			let threads = parse_thread_strategy(thread_value)
+				.map_err(|msg| {
+					io::Error::new(io::ErrorKind::InvalidInput, msg)
+				})?;
+			let mmap_value = args
+				.get_one::<String>("mmap-threshold")
+				.map(String::as_str)
+				.unwrap_or("64MiB");
+			let mmap_threshold = parse_mmap_threshold(mmap_value)
+				.map_err(|msg| {
+					io::Error::new(io::ErrorKind::InvalidInput, msg)
+				})?;
+			let progress = build_progress_config(args);
+			let error_strategy = args
+				.get_one::<String>("error-strategy")
+				.map(String::as_str)
+				.unwrap_or("fail-fast");
+			let error_strategy = parse_error_strategy(error_strategy);
+			let manifest_path = args
+				.get_one::<String>("manifest")
+				.map(|p| PathBuf::from(p));
+			let path = args
+				.get_one::<String>("path")
+				.expect("path must be provided");
+			let plan = DirectoryHashPlan {
+				root_path: PathBuf::from(path),
+				recursive,
+				follow_symlinks: symlink_policy,
+				order: WalkOrder::Lexicographic,
+				threads,
+				mmap_threshold,
+			};
+			let mut error_profile = ErrorHandlingProfile::default();
+			error_profile.strategy = error_strategy;
+			let options = crate::rgh::hash::FileDigestOptions {
+				algorithm,
+				plan,
+				output,
+				hash_only,
+				progress,
+				manifest_path,
+				error_profile,
+			};
+			digest_commands::digest_path(options)
 		}
 		Some(("stdio", args)) => {
 			let algorithm = args
@@ -1416,6 +1671,99 @@ fn handle_digest_command(
 			)
 		}
 		_ => Ok(()),
+	}
+}
+
+fn parse_symlink_policy(value: &str) -> SymlinkPolicy {
+	match value.to_ascii_lowercase().as_str() {
+		"never" => SymlinkPolicy::Never,
+		"files" => SymlinkPolicy::Files,
+		"all" => SymlinkPolicy::All,
+		_ => SymlinkPolicy::Never,
+	}
+}
+
+fn parse_thread_strategy(
+	value: &str,
+) -> Result<ThreadStrategy, String> {
+	let trimmed = value.trim();
+	if trimmed.eq_ignore_ascii_case("auto") {
+		return Ok(ThreadStrategy::Auto);
+	}
+	let count: u16 = trimmed
+		.parse()
+		.map_err(|_| format!("Invalid thread count '{trimmed}'"))?;
+	if count == 0 {
+		return Err("Thread count must be >= 1".into());
+	}
+	if count == 1 {
+		Ok(ThreadStrategy::Single)
+	} else {
+		Ok(ThreadStrategy::Fixed(count))
+	}
+}
+
+fn parse_mmap_threshold(value: &str) -> Result<Option<u64>, String> {
+	let trimmed = value.trim();
+	if trimmed.is_empty() {
+		return Err("mmap threshold cannot be empty".into());
+	}
+	if trimmed.eq_ignore_ascii_case("off") {
+		return Ok(None);
+	}
+	let lower = trimmed.to_ascii_lowercase();
+	let mut split = lower.len();
+	for (idx, ch) in lower.char_indices() {
+		if !ch.is_ascii_digit() {
+			split = idx;
+			break;
+		}
+	}
+	let (number, suffix) = lower.split_at(split);
+	if number.is_empty() {
+		return Err(format!("Invalid mmap threshold '{trimmed}'"));
+	}
+	let value: u64 = number
+		.parse()
+		.map_err(|_| format!("Invalid mmap threshold '{trimmed}'"))?;
+	let factor: u64 = match suffix {
+		"" | "b" => 1,
+		"k" | "kb" | "kib" => 1024,
+		"m" | "mb" | "mib" => 1024 * 1024,
+		"g" | "gb" | "gib" => 1024 * 1024 * 1024,
+		other => {
+			return Err(format!(
+				"Unsupported size suffix '{}' for mmap threshold",
+				other
+			))
+		}
+	};
+	value
+		.checked_mul(factor)
+		.map(Some)
+		.ok_or_else(|| "mmap threshold overflow".into())
+}
+
+fn parse_error_strategy(value: &str) -> ErrorStrategy {
+	match value.to_ascii_lowercase().as_str() {
+		"fail-fast" => ErrorStrategy::FailFast,
+		"continue" => ErrorStrategy::Continue,
+		"report-only" => ErrorStrategy::ReportOnly,
+		_ => ErrorStrategy::FailFast,
+	}
+}
+
+fn build_progress_config(args: &clap::ArgMatches) -> ProgressConfig {
+	let mode = if args.get_flag("no-progress") {
+		ProgressMode::Disabled
+	} else if args.get_flag("progress") {
+		ProgressMode::Enabled
+	} else {
+		ProgressMode::Auto
+	};
+	ProgressConfig {
+		mode,
+		throttle: Duration::from_millis(500),
 	}
 }
 
@@ -1625,21 +1973,30 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
 			hash_string(a, st, option, &configs, hash_only);
 		}
-		Some(("compare-file-hashes", s)) => {
-			let file1 = s.get_one::<String>("FILE1");
-			let file2 = s.get_one::<String>("FILE2");
-			let file1 = file1.unwrap_or_else(|| {
-				println!("No file provided.");
-				std::process::exit(1);
-			});
-			let file2 = file2.unwrap_or_else(|| {
-				println!("No file provided.");
-				std::process::exit(1);
-			});
-			match compare_file_hashes(file1, file2) {
-				Ok(_) => println!("File operation complete."),
-				Err(e) => {
-					eprintln!("Error comparing files: {}", e);
+		Some(("compare-file", s)) => {
+			let baseline = s
+				.get_one::<String>("manifest")
+				.or_else(|| s.get_one::<String>("FILE1"))
+				.map(|value| value.to_owned())
+				.unwrap_or_else(|| {
+					println!("Baseline file missing.");
+					std::process::exit(1);
+				});
+			let candidate = s
+				.get_one::<String>("against")
+				.or_else(|| s.get_one::<String>("FILE2"))
+				.map(|value| value.to_owned())
+				.unwrap_or_else(|| {
+					println!("Comparison file missing.");
+					std::process::exit(1);
+				});
+			match compare_file_hashes(&baseline, &candidate) {
+				Ok(summary) => {
+					render_compare_summary(&summary);
+					std::process::exit(summary.exit_code);
+				}
+				Err(err) => {
+					eprintln!("Error comparing files: {}", err);
 					std::process::exit(1);
 				}
 			}

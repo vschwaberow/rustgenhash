@@ -1,0 +1,31 @@
+{
+  "id": "digest_file_error_strategy_continue",
+  "mode": "digest_file",
+  "algorithm": "SHA256",
+  "input": {
+    "path": "tests/fixtures/digest/error_strategy_tree",
+    "recursive": false,
+    "follow_symlinks": "files",
+    "error_strategy": "continue"
+  },
+  "expected_output": {
+    "format": "hex",
+    "entries": [
+      {
+        "path": "tests/fixtures/digest/error_strategy_tree/ok.txt",
+        "digest": "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926",
+        "default_line": "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926 tests/fixtures/digest/error_strategy_tree/ok.txt",
+        "hash_only_line": "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926"
+      }
+    ],
+    "exit_code": 2,
+    "failure_count": 1,
+    "should_write_manifest": true,
+    "fatal_error": "failed to read metadata for tests/fixtures/digest/error_strategy_tree/broken.ln: No such file or directory (os error 2)"
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Validates continue error strategy records failures while hashing broken symlinks.",
+    "skip_reason": null
+  }
+}

@@ -151,20 +151,3 @@ impl HashAnalyzer {
 pub fn compare_hashes(hash1: &str, hash2: &str) -> bool {
 	hash1.eq_ignore_ascii_case(hash2)
 }
-
-pub fn compare_file_hashes(
-	file_src: &str,
-	file_dst: &str,
-) -> std::io::Result<bool> {
-	let hash_src = std::fs::read_to_string(file_src)?;
-	let hash_dst = std::fs::read_to_string(file_dst)?;
-
-	for (line_number, (src, dst)) in
-		hash_src.lines().zip(hash_dst.lines()).enumerate()
-	{
-		if src == dst {
-			println!("Line {}: {} == {}", line_number + 1, src, dst);
-		}
-	}
-	Ok(true)
-}

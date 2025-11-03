@@ -27,7 +27,7 @@ Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash`, `
 | Command | Description | Key flags |
 |---------|-------------|-----------|
 | `rgh digest string -a <ALG> <TEXT>` | Hash inline text with the selected algorithm. | `--output {hex,base64,hexbase64}`, `--hash-only` |
-| `rgh digest file -a <ALG> <PATH>` | Hash a file or each file in a directory (non-recursive). | `--output`, `--hash-only` |
+| `rgh digest file -a <ALG> <PATH>` | Hash files or directories (opt-in recursion, manifests, progress). | `--recursive`, `--follow-symlinks`, `--threads`, `--mmap-threshold`, `--manifest`, `--error-strategy`, `--progress/--no-progress`, `--hash-only` |
 | `rgh digest stdio -a <ALG>` | Read newline-delimited input from stdin and emit one digest per line. | `--output`, `--hash-only` |
 
 Examples:
@@ -38,6 +38,22 @@ rgh digest file -a sha256 target/release/rgh
 
 # Compute hashes for a list while keeping one token per line
 cat passwords.txt | rgh digest stdio -a sha3_512 --hash-only
+
+# Recursively hash a backup tree and write a manifest
+rgh digest file -a sha256 --recursive --manifest backup-hashes.json /mnt/backups
+
+Directory hashing options:
+
+- `--recursive` traverses nested directories; defaults to the legacy non-recursive behaviour.
+- `--follow-symlinks {never,files,all}` controls whether symbolic links are hashed or followed.
+- `--threads {1|auto|N}` enables Rayon-backed parallel hashing when more than one worker is requested.
+- `--mmap-threshold <SIZE|off>` switches to memory-mapped IO for large files (e.g., `64MiB`).
+- `--manifest <FILE>` writes a JSON summary containing per-file digests, failures, and performance metadata (fail-fast suppresses the file to avoid partial output).
+- `--error-strategy {fail-fast,continue,report-only}` determines how failures affect exit codes and manifest writes:
+  - `fail-fast` stops on the first unreadable entry, exits `1`, and skips manifest creation.
+  - `continue` records failures, hashes readable files, and exits `2` when any recoverable errors occur.
+  - `report-only` logs failures for review but exits `0` to keep downstream scripts green.
+- `--progress`/`--no-progress` override adaptive stderr progress reporting (auto-disabled for `--hash-only`).
 ```
 
 ### Password-based KDF commands
@@ -86,11 +102,16 @@ Scheme for comparing a hash:
 rgh compare-string <hash1> <hash2>
 ```
 
-Scheme for comparing hash files with each other:
+Scheme for comparing hashes across manifests or digest lists:
 
 ```bash
-rgh compare-file <file1> <file2>
+rgh compare-file --manifest reference.json --against current.json
+
+# Legacy digest lists remain supported
+rgh compare-file baseline.txt candidate.txt
 ```
+
+*Exit codes*: `0` identical, `1` differences detected, `2` comparison incomplete when manifests recorded failures.
 
 Scheme for benchmarking a hash algorithm:
 

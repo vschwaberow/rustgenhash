@@ -5,6 +5,11 @@
 // Copyright (c) 2022 Volker Schwaberow
 
 use crate::rgh::app::OutputOptions;
+use crate::rgh::file::{
+	DirectoryHashPlan, EntryStatus, ErrorHandlingProfile,
+	ManifestEntry, ManifestOutcome, ManifestSummary, ManifestWriter,
+	ProgressConfig, ProgressEmitter, Walker,
+};
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
 	Argon2,
@@ -21,6 +26,7 @@ use base64::{
 	Engine,
 };
 use blake2::Digest;
+use chrono::{DateTime, Utc};
 use digest::DynDigest;
 use pbkdf2::{
 	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
@@ -30,7 +36,11 @@ use scrypt::{
 	password_hash::SaltString as ScSaltString, Params as ScParams,
 	Scrypt,
 };
+use serde_json::to_writer_pretty;
 use skein::{consts::U32, Skein1024, Skein256, Skein512};
+use std::fs::{self, File};
+use std::io::IsTerminal;
+use std::path::{Path, PathBuf};
 use std::{collections::HashMap, io};
 
 #[cfg(all(
@@ -92,6 +102,64 @@ pub(crate) fn assemble_output(
 		}
 	}
 	tokens.join(" ")
+}
+
+#[derive(Clone, Debug)]
+pub struct FileDigestOptions {
+	pub algorithm: String,
+	pub plan: DirectoryHashPlan,
+	pub output: OutputOptions,
+	pub hash_only: bool,
+	pub progress: ProgressConfig,
+	pub manifest_path: Option<PathBuf>,
+	pub error_profile: ErrorHandlingProfile,
+}
+
+impl FileDigestOptions {
+	fn algorithm_uppercase(&self) -> String {
+		self.algorithm.to_uppercase()
+	}
+}
+
+pub struct FileDigestResult {
+	pub summary: ManifestSummary,
+	pub lines: Vec<String>,
+	pub exit_code: i32,
+	pub should_write_manifest: bool,
+	pub fatal_error: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CompareMode {
+	Manifest,
+	Text,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CompareDiffKind {
+	Changed,
+	MissingLeft,
+	MissingRight,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CompareDifference {
+	pub identifier: String,
+	pub kind: CompareDiffKind,
+	pub expected: Option<String>,
+	pub actual: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompareSummary {
+	pub mode: CompareMode,
+	pub differences: Vec<CompareDifference>,
+	pub exit_code: i32,
+	pub incomplete: bool,
+	pub left_failures: u64,
+	pub right_failures: u64,
+	pub left_entries: usize,
+	pub right_entries: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -703,4 +771,411 @@ pub fn digest_path_to_strings(
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
 	let mut engine = RHash::new(&algorithm.to_uppercase());
 	engine.compute_path_lines(path, output, hash_only)
+}
+
+pub fn digest_with_options(
+	options: &FileDigestOptions,
+) -> Result<ManifestOutcome, Box<dyn std::error::Error>> {
+	let is_tty = io::stderr().is_terminal();
+	let mut emitter =
+		if options.progress.should_emit(options.hash_only, is_tty) {
+			Some(ProgressEmitter::new(options.progress))
+		} else {
+			None
+		};
+	let outcome =
+		digest_with_options_internal(options, |line, size| {
+			println!("{}", line);
+			if let Some(emitter) = emitter.as_mut() {
+				emitter.record(size);
+				emitter.maybe_emit();
+			}
+		})?;
+	if let Some(mut emitter) = emitter {
+		emitter.emit_final();
+	}
+	if outcome.should_write_manifest {
+		if let Some(manifest_path) = &options.manifest_path {
+			write_manifest(manifest_path, &outcome.summary)?;
+		}
+	}
+	Ok(outcome)
+}
+
+pub fn digest_with_options_collect(
+	options: &FileDigestOptions,
+) -> Result<FileDigestResult, Box<dyn std::error::Error>> {
+	let mut lines = Vec::new();
+	let outcome =
+		digest_with_options_internal(options, |line, _| {
+			lines.push(line.to_string());
+		})?;
+	let ManifestOutcome {
+		summary,
+		exit_code,
+		should_write_manifest,
+		fatal_error,
+	} = outcome;
+	Ok(FileDigestResult {
+		summary,
+		lines,
+		exit_code,
+		should_write_manifest,
+		fatal_error,
+	})
+}
+
+fn digest_with_options_internal<F>(
+	options: &FileDigestOptions,
+	mut on_line: F,
+) -> Result<ManifestOutcome, Box<dyn std::error::Error>>
+where
+	F: FnMut(&str, u64),
+{
+	let algorithm_upper = options.algorithm_uppercase();
+	let walker = Walker::new(options.plan.clone());
+	let entries = walker.walk()?;
+	let mut writer = ManifestWriter::new(
+		options.plan.clone(),
+		options.error_profile.clone(),
+	);
+
+	for entry in entries {
+		let path = entry.path.clone();
+		let display_path = path.to_string_lossy();
+		let metadata = match fs::metadata(&path) {
+			Ok(meta) => meta,
+			Err(err) => {
+				let status = match err.kind() {
+					io::ErrorKind::PermissionDenied => {
+						EntryStatus::Skipped
+					}
+					_ => EntryStatus::Error,
+				};
+				let message = format!(
+					"failed to read metadata for {}: {}",
+					display_path, err
+				);
+				let should_continue = writer.record_failure(
+					path,
+					&options.algorithm,
+					message.clone(),
+					status,
+				);
+				eprintln!("{}", message);
+				if !should_continue {
+					return Ok(writer.finalize());
+				}
+				continue;
+			}
+		};
+		let size = metadata.len();
+		let modified =
+			metadata.modified().ok().map(DateTime::<Utc>::from);
+
+		let mut engine = RHash::new(&algorithm_upper);
+		let digest_bytes = match engine
+			.read_file(display_path.as_ref())
+		{
+			Ok(bytes) => bytes,
+			Err(err) => {
+				let status = entry_status_from_error(err.as_ref());
+				let message = format!(
+					"failed to hash {}: {}",
+					display_path, err
+				);
+				let should_continue = writer.record_failure(
+					path,
+					&options.algorithm,
+					message.clone(),
+					status,
+				);
+				eprintln!("{}", message);
+				if !should_continue {
+					return Ok(writer.finalize());
+				}
+				continue;
+			}
+		};
+		let hex_digest = hex::encode(&digest_bytes);
+		let base64_digest = STANDARD.encode(&digest_bytes);
+		let tokens = match options.output {
+			OutputOptions::Hex => vec![hex_digest.clone()],
+			OutputOptions::Base64 => vec![base64_digest.clone()],
+			OutputOptions::HexBase64 => {
+				vec![hex_digest.clone(), base64_digest.clone()]
+			}
+		};
+		let line = assemble_output(
+			options.hash_only,
+			tokens,
+			Some(display_path.as_ref()),
+		);
+		on_line(&line, size);
+		writer.record_success(
+			path,
+			&options.algorithm,
+			hex_digest,
+			size,
+			modified,
+		);
+	}
+
+	Ok(writer.finalize())
+}
+
+fn write_manifest(
+	path: &PathBuf,
+	summary: &ManifestSummary,
+) -> Result<(), Box<dyn std::error::Error>> {
+	if let Some(parent) = path.parent() {
+		if !parent.as_os_str().is_empty() {
+			fs::create_dir_all(parent)?;
+		}
+	}
+	let file = File::create(path)?;
+	to_writer_pretty(file, summary)?;
+	Ok(())
+}
+
+enum CompareInput {
+	Manifest(ManifestSummary),
+	Lines(Vec<String>),
+}
+
+pub fn compare_file_hashes(
+	baseline: &str,
+	candidate: &str,
+) -> Result<CompareSummary, Box<dyn std::error::Error>> {
+	let baseline_path = Path::new(baseline);
+	let candidate_path = Path::new(candidate);
+	let baseline_input = load_compare_input(baseline_path)?;
+	let candidate_input = load_compare_input(candidate_path)?;
+	match (baseline_input, candidate_input) {
+		(
+			CompareInput::Manifest(left),
+			CompareInput::Manifest(right),
+		) => Ok(compare_manifests(left, right)),
+		(CompareInput::Lines(left), CompareInput::Lines(right)) => {
+			Ok(compare_line_lists(left, right))
+		}
+		(CompareInput::Manifest(_), CompareInput::Lines(_))
+		| (CompareInput::Lines(_), CompareInput::Manifest(_)) => {
+			Err(io::Error::new(
+				io::ErrorKind::InvalidInput,
+				"Cannot compare manifest JSON with plain digest list",
+			)
+			.into())
+		}
+	}
+}
+
+fn load_compare_input(
+	path: &Path,
+) -> Result<CompareInput, Box<dyn std::error::Error>> {
+	let contents = fs::read_to_string(path)?;
+	match serde_json::from_str::<ManifestSummary>(&contents) {
+		Ok(summary) => Ok(CompareInput::Manifest(summary)),
+		Err(err) => {
+			if contents.trim_start().starts_with('{') {
+				return Err(Box::new(err));
+			}
+			let lines = contents
+				.lines()
+				.map(|line| line.trim_end_matches(['\r', '\n']))
+				.map(|line| line.to_string())
+				.collect();
+			Ok(CompareInput::Lines(lines))
+		}
+	}
+}
+
+fn compare_manifests(
+	left: ManifestSummary,
+	right: ManifestSummary,
+) -> CompareSummary {
+	let mut differences = Vec::new();
+	let mut incomplete = false;
+	let mut right_map: HashMap<PathBuf, &ManifestEntry> = right
+		.entries
+		.iter()
+		.map(|entry| (entry.path.clone(), entry))
+		.collect();
+	for entry in &left.entries {
+		if entry.status != EntryStatus::Hashed
+			|| entry.digest.is_none()
+		{
+			incomplete = true;
+		}
+		match right_map.remove(&entry.path) {
+			Some(other) => {
+				if other.status != EntryStatus::Hashed
+					|| other.digest.is_none()
+				{
+					incomplete = true;
+				}
+				match (entry.digest.as_ref(), other.digest.as_ref()) {
+					(Some(expected), Some(actual)) => {
+						if expected != actual {
+							let identifier =
+								entry.path.display().to_string();
+							differences.push(CompareDifference {
+								identifier,
+								kind: CompareDiffKind::Changed,
+								expected: Some(expected.clone()),
+								actual: Some(actual.clone()),
+							});
+						}
+					}
+					(Some(expected), None) => {
+						let identifier =
+							entry.path.display().to_string();
+						differences.push(CompareDifference {
+							identifier,
+							kind: CompareDiffKind::Changed,
+							expected: Some(expected.clone()),
+							actual: None,
+						});
+						incomplete = true;
+					}
+					(None, Some(actual)) => {
+						let identifier =
+							entry.path.display().to_string();
+						differences.push(CompareDifference {
+							identifier,
+							kind: CompareDiffKind::Changed,
+							expected: None,
+							actual: Some(actual.clone()),
+						});
+						incomplete = true;
+					}
+					(None, None) => {
+						incomplete = true;
+					}
+				}
+			}
+			None => {
+				let identifier = entry.path.display().to_string();
+				differences.push(CompareDifference {
+					identifier,
+					kind: CompareDiffKind::MissingRight,
+					expected: entry.digest.clone(),
+					actual: None,
+				});
+			}
+		}
+	}
+
+	for entry in right_map.values() {
+		let identifier = entry.path.display().to_string();
+		differences.push(CompareDifference {
+			identifier,
+			kind: CompareDiffKind::MissingLeft,
+			expected: None,
+			actual: entry.digest.clone(),
+		});
+		if entry.status != EntryStatus::Hashed
+			|| entry.digest.is_none()
+		{
+			incomplete = true;
+		}
+	}
+
+	if left.failure_count > 0 || right.failure_count > 0 {
+		incomplete = true;
+	}
+
+	let mut exit_code = 0;
+	let has_mismatch = differences.iter().any(|diff| {
+		matches!(
+			diff.kind,
+			CompareDiffKind::Changed
+				| CompareDiffKind::MissingLeft
+				| CompareDiffKind::MissingRight
+		)
+	});
+	if has_mismatch {
+		exit_code = 1;
+	} else if incomplete {
+		exit_code = 2;
+	}
+
+	differences.sort_by(|a, b| a.identifier.cmp(&b.identifier));
+
+	CompareSummary {
+		mode: CompareMode::Manifest,
+		differences,
+		exit_code,
+		incomplete,
+		left_failures: left.failure_count,
+		right_failures: right.failure_count,
+		left_entries: left.entries.len(),
+		right_entries: right.entries.len(),
+	}
+}
+
+fn compare_line_lists(
+	left: Vec<String>,
+	right: Vec<String>,
+) -> CompareSummary {
+	let mut differences = Vec::new();
+	let max_len = left.len().max(right.len());
+	for idx in 0..max_len {
+		let left_line = left.get(idx);
+		let right_line = right.get(idx);
+		match (left_line, right_line) {
+			(Some(expected), Some(actual)) => {
+				if expected != actual {
+					differences.push(CompareDifference {
+						identifier: format!("line {}", idx + 1),
+						kind: CompareDiffKind::Changed,
+						expected: Some(expected.clone()),
+						actual: Some(actual.clone()),
+					});
+				}
+			}
+			(Some(expected), None) => {
+				differences.push(CompareDifference {
+					identifier: format!("line {}", idx + 1),
+					kind: CompareDiffKind::MissingRight,
+					expected: Some(expected.clone()),
+					actual: None,
+				});
+			}
+			(None, Some(actual)) => {
+				differences.push(CompareDifference {
+					identifier: format!("line {}", idx + 1),
+					kind: CompareDiffKind::MissingLeft,
+					expected: None,
+					actual: Some(actual.clone()),
+				});
+			}
+			(None, None) => {}
+		}
+	}
+
+	let exit_code = if differences.is_empty() { 0 } else { 1 };
+
+	CompareSummary {
+		mode: CompareMode::Text,
+		differences,
+		exit_code,
+		incomplete: false,
+		left_failures: 0,
+		right_failures: 0,
+		left_entries: left.len(),
+		right_entries: right.len(),
+	}
+}
+
+fn entry_status_from_error(
+	err: &(dyn std::error::Error + 'static),
+) -> EntryStatus {
+	if let Some(io_err) = err.downcast_ref::<io::Error>() {
+		return match io_err.kind() {
+			io::ErrorKind::PermissionDenied => EntryStatus::Skipped,
+			_ => EntryStatus::Error,
+		};
+	}
+	EntryStatus::Error
 }
