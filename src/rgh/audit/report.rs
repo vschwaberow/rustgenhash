@@ -2,6 +2,7 @@
 // Project: rustgenhash
 // File: report.rs
 // Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 use std::fmt::Write as FmtWrite;
 use std::fs::File;

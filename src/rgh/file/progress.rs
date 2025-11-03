@@ -1,4 +1,8 @@
-//! Progress reporting helpers for directory hashing.
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: progress.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 use std::io::{self, Write};
 use std::time::{Duration, Instant};

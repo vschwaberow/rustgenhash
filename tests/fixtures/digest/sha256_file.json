@@ -7,12 +7,16 @@
   },
   "expected_output": {
     "format": "hex",
+    "default_lines": [
+      "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3 tests/fixtures/file/sample.txt"
+    ],
+    "hash_only_lines": [
+      "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3"
+    ],
     "entries": [
       {
         "path": "tests/fixtures/file/sample.txt",
-        "digest": "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3",
-        "default_line": "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3 tests/fixtures/file/sample.txt",
-        "hash_only_line": "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3"
+        "digest": "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3"
       }
     ],
     "exit_code": 0,

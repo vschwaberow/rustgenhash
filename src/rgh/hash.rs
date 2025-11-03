@@ -4,11 +4,15 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
-use crate::rgh::app::OutputOptions;
 use crate::rgh::file::{
 	DirectoryHashPlan, EntryStatus, ErrorHandlingProfile,
 	ManifestEntry, ManifestOutcome, ManifestSummary, ManifestWriter,
 	ProgressConfig, ProgressEmitter, Walker,
+};
+use crate::rgh::output::{
+	serialize_records, DigestOutputFormat, DigestRecord,
+	DigestSource, OutputError, OutputFormatProfile,
+	SerializationResult,
 };
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
@@ -21,10 +25,7 @@ use balloon_hash::{
 	},
 	Algorithm as BalAlgorithm, Balloon, Params as BalParams,
 };
-use base64::{
-	engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
-	Engine,
-};
+use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
 use blake2::Digest;
 use chrono::{DateTime, Utc};
 use digest::DynDigest;
@@ -108,7 +109,7 @@ pub(crate) fn assemble_output(
 pub struct FileDigestOptions {
 	pub algorithm: String,
 	pub plan: DirectoryHashPlan,
-	pub output: OutputOptions,
+	pub format: DigestOutputFormat,
 	pub hash_only: bool,
 	pub progress: ProgressConfig,
 	pub manifest_path: Option<PathBuf>,
@@ -124,6 +125,7 @@ impl FileDigestOptions {
 pub struct FileDigestResult {
 	pub summary: ManifestSummary,
 	pub lines: Vec<String>,
+	pub warnings: Vec<String>,
 	pub exit_code: i32,
 	pub should_write_manifest: bool,
 	pub fatal_error: Option<String>,
@@ -662,78 +664,6 @@ impl RHash {
 		self.digest.finalize_reset().to_vec()
 	}
 
-	pub fn process_file(
-		&mut self,
-		path: &str,
-		output: OutputOptions,
-		hash_only: bool,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		let lines =
-			self.compute_path_lines(path, output, hash_only)?;
-		lines.iter().for_each(|line| self.print_hash(line));
-		Ok(())
-	}
-
-	pub fn compute_path_lines(
-		&mut self,
-		path: &str,
-		output: OutputOptions,
-		hash_only: bool,
-	) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-		let metadata = std::fs::metadata(path)?;
-		let mut outputs = Vec::new();
-		if metadata.is_file() {
-			let hash = self.read_file(path)?;
-			outputs.push(
-				self.format_hash(&hash, path, output, hash_only)?,
-			);
-		} else if metadata.is_dir() {
-			for entry in std::fs::read_dir(path)? {
-				let entry = entry?;
-				if entry.path().is_file() {
-					let entry_path = entry.path();
-					let entry_str =
-						entry_path.to_str().ok_or_else(|| {
-							io::Error::new(
-								io::ErrorKind::InvalidData,
-								"Invalid path",
-							)
-						})?;
-					let hash = self.read_file(entry_str)?;
-					outputs.push(self.format_hash(
-						&hash, entry_str, output, hash_only,
-					)?);
-				}
-			}
-		}
-		Ok(outputs)
-	}
-
-	fn print_hash(&self, s: &str) {
-		println!("{}", s);
-	}
-
-	fn format_hash(
-		&self,
-		hash: &[u8],
-		path: &str,
-		output: OutputOptions,
-		hash_only: bool,
-	) -> Result<String, Box<dyn std::error::Error>> {
-		let tokens = match output {
-			OutputOptions::Base64 => {
-				vec![STANDARD.encode(hash)]
-			}
-			OutputOptions::Hex => {
-				vec![hex::encode(hash)]
-			}
-			OutputOptions::HexBase64 => {
-				vec![hex::encode(hash), STANDARD.encode(hash)]
-			}
-		};
-		Ok(assemble_output(hash_only, tokens, Some(path)))
-	}
-
 	pub fn read_file(
 		&mut self,
 		path: &str,
@@ -744,38 +674,33 @@ impl RHash {
 	}
 }
 
-pub fn digest_bytes_to_string(
+pub fn digest_bytes_to_record(
 	algorithm: &str,
 	data: &[u8],
-	output: OutputOptions,
-	hash_only: bool,
-	original: Option<&str>,
-) -> Result<String, String> {
+	label: Option<&str>,
+	source: DigestSource,
+) -> Result<DigestRecord, String> {
 	let mut engine = RHash::new(&algorithm.to_uppercase());
 	let digest = engine.process_string(data);
-	let tokens = match output {
-		OutputOptions::Hex => vec![hex::encode(&digest)],
-		OutputOptions::Base64 => vec![STANDARD.encode(&digest)],
-		OutputOptions::HexBase64 => {
-			vec![hex::encode(&digest), STANDARD.encode(&digest)]
-		}
-	};
-	Ok(assemble_output(hash_only, tokens, original))
+	let path = label.map(|value| value.to_string());
+	Ok(DigestRecord::from_digest(path, algorithm, &digest, source))
 }
 
-pub fn digest_path_to_strings(
-	algorithm: &str,
-	path: &str,
-	output: OutputOptions,
+pub fn serialize_digest_output(
+	records: &[DigestRecord],
+	format: DigestOutputFormat,
 	hash_only: bool,
-) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-	let mut engine = RHash::new(&algorithm.to_uppercase());
-	engine.compute_path_lines(path, output, hash_only)
+) -> Result<SerializationResult, OutputError> {
+	let profile = OutputFormatProfile::new(format);
+	serialize_records(records, &profile, hash_only)
 }
 
 pub fn digest_with_options(
 	options: &FileDigestOptions,
-) -> Result<ManifestOutcome, Box<dyn std::error::Error>> {
+) -> Result<
+	(ManifestOutcome, SerializationResult),
+	Box<dyn std::error::Error>,
+> {
 	let is_tty = io::stderr().is_terminal();
 	let mut emitter =
 		if options.progress.should_emit(options.hash_only, is_tty) {
@@ -783,33 +708,36 @@ pub fn digest_with_options(
 		} else {
 			None
 		};
-	let outcome =
-		digest_with_options_internal(options, |line, size| {
-			println!("{}", line);
-			if let Some(emitter) = emitter.as_mut() {
-				emitter.record(size);
-				emitter.maybe_emit();
-			}
-		})?;
-	if let Some(mut emitter) = emitter {
+
+	let (outcome, records) = {
+		let emitter_ref = emitter.as_mut();
+		digest_with_options_internal(options, emitter_ref)?
+	};
+
+	if let Some(emitter) = emitter.as_mut() {
 		emitter.emit_final();
 	}
+
+	let serialization = serialize_digest_output(
+		&records,
+		options.format,
+		options.hash_only,
+	)
+	.map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
+
 	if outcome.should_write_manifest {
 		if let Some(manifest_path) = &options.manifest_path {
 			write_manifest(manifest_path, &outcome.summary)?;
 		}
 	}
-	Ok(outcome)
+
+	Ok((outcome, serialization))
 }
 
 pub fn digest_with_options_collect(
 	options: &FileDigestOptions,
 ) -> Result<FileDigestResult, Box<dyn std::error::Error>> {
-	let mut lines = Vec::new();
-	let outcome =
-		digest_with_options_internal(options, |line, _| {
-			lines.push(line.to_string());
-		})?;
+	let (outcome, serialization) = digest_with_options(options)?;
 	let ManifestOutcome {
 		summary,
 		exit_code,
@@ -818,20 +746,21 @@ pub fn digest_with_options_collect(
 	} = outcome;
 	Ok(FileDigestResult {
 		summary,
-		lines,
+		lines: serialization.lines,
+		warnings: serialization.warnings,
 		exit_code,
 		should_write_manifest,
 		fatal_error,
 	})
 }
 
-fn digest_with_options_internal<F>(
+fn digest_with_options_internal(
 	options: &FileDigestOptions,
-	mut on_line: F,
-) -> Result<ManifestOutcome, Box<dyn std::error::Error>>
-where
-	F: FnMut(&str, u64),
-{
+	mut emitter: Option<&mut ProgressEmitter>,
+) -> Result<
+	(ManifestOutcome, Vec<DigestRecord>),
+	Box<dyn std::error::Error>,
+> {
 	let algorithm_upper = options.algorithm_uppercase();
 	let walker = Walker::new(options.plan.clone());
 	let entries = walker.walk()?;
@@ -839,6 +768,7 @@ where
 		options.plan.clone(),
 		options.error_profile.clone(),
 	);
+	let mut records = Vec::new();
 
 	for entry in entries {
 		let path = entry.path.clone();
@@ -864,7 +794,7 @@ where
 				);
 				eprintln!("{}", message);
 				if !should_continue {
-					return Ok(writer.finalize());
+					return Ok((writer.finalize(), records));
 				}
 				continue;
 			}
@@ -892,26 +822,23 @@ where
 				);
 				eprintln!("{}", message);
 				if !should_continue {
-					return Ok(writer.finalize());
+					return Ok((writer.finalize(), records));
 				}
 				continue;
 			}
 		};
-		let hex_digest = hex::encode(&digest_bytes);
-		let base64_digest = STANDARD.encode(&digest_bytes);
-		let tokens = match options.output {
-			OutputOptions::Hex => vec![hex_digest.clone()],
-			OutputOptions::Base64 => vec![base64_digest.clone()],
-			OutputOptions::HexBase64 => {
-				vec![hex_digest.clone(), base64_digest.clone()]
-			}
-		};
-		let line = assemble_output(
-			options.hash_only,
-			tokens,
-			Some(display_path.as_ref()),
+		let record = DigestRecord::from_digest(
+			Some(display_path.to_string()),
+			&options.algorithm,
+			&digest_bytes,
+			DigestSource::File,
 		);
-		on_line(&line, size);
+		if let Some(emitter) = emitter.as_mut() {
+			emitter.record(size);
+			emitter.maybe_emit();
+		}
+		let hex_digest = record.digest_hex.clone();
+		records.push(record);
 		writer.record_success(
 			path,
 			&options.algorithm,
@@ -921,7 +848,7 @@ where
 		);
 	}
 
-	Ok(writer.finalize())
+	Ok((writer.finalize(), records))
 }
 
 fn write_manifest(

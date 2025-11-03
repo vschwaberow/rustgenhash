@@ -16,13 +16,16 @@ use crate::rgh::file::{
 	WalkOrder,
 };
 use crate::rgh::hash::{
-	assemble_output, compare_file_hashes, Argon2Config,
-	BalloonConfig, BcryptConfig, CompareDiffKind, CompareMode,
-	CompareSummary, FileDigestOptions, PHash, Pbkdf2Config, RHash,
-	ScryptConfig,
+	compare_file_hashes, digest_bytes_to_record,
+	serialize_digest_output, Argon2Config, BalloonConfig,
+	BcryptConfig, CompareDiffKind, CompareMode, CompareSummary,
+	FileDigestOptions, PHash, Pbkdf2Config, ScryptConfig,
 };
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::kdf::commands as kdf_commands;
+use crate::rgh::output::{
+	DigestOutputFormat, DigestSource, SerializationResult,
+};
 use crate::rgh::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg, ArgAction};
 use clap_complete::{generate, Generator, Shell};
@@ -43,22 +46,6 @@ Primary command families:
 
 {all-args}{after-help}
 ";
-
-#[derive(clap::ValueEnum, Debug, Copy, EnumIter, Clone)]
-pub enum OutputOptions {
-	Hex,
-	Base64,
-	HexBase64,
-}
-
-impl std::fmt::Display for OutputOptions {
-	fn fmt(
-		&self,
-		f: &mut std::fmt::Formatter<'_>,
-	) -> std::fmt::Result {
-		write!(f, "{:?}", self)
-	}
-}
 
 #[derive(clap::ValueEnum, Debug, Copy, Clone, EnumIter)]
 pub enum Algorithm {
@@ -182,14 +169,14 @@ struct HashConfigs<'a> {
 fn hash_string(
 	algor: Algorithm,
 	password: &str,
-	option: OutputOptions,
+	format: DigestOutputFormat,
 	configs: &HashConfigs,
 	hash_only: bool,
 ) {
 	use Algorithm as alg;
 	match algor {
 		alg::Ascon => {
-			hash_digest_output(algor, password, option, hash_only)
+			hash_digest_output(algor, password, format, hash_only)
 		}
 		alg::Argon2 => {
 			PHash::hash_argon2(password, configs.argon2, hash_only)
@@ -213,14 +200,14 @@ fn hash_string(
 			PHash::hash_scrypt(password, configs.scrypt, hash_only);
 		}
 		alg::Shacrypt => PHash::hash_sha_crypt(password, hash_only),
-		_ => hash_digest_output(algor, password, option, hash_only),
+		_ => hash_digest_output(algor, password, format, hash_only),
 	}
 }
 
 fn hash_digest_output(
 	algorithm: Algorithm,
 	input: &str,
-	option: OutputOptions,
+	format: DigestOutputFormat,
 	hash_only: bool,
 ) {
 	use Algorithm as alg;
@@ -230,21 +217,32 @@ fn hash_digest_output(
 		}
 		_ => {
 			let alg_s = format!("{:?}", algorithm).to_uppercase();
-			let digest =
-				RHash::new(&alg_s).process_string(input.as_bytes());
-			let tokens = match option {
-				OutputOptions::Hex => vec![hex::encode(&digest)],
-				OutputOptions::Base64 => {
-					vec![STANDARD.encode(&digest)]
+			match digest_bytes_to_record(
+				&alg_s,
+				input.as_bytes(),
+				Some(input),
+				DigestSource::String,
+			) {
+				Ok(record) => {
+					match serialize_digest_output(
+						&[record],
+						format,
+						hash_only,
+					) {
+						Ok(result) => {
+							emit_serialization_to_stdout(result)
+						}
+						Err(err) => {
+							eprintln!("Serialization error: {}", err);
+							std::process::exit(1);
+						}
+					}
 				}
-				OutputOptions::HexBase64 => vec![
-					hex::encode(&digest),
-					STANDARD.encode(&digest),
-				],
-			};
-			let output =
-				assemble_output(hash_only, tokens, Some(input));
-			println!("{}", output);
+				Err(err) => {
+					eprintln!("Failed to digest input: {}", err);
+					std::process::exit(1);
+				}
+			}
 		}
 	}
 }
@@ -252,22 +250,48 @@ fn hash_digest_output(
 fn hash_file(
 	alg: Algorithm,
 	input: &str,
-	option: OutputOptions,
+	format: DigestOutputFormat,
 	hash_only: bool,
 ) {
 	if !alg.properties().file_support {
 		println!("Algorithm {:?} does not support file hashing", alg);
 		std::process::exit(1);
 	}
-	let alg_s = format!("{:?}", alg).to_uppercase();
-	let result =
-		RHash::new(&alg_s).process_file(input, option, hash_only);
-	match result {
-		Ok(_) => {}
-		Err(e) => {
-			eprintln!("Error: {}", e);
-			std::process::exit(1);
-		}
+	let algorithm_label = format!("{:?}", alg).to_uppercase();
+	let plan = DirectoryHashPlan {
+		root_path: PathBuf::from(input),
+		recursive: false,
+		follow_symlinks: SymlinkPolicy::Never,
+		order: WalkOrder::Lexicographic,
+		threads: ThreadStrategy::Single,
+		mmap_threshold: Some(64 * 1024 * 1024),
+	};
+	let progress = ProgressConfig {
+		mode: ProgressMode::Auto,
+		throttle: Duration::from_millis(500),
+	};
+	let error_profile = ErrorHandlingProfile::default();
+	let options = FileDigestOptions {
+		algorithm: algorithm_label,
+		plan,
+		format,
+		hash_only,
+		progress,
+		manifest_path: None,
+		error_profile,
+	};
+	if let Err(err) = digest_commands::digest_path(options) {
+		eprintln!("Error: {}", err);
+		std::process::exit(1);
+	}
+}
+
+fn emit_serialization_to_stdout(result: SerializationResult) {
+	for warning in result.warnings {
+		eprintln!("warning: {}", warning);
+	}
+	for line in result.lines {
+		println!("{}", line);
 	}
 }
 
@@ -277,7 +301,7 @@ fn interactive_digest_string() -> Result<(), Box<dyn Error>> {
 		.interact_text()?;
 
 	let algorithm_label = select_digest_algorithm_label()?;
-	let output_option = select_output_option()?;
+	let output_option = select_output_format()?;
 	let hash_only = Confirm::new()
 		.with_prompt("Emit only the digest output?")
 		.default(false)
@@ -296,7 +320,7 @@ fn interactive_digest_file() -> Result<(), Box<dyn Error>> {
 		.with_prompt("Enter the file or directory path")
 		.interact_text()?;
 	let algorithm_label = select_digest_algorithm_label()?;
-	let output_option = select_output_option()?;
+	let output_option = select_output_format()?;
 	let hash_only = Confirm::new()
 		.with_prompt("Emit only the digest output?")
 		.default(false)
@@ -318,7 +342,7 @@ fn interactive_digest_file() -> Result<(), Box<dyn Error>> {
 	let options = FileDigestOptions {
 		algorithm: algorithm_label,
 		plan,
-		output: output_option,
+		format: output_option,
 		hash_only,
 		progress,
 		manifest_path: None,
@@ -619,7 +643,7 @@ fn interactive_generate_random() -> Result<(), Box<dyn Error>> {
 		.default(32)
 		.interact()?;
 
-	let output_option = select_output_option()?;
+	let output_option = select_output_format()?;
 
 	let out = RandomNumberGenerator::new(rng_type)
 		.generate(length, output_option);
@@ -694,11 +718,15 @@ fn prompt_password(prompt: &str) -> Result<String, Box<dyn Error>> {
 	Ok(password)
 }
 
-fn select_output_option() -> Result<OutputOptions, Box<dyn Error>> {
+fn select_output_format() -> Result<DigestOutputFormat, Box<dyn Error>>
+{
 	let options = vec![
-		OutputOptions::Hex,
-		OutputOptions::Base64,
-		OutputOptions::HexBase64,
+		DigestOutputFormat::Hex,
+		DigestOutputFormat::Base64,
+		DigestOutputFormat::Json,
+		DigestOutputFormat::JsonLines,
+		DigestOutputFormat::Csv,
+		DigestOutputFormat::Hashcat,
 	];
 	let selection = Select::new()
 		.with_prompt("Select output format")
@@ -869,15 +897,15 @@ fn build_cli() -> clap::Command {
 									.required(true),
 							)
 							.arg(
-								Arg::new("output")
-									.short('o')
-									.long("output")
+								Arg::new("format")
+									.short('f')
+									.long("format")
 									.value_parser(
 										clap::value_parser!(
-											OutputOptions
+											DigestOutputFormat
 										),
 									)
-									.help("Output format (hex, base64, hex+base64)")
+									.help("Output format (json, jsonl, csv, hex, base64, hashcat)")
 									.default_value("hex"),
 							)
 							.arg(
@@ -903,15 +931,15 @@ fn build_cli() -> clap::Command {
 								.required(true),
 						)
 						.arg(
-							Arg::new("output")
-								.short('o')
-								.long("output")
+							Arg::new("format")
+								.short('f')
+								.long("format")
 								.value_parser(
 									clap::value_parser!(
-										OutputOptions
+										DigestOutputFormat
 									),
 								)
-								.help("Output format (hex, base64, hex+base64)")
+								.help("Output format (json, jsonl, csv, hex, base64, hashcat)")
 								.default_value("hex"),
 						)
 						.arg(
@@ -989,15 +1017,15 @@ fn build_cli() -> clap::Command {
 									.required(true),
 							)
 							.arg(
-								Arg::new("output")
-									.short('o')
-									.long("output")
+								Arg::new("format")
+									.short('f')
+									.long("format")
 									.value_parser(
 										clap::value_parser!(
-											OutputOptions
+											DigestOutputFormat
 										),
 									)
-									.help("Output format (hex, base64, hex+base64)")
+									.help("Output format (json, jsonl, csv, hex, base64, hashcat)")
 									.default_value("hex"),
 							)
 							.arg(
@@ -1354,11 +1382,11 @@ fn build_cli() -> clap::Command {
 							.default_value("4")
 					)
 					.arg(
-				Arg::new("output")
-					.short('o')
-					.long("output")
+				Arg::new("format")
+					.short('f')
+					.long("format")
 					.value_parser(clap::value_parser!(
-						OutputOptions
+						DigestOutputFormat
 					))
 					.help("Output format")
 					.default_value("hex")
@@ -1387,10 +1415,10 @@ fn build_cli() -> clap::Command {
 						.required(true),
 				)
 				.arg(
-					Arg::new("output")
-						.short('o')
-						.long("output")
-						.value_parser(clap::value_parser!(OutputOptions))
+					Arg::new("format")
+						.short('f')
+						.long("format")
+						.value_parser(clap::value_parser!(DigestOutputFormat))
 						.help("Output format")
 						.default_value("hex")
 						.display_order(1),
@@ -1417,10 +1445,10 @@ fn build_cli() -> clap::Command {
 						.help("Hashing algorithm"),
 				)
 				.arg(
-					Arg::new("output")
-						.short('o')
-						.long("output")
-						.value_parser(clap::value_parser!(OutputOptions))
+					Arg::new("format")
+						.short('f')
+						.long("format")
+						.value_parser(clap::value_parser!(DigestOutputFormat))
 						.help("Output format")
 						.default_value("hex")
 						.display_order(1),
@@ -1453,11 +1481,11 @@ fn build_cli() -> clap::Command {
 							.value_parser(clap::value_parser!(u64)),
 					)
 					.arg(
-						Arg::new("output")
-							.short('o')
-							.long("output")
+						Arg::new("format")
+							.short('f')
+							.long("format")
 							.value_parser(clap::value_parser!(
-								OutputOptions
+								DigestOutputFormat
 							))
 							.help("Output format")
 							.default_value("hex")
@@ -1583,13 +1611,13 @@ fn handle_digest_command(
 			let input = args
 				.get_one::<String>("input")
 				.expect("input must be provided");
-			let output = args
-				.get_one::<OutputOptions>("output")
+			let format = args
+				.get_one::<DigestOutputFormat>("format")
 				.copied()
-				.unwrap_or(OutputOptions::Hex);
+				.unwrap_or(DigestOutputFormat::Hex);
 			let hash_only = args.get_flag("hash-only");
 			digest_commands::digest_string(
-				algorithm, input, output, hash_only,
+				algorithm, input, format, hash_only,
 			)
 		}
 		Some(("file", args)) => {
@@ -1597,10 +1625,10 @@ fn handle_digest_command(
 				.get_one::<String>("algorithm")
 				.expect("algorithm must be provided")
 				.clone();
-			let output = args
-				.get_one::<OutputOptions>("output")
+			let format = args
+				.get_one::<DigestOutputFormat>("format")
 				.copied()
-				.unwrap_or(OutputOptions::Hex);
+				.unwrap_or(DigestOutputFormat::Hex);
 			let hash_only = args.get_flag("hash-only");
 			let recursive = args.get_flag("recursive");
 			let symlink_policy = args
@@ -1649,7 +1677,7 @@ fn handle_digest_command(
 			let options = crate::rgh::hash::FileDigestOptions {
 				algorithm,
 				plan,
-				output,
+				format,
 				hash_only,
 				progress,
 				manifest_path,
@@ -1661,13 +1689,13 @@ fn handle_digest_command(
 			let algorithm = args
 				.get_one::<String>("algorithm")
 				.expect("algorithm must be provided");
-			let output = args
-				.get_one::<OutputOptions>("output")
+			let format = args
+				.get_one::<DigestOutputFormat>("format")
 				.copied()
-				.unwrap_or(OutputOptions::Hex);
+				.unwrap_or(DigestOutputFormat::Hex);
 			let hash_only = args.get_flag("hash-only");
 			digest_commands::digest_stdio(
-				algorithm, output, hash_only,
+				algorithm, format, hash_only,
 			)
 		}
 		_ => Ok(()),
@@ -1918,14 +1946,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				Some(a) => *a,
 				None => panic!("Algorithm not found."),
 			};
-			let option = s.get_one::<OutputOptions>("output");
-			let option = match option {
-				Some(o) => *o,
-				None => {
-					println!("No output format provided.");
-					std::process::exit(1);
-				}
-			};
+			let format = s
+				.get_one::<DigestOutputFormat>("format")
+				.copied()
+				.unwrap_or(DigestOutputFormat::Hex);
 			let argon2_config = Argon2Config {
 				mem_cost: *s
 					.get_one::<u32>("argon2-mem-cost")
@@ -1971,7 +1995,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				balloon: &balloon_config,
 			};
 
-			hash_string(a, st, option, &configs, hash_only);
+			hash_string(a, st, format, &configs, hash_only);
 		}
 		Some(("compare-file", s)) => {
 			let baseline = s
@@ -2038,16 +2062,12 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				Some(a) => *a,
 				None => panic!("Algorithm not found."),
 			};
-			let option = s.get_one::<OutputOptions>("output");
-			let option = match option {
-				Some(o) => *o,
-				None => {
-					println!("No output format provided.");
-					std::process::exit(1);
-				}
-			};
+			let format = s
+				.get_one::<DigestOutputFormat>("format")
+				.copied()
+				.unwrap_or(DigestOutputFormat::Hex);
 			let hash_only = s.get_flag("hash-only");
-			hash_file(a, f, option, hash_only);
+			hash_file(a, f, format, hash_only);
 		}
 		Some(("stdio", s)) => {
 			emit_legacy_warning(
@@ -2072,14 +2092,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 						std::process::exit(1);
 					}
 				};
-				let option = s.get_one::<OutputOptions>("output");
-				let option = match option {
-					Some(o) => *o,
-					None => {
-						println!("No output format provided.");
-						std::process::exit(1);
-					}
-				};
+				let format = s
+					.get_one::<DigestOutputFormat>("format")
+					.copied()
+					.unwrap_or(DigestOutputFormat::Hex);
 				let argon2_config = Argon2Config::default();
 				let scrypt_config = ScryptConfig::default();
 				let bcrypt_config = BcryptConfig::default();
@@ -2093,7 +2109,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 					balloon: &balloon_config,
 				};
 
-				hash_string(a, &l, option, &configs, hash_only);
+				hash_string(a, &l, format, &configs, hash_only);
 			});
 		}
 		Some(("generate-auto-completions", s)) => {
@@ -2108,14 +2124,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				Some(a) => *a,
 				None => panic!("Algorithm not found."),
 			};
-			let option = s.get_one::<OutputOptions>("output");
-			let option = match option {
-				Some(o) => *o,
-				None => {
-					println!("No output format provided.");
-					std::process::exit(1);
-				}
-			};
+			let format = s
+				.get_one::<DigestOutputFormat>("format")
+				.copied()
+				.unwrap_or(DigestOutputFormat::Hex);
 			let len = s.get_one::<u64>("length");
 			let len = match len {
 				Some(l) => l,
@@ -2124,8 +2136,17 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 					std::process::exit(1);
 				}
 			};
+			if !matches!(
+				format,
+				DigestOutputFormat::Hex | DigestOutputFormat::Base64
+			) {
+				eprintln!(
+					"warning: random command supports only hex or base64 formats"
+				);
+				std::process::exit(1);
+			}
 			let out =
-				RandomNumberGenerator::new(a).generate(*len, option);
+				RandomNumberGenerator::new(a).generate(*len, format);
 			println!("{}", out);
 		}
 		Some(("analyze", s)) => {
@@ -2182,4 +2203,3 @@ fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
 		&mut std::io::stdout(),
 	);
 }
-use base64::{engine::general_purpose::STANDARD, Engine};

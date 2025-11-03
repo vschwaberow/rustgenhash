@@ -4,7 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
-use crate::rgh::app::OutputOptions;
+use crate::rgh::output::DigestOutputFormat;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use getrandom::getrandom;
 use rand::thread_rng;
@@ -70,7 +70,7 @@ impl RandomNumberGenerator {
 	pub fn generate(
 		&mut self,
 		output_length: u64,
-		output_format: OutputOptions,
+		output_format: DigestOutputFormat,
 	) -> String {
 		let mut buffer = vec![0; output_length as usize];
 
@@ -125,18 +125,14 @@ impl RandomNumberGenerator {
 				std::process::exit(0);
 			}
 		}
-		let buffer_clone = buffer.clone();
 		match output_format {
-			OutputOptions::Hex => hex::encode(buffer),
-			OutputOptions::Base64 => {
-				URL_SAFE_NO_PAD.encode(&buffer_clone)
+			DigestOutputFormat::Hex => hex::encode(buffer),
+			DigestOutputFormat::Base64 => {
+				URL_SAFE_NO_PAD.encode(&buffer)
 			}
-			OutputOptions::HexBase64 => {
-				let mut hex = hex::encode(&buffer_clone);
-				hex.push(' ');
-				hex.push_str(&URL_SAFE_NO_PAD.encode(&buffer_clone));
-				hex
-			}
+			_ => unreachable!(
+				"Unsupported format for random generator"
+			),
 		}
 	}
 }

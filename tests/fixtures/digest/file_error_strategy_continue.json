@@ -10,12 +10,16 @@
   },
   "expected_output": {
     "format": "hex",
+    "default_lines": [
+      "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926 tests/fixtures/digest/error_strategy_tree/ok.txt"
+    ],
+    "hash_only_lines": [
+      "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926"
+    ],
     "entries": [
       {
         "path": "tests/fixtures/digest/error_strategy_tree/ok.txt",
-        "digest": "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926",
-        "default_line": "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926 tests/fixtures/digest/error_strategy_tree/ok.txt",
-        "hash_only_line": "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926"
+        "digest": "5045537c14141f091996aed842bdb5f8bc618b903006fc41585267290c317926"
       }
     ],
     "exit_code": 2,

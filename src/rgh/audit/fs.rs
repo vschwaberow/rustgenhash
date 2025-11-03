@@ -2,6 +2,7 @@
 // Project: rustgenhash
 // File: fs.rs
 // Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 use std::ffi::OsStr;
 use std::fs;

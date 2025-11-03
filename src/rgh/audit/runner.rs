@@ -2,6 +2,7 @@
 // Project: rustgenhash
 // File: runner.rs
 // Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -15,18 +16,20 @@ use super::{
 	AuditCase, AuditError, AuditMode, AuditRunMetadata, AuditSeverity,
 };
 use crate::rgh::analyze::{compare_hashes, HashAnalyzer};
-use crate::rgh::app::{Algorithm, OutputOptions};
+use crate::rgh::app::Algorithm;
 use crate::rgh::benchmark::run_benchmarks_to_writer;
 use crate::rgh::file::{
-	DirectoryHashPlan, ErrorHandlingProfile, ErrorStrategy,
-	ProgressConfig, ProgressMode, SymlinkPolicy, ThreadStrategy,
-	WalkOrder,
+	DirectoryHashPlan, EntryStatus, ErrorHandlingProfile,
+	ErrorStrategy, ProgressConfig, ProgressMode, SymlinkPolicy,
+	ThreadStrategy, WalkOrder,
 };
 use crate::rgh::hash::{
-	digest_bytes_to_string, digest_with_options_collect,
-	Argon2Config, BalloonConfig, BcryptConfig, FileDigestOptions,
-	PHash, Pbkdf2Config, ScryptConfig,
+	digest_bytes_to_record, digest_with_options_collect,
+	serialize_digest_output, Argon2Config, BalloonConfig,
+	BcryptConfig, FileDigestOptions, PHash, Pbkdf2Config,
+	ScryptConfig,
 };
+use crate::rgh::output::{DigestOutputFormat, DigestSource};
 use base64::{engine::general_purpose::STANDARD, Engine};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -379,17 +382,14 @@ fn run_stdio_case(case: &AuditCase) -> Result<Value, AuditError> {
 	Ok(json!({ "digests": digests }))
 }
 
-fn parse_output_option(value: Option<&str>) -> OutputOptions {
-	if let Some(fmt) = value {
-		if fmt.eq_ignore_ascii_case("base64") {
-			OutputOptions::Base64
-		} else if fmt.eq_ignore_ascii_case("hexbase64") {
-			OutputOptions::HexBase64
-		} else {
-			OutputOptions::Hex
-		}
-	} else {
-		OutputOptions::Hex
+fn parse_output_format(value: Option<&str>) -> DigestOutputFormat {
+	match value.unwrap_or("hex").to_ascii_lowercase().as_str() {
+		"json" => DigestOutputFormat::Json,
+		"jsonl" => DigestOutputFormat::JsonLines,
+		"csv" => DigestOutputFormat::Csv,
+		"base64" => DigestOutputFormat::Base64,
+		"hashcat" => DigestOutputFormat::Hashcat,
+		_ => DigestOutputFormat::Hex,
 	}
 }
 
@@ -522,44 +522,64 @@ fn run_digest_string_case(
 		.get("format")
 		.and_then(Value::as_str)
 		.unwrap_or("hex");
-	let output_option = parse_output_option(Some(format_value));
-	let default_line = digest_bytes_to_string(
+	let output_format = parse_output_format(Some(format_value));
+	let record = digest_bytes_to_record(
 		&case.algorithm,
 		value.as_bytes(),
-		output_option,
+		Some(value),
+		DigestSource::String,
+	)
+	.map_err(|err| {
+		AuditError::Invalid(format!(
+			"Digest string command failed for fixture `{}`: {}",
+			case.id, err
+		))
+	})?;
+	let default_result = serialize_digest_output(
+		&[record.clone()],
+		output_format,
 		false,
-		Some(value),
 	)
 	.map_err(|err| {
 		AuditError::Invalid(format!(
-			"Digest string command failed for fixture `{}`: {}",
+			"Digest string serialization failed for fixture `{}`: {}",
 			case.id, err
 		))
 	})?;
-	let hash_only_line = digest_bytes_to_string(
-		&case.algorithm,
-		value.as_bytes(),
-		output_option,
+	let hash_only_result = serialize_digest_output(
+		&[record.clone()],
+		output_format,
 		true,
-		Some(value),
 	)
 	.map_err(|err| {
 		AuditError::Invalid(format!(
-			"Digest string command failed for fixture `{}`: {}",
+			"Digest string serialization failed for fixture `{}`: {}",
 			case.id, err
 		))
 	})?;
-	let digest = hash_only_line
-		.split_whitespace()
-		.next()
-		.unwrap_or_default()
-		.to_string();
-	Ok(json!({
-		"digest": digest,
+	let mut output = json!({
+		"digest": record.digest_hex,
 		"format": format_value,
-		"default_line": default_line,
-		"hash_only_line": hash_only_line
-	}))
+		"default_lines": default_result.lines,
+		"hash_only_lines": hash_only_result.lines,
+	});
+	if !default_result.warnings.is_empty() {
+		if let Some(obj) = output.as_object_mut() {
+			obj.insert(
+				"default_warnings".to_string(),
+				json!(default_result.warnings),
+			);
+		}
+	}
+	if !hash_only_result.warnings.is_empty() {
+		if let Some(obj) = output.as_object_mut() {
+			obj.insert(
+				"hash_only_warnings".to_string(),
+				json!(hash_only_result.warnings),
+			);
+		}
+	}
+	Ok(output)
 }
 
 fn run_digest_file_case(
@@ -579,7 +599,7 @@ fn run_digest_file_case(
 		.get("format")
 		.and_then(Value::as_str)
 		.unwrap_or("hex");
-	let output_option = parse_output_option(Some(format_value));
+	let output_format = parse_output_format(Some(format_value));
 	let recursive = case
 		.input
 		.get("recursive")
@@ -629,7 +649,7 @@ fn run_digest_file_case(
 	let mut options = FileDigestOptions {
 		algorithm: case.algorithm.clone(),
 		plan,
-		output: output_option,
+		format: output_format,
 		hash_only: false,
 		progress,
 		manifest_path: None,
@@ -643,6 +663,7 @@ fn run_digest_file_case(
 			))
 		})?;
 	let default_lines = defaults.lines.clone();
+	let default_warnings = defaults.warnings.clone();
 	options.hash_only = true;
 	let hash_only_result = digest_with_options_collect(&options)
 		.map_err(|err| {
@@ -652,40 +673,46 @@ fn run_digest_file_case(
 			))
 		})?;
 	let hash_only_lines = hash_only_result.lines.clone();
-	if default_lines.len() != hash_only_lines.len() {
-		return Err(AuditError::Invalid(format!(
-			"Digest file command returned mismatched line counts for fixture `{}`",
-			case.id
-		)));
-	}
-	let mut entries = Vec::with_capacity(default_lines.len());
-	for (default_line, hash_only_line) in
-		default_lines.iter().zip(hash_only_lines.iter())
-	{
-		let digest = hash_only_line
-			.split_whitespace()
-			.next()
-			.unwrap_or_default()
-			.to_string();
-		let path_token = default_line
-			.rsplit_once(' ')
-			.map(|(_, path)| path.to_string())
-			.unwrap_or_else(|| path_str.to_string());
-		entries.push(json!({
-			"path": path_token,
-			"digest": digest,
-			"default_line": default_line,
-			"hash_only_line": hash_only_line
-		}));
-	}
-	Ok(json!({
+	let hash_only_warnings = hash_only_result.warnings.clone();
+	let entries = defaults
+		.summary
+		.entries
+		.iter()
+		.filter(|entry| entry.status == EntryStatus::Hashed)
+		.map(|entry| {
+			json!({
+				"path": entry.path.to_string_lossy(),
+				"digest": entry.digest.clone().unwrap_or_default(),
+			})
+		})
+		.collect::<Vec<_>>();
+	let mut payload = json!({
 		"format": format_value,
+		"default_lines": default_lines,
+		"hash_only_lines": hash_only_lines,
 		"entries": entries,
 		"exit_code": defaults.exit_code,
 		"failure_count": defaults.summary.failure_count,
 		"should_write_manifest": defaults.should_write_manifest,
 		"fatal_error": defaults.fatal_error,
-	}))
+	});
+	if !default_warnings.is_empty() {
+		if let Some(obj) = payload.as_object_mut() {
+			obj.insert(
+				"default_warnings".to_string(),
+				json!(default_warnings),
+			);
+		}
+	}
+	if !hash_only_warnings.is_empty() {
+		if let Some(obj) = payload.as_object_mut() {
+			obj.insert(
+				"hash_only_warnings".to_string(),
+				json!(hash_only_warnings),
+			);
+		}
+	}
+	Ok(payload)
 }
 
 fn run_digest_stdio_case(
@@ -706,8 +733,8 @@ fn run_digest_stdio_case(
 		.get("format")
 		.and_then(Value::as_str)
 		.unwrap_or("hex");
-	let output_option = parse_output_option(Some(format_value));
-	let mut digests = Vec::with_capacity(lines.len());
+	let output_format = parse_output_format(Some(format_value));
+	let mut records = Vec::with_capacity(lines.len());
 	for entry in lines {
 		let value = entry.as_str().ok_or_else(|| {
 			AuditError::Invalid(format!(
@@ -715,12 +742,11 @@ fn run_digest_stdio_case(
 				case.id
 			))
 		})?;
-		let default_line = digest_bytes_to_string(
+		let record = digest_bytes_to_record(
 			&case.algorithm,
 			value.as_bytes(),
-			output_option,
-			false,
 			Some(value),
+			DigestSource::StdioLine,
 		)
 		.map_err(|err| {
 			AuditError::Invalid(format!(
@@ -728,35 +754,58 @@ fn run_digest_stdio_case(
 				case.id, err
 			))
 		})?;
-		let hash_only_line = digest_bytes_to_string(
-			&case.algorithm,
-			value.as_bytes(),
-			output_option,
-			true,
-			Some(value),
-		)
-		.map_err(|err| {
-			AuditError::Invalid(format!(
-				"Digest stdio command failed for fixture `{}`: {}",
-				case.id, err
-			))
-		})?;
-		let digest = hash_only_line
-			.split_whitespace()
-			.next()
-			.unwrap_or_default()
-			.to_string();
-		digests.push(json!({
-			"source": value,
-			"digest": digest,
-			"default_line": default_line,
-			"hash_only_line": hash_only_line
-		}));
+		records.push((value.to_string(), record));
 	}
-	Ok(json!({
+	let record_metadata: Vec<_> = records
+		.iter()
+		.map(|(source, record)| {
+			json!({
+				"source": source,
+				"digest": record.digest_hex.clone(),
+			})
+		})
+		.collect();
+	let record_values: Vec<_> =
+		records.iter().map(|(_, record)| record.clone()).collect();
+	let default_result =
+		serialize_digest_output(&record_values, output_format, false)
+			.map_err(|err| {
+				AuditError::Invalid(format!(
+			"Digest stdio serialization failed for fixture `{}`: {}",
+			case.id, err
+		))
+			})?;
+	let hash_only_result =
+		serialize_digest_output(&record_values, output_format, true)
+			.map_err(|err| {
+				AuditError::Invalid(format!(
+			"Digest stdio serialization failed for fixture `{}`: {}",
+			case.id, err
+		))
+			})?;
+	let mut payload = json!({
 		"format": format_value,
-		"digests": digests
-	}))
+		"records": record_metadata,
+		"default_lines": default_result.lines,
+		"hash_only_lines": hash_only_result.lines,
+	});
+	if !default_result.warnings.is_empty() {
+		if let Some(obj) = payload.as_object_mut() {
+			obj.insert(
+				"default_warnings".to_string(),
+				json!(default_result.warnings),
+			);
+		}
+	}
+	if !hash_only_result.warnings.is_empty() {
+		if let Some(obj) = payload.as_object_mut() {
+			obj.insert(
+				"hash_only_warnings".to_string(),
+				json!(hash_only_result.warnings),
+			);
+		}
+	}
+	Ok(payload)
 }
 
 fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {

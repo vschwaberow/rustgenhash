@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Project: rustgenhash
-// KDF command handlers (Argon2, Scrypt, PBKDF2, etc.)
+// File: commands.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 #![allow(dead_code)]
 
