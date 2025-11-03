@@ -14,55 +14,59 @@ cargo install rustgenhash
 
 ## Usage
 
-Rustgenhash has a command line interface which allows you to set the utility into a specific operating mode. The current
-modes are
+Rustgenhash groups its command line surface into two primary families:
 
-- analyze
-- benchmark
-- compare-hash
-- random
-- stdio
-- string
-- file
-- header
-- interactive
+- `rgh digest <mode>` — deterministic hashing for strings, files, or stdin streams.
+- `rgh kdf <algorithm>` — password-based key derivation with structured (JSON) metadata.
 
-After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
-or file to be hashed. The stdio mode allows you to pipe to the `rgh` command. The tool will hash the passed
-lines from the stdio (useful for hashing password lists).
+Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash`, `compare-file`, `random`, `header`, and
+`interactive` (a guided wizard that now branches between digest and KDF workflows).
 
-The file mode supports hashing of multiple files in a directory and currently works non-recursive.
+### Digest commands
 
-Scheme for string hashing:
+| Command | Description | Key flags |
+|---------|-------------|-----------|
+| `rgh digest string -a <ALG> <TEXT>` | Hash inline text with the selected algorithm. | `--output {hex,base64,hexbase64}`, `--hash-only` |
+| `rgh digest file -a <ALG> <PATH>` | Hash a file or each file in a directory (non-recursive). | `--output`, `--hash-only` |
+| `rgh digest stdio -a <ALG>` | Read newline-delimited input from stdin and emit one digest per line. | `--output`, `--hash-only` |
+
+Examples:
 
 ```bash
-rgh string -a <algorithm> <string>
+# Digest a release tarball with SHA-256
+rgh digest file -a sha256 target/release/rgh
 
-# Suppress plaintext echoes for scripting workflows
-rgh string -a <algorithm> --hash-only <string>
+# Compute hashes for a list while keeping one token per line
+cat passwords.txt | rgh digest stdio -a sha3_512 --hash-only
 ```
 
-Scheme for file hashing:
+### Password-based KDF commands
+
+KDF subcommands produce structured JSON output by default (use `--hash-only` to emit just the derived key). Passwords can
+be provided via `--password`, through the interactive prompt, or piped in using `--password-stdin` (newline trimmed).
+
+| Command | Parameters | Output |
+|---------|------------|--------|
+| `rgh kdf argon2` | `--mem-cost`, `--time-cost`, `--parallelism` | PHC string with Argon2id parameters + JSON metadata |
+| `rgh kdf scrypt` | `--log-n`, `--r`, `--p` | Encoded scrypt string + metadata |
+| `rgh kdf pbkdf2` | `--algorithm {sha256,sha512}`, `--rounds`, `--length` | `$pbkdf2-<digest>$...` plus metadata |
+| `rgh kdf bcrypt` | `--cost` | 64 byte hex digest + metadata |
+| `rgh kdf balloon` | `--time-cost`, `--memory-cost`, `--parallelism` | Balloon hash string + metadata |
+| `rgh kdf sha-crypt` | (rounds fixed to 10 000) | `$6$` SHA-crypt string + metadata |
+
+Example:
 
 ```bash
-rgh file -a <algorithm> <filename or directory>
+# Derive an Argon2id password hash and capture the JSON payload
+rgh kdf argon2 --mem-cost 131072 --time-cost 4 --parallelism 2 --password-stdin <<'EOF'
+s3cret!
+EOF
 
-# Emit only digests when listing directory contents
-rgh file -a <algorithm> --hash-only <filename or directory>
+# Emit only the derived key for automation
+rgh kdf pbkdf2 --algorithm sha512 --rounds 200000 --length 48 --hash-only --password "correct horse battery"
 ```
 
-Scheme for string hashing from stdio:
-
-```bash
-cat myfile | rgh stdio -a <algorithm>
-
-# Hash-only mode preserves one output token per input line
-cat myfile | rgh stdio -a <algorithm> --hash-only
-```
-
-```bash
-echo "mypassword" | rgh stdio -a <algorithm>
-```
+### Other utilities
 
 Scheme for analyzing a hash:
 
@@ -94,12 +98,11 @@ Scheme for benchmarking a hash algorithm:
 rgh benchmark -a <algorithm> -i <iterations>
 ```
 
-You can list all supported algorithms over the help function.
-
-Lastly, the tool offers the interactive mode:
+The interactive wizard reflects the new structure:
 
 ```bash
 rgh interactive
+# → Choose between “Digest data” and “Derive password-based key” before drilling into specific modes.
 ```
 
 ## Quality Audit

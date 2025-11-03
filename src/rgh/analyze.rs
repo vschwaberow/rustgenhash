@@ -9,11 +9,7 @@ use std::collections::HashSet;
 macro_rules! check_hash_lengths {
     ($self:expr, $($len:expr => $names:expr),+ $(,)?) => {
         {
-            let mut checks = Vec::new();
-            $(
-                checks.push(($self.check_hash($len), $names));
-            )+
-            checks
+            vec![ $( ($self.check_hash($len), $names) ),+ ]
         }
     };
 }

@@ -202,6 +202,31 @@ pub fn run_benchmarks(algorithms: &[Algorithm], iterations: u32) {
 	}
 }
 
+fn is_kdf_algorithm(alg: Algorithm) -> bool {
+	matches!(
+		alg,
+		Algorithm::Argon2
+			| Algorithm::Scrypt
+			| Algorithm::Pbkdf2Sha256
+			| Algorithm::Pbkdf2Sha512
+			| Algorithm::Bcrypt
+			| Algorithm::Balloon
+			| Algorithm::Shacrypt
+	)
+}
+
+pub fn digest_benchmark_presets() -> Vec<Algorithm> {
+	Algorithm::iter()
+		.filter(|alg| !is_kdf_algorithm(*alg))
+		.collect()
+}
+
+pub fn kdf_benchmark_presets() -> Vec<Algorithm> {
+	Algorithm::iter()
+		.filter(|alg| is_kdf_algorithm(*alg))
+		.collect()
+}
+
 fn benchmark_rhash(alg: &str, iterations: u32) -> Duration {
 	let start = Instant::now();
 	for _ in 0..iterations {
@@ -221,3 +246,4 @@ where
 	}
 	start.elapsed()
 }
+use strum::IntoEnumIterator;

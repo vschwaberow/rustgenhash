@@ -32,6 +32,14 @@ pub enum AuditMode {
 	String,
 	File,
 	Stdio,
+	#[serde(rename = "digest_string")]
+	DigestString,
+	#[serde(rename = "digest_file")]
+	DigestFile,
+	#[serde(rename = "digest_stdio")]
+	DigestStdio,
+	#[serde(rename = "kdf")]
+	Kdf,
 	Header,
 	Analyze,
 	Random,

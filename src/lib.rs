@@ -5,15 +5,36 @@
 // Copyright (c) 2022 Volker Schwaberow
 
 pub use serde::{Deserialize, Serialize};
+use serde_json::{json, Value as JsonValue};
 
 pub mod rgh {
 	pub mod analyze;
 	pub mod app;
 	pub mod audit;
 	pub mod benchmark;
+	pub mod digest;
 	pub mod hash;
 	pub mod hhhash;
+	pub mod kdf;
 	pub mod random;
+}
+
+pub fn render_kdf_output(
+	algorithm: &str,
+	digest: &str,
+	metadata: JsonValue,
+	hash_only: bool,
+) -> String {
+	if hash_only {
+		digest.to_string()
+	} else {
+		json!({
+			"algorithm": algorithm,
+			"digest": digest,
+			"metadata": metadata
+		})
+		.to_string()
+	}
 }
 
 #[cfg(test)]

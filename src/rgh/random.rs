@@ -5,8 +5,8 @@
 // Copyright (c) 2022 Volker Schwaberow
 
 use crate::rgh::app::OutputOptions;
-use base64::{encode_config, URL_SAFE_NO_PAD};
-use getrandom::getrandom;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use getrandom::fill as getrandom_fill;
 use rand::thread_rng;
 use rand_core::{RngCore, SeedableRng};
 use std::error::Error;
@@ -76,7 +76,7 @@ impl RandomNumberGenerator {
 
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom(&mut buffer).unwrap();
+				getrandom_fill(&mut buffer).unwrap();
 			}
 			RngType::ThreadRng => {
 				thread_rng().fill_bytes(&mut buffer);
@@ -129,15 +129,12 @@ impl RandomNumberGenerator {
 		match output_format {
 			OutputOptions::Hex => hex::encode(buffer),
 			OutputOptions::Base64 => {
-				encode_config(&buffer_clone, URL_SAFE_NO_PAD)
+				URL_SAFE_NO_PAD.encode(&buffer_clone)
 			}
 			OutputOptions::HexBase64 => {
 				let mut hex = hex::encode(&buffer_clone);
 				hex.push(' ');
-				hex.push_str(&encode_config(
-					&buffer_clone,
-					URL_SAFE_NO_PAD,
-				));
+				hex.push_str(&URL_SAFE_NO_PAD.encode(&buffer_clone));
 				hex
 			}
 		}

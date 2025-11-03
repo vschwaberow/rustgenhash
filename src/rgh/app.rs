@@ -6,25 +6,32 @@
 
 use crate::rgh::analyze::compare_hashes;
 use crate::rgh::analyze::HashAnalyzer;
-use crate::rgh::benchmark::run_benchmarks;
+use crate::rgh::benchmark::{
+	digest_benchmark_presets, kdf_benchmark_presets, run_benchmarks,
+};
+use crate::rgh::digest::commands as digest_commands;
 use crate::rgh::hash::{
 	assemble_output, Argon2Config, BalloonConfig, BcryptConfig,
 	PHash, Pbkdf2Config, RHash, ScryptConfig,
 };
 use crate::rgh::hhhash::generate_hhhash;
+use crate::rgh::kdf::commands as kdf_commands;
 use crate::rgh::random::{RandomNumberGenerator, RngType};
 use clap::{crate_name, Arg, ArgAction};
 use clap_complete::{generate, Generator, Shell};
 use colored::*;
-use dialoguer::{Confirm, Input, MultiSelect, Select};
+use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
 use std::error::Error;
-use std::io::BufRead;
+use std::io::{self, BufRead, Read};
 use strum::{EnumIter, IntoEnumIterator};
 
 use super::analyze::compare_file_hashes;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
 Written by {author-with-newline}{about-with-newline}
+Primary command families:
+  rgh digest <mode>   Hash strings/files/stdin (e.g. rgh digest string -a sha256 'text')
+  rgh kdf <algorithm> Derive passwords with JSON metadata (e.g. rgh kdf argon2 --password-stdin)
 {usage-heading} {usage}
 
 {all-args}{after-help}
@@ -157,62 +164,79 @@ impl Algorithm {
 	}
 }
 
+struct HashConfigs<'a> {
+	argon2: &'a Argon2Config,
+	scrypt: &'a ScryptConfig,
+	bcrypt: &'a BcryptConfig,
+	pbkdf2: &'a Pbkdf2Config,
+	balloon: &'a BalloonConfig,
+}
+
 fn hash_string(
 	algor: Algorithm,
 	password: &str,
 	option: OutputOptions,
-	argon2_config: &Argon2Config,
-	scrypt_config: &ScryptConfig,
-	bcrypt_config: &BcryptConfig,
-	pbkdf2_config: &Pbkdf2Config,
-	balloon_config: &BalloonConfig,
+	configs: &HashConfigs,
 	hash_only: bool,
 ) {
 	use Algorithm as alg;
 	match algor {
 		alg::Ascon => {
-			PHash::hash_ascon(password, hash_only);
+			hash_digest_output(algor, password, option, hash_only)
 		}
 		alg::Argon2 => {
-			PHash::hash_argon2(password, argon2_config, hash_only);
+			PHash::hash_argon2(password, configs.argon2, hash_only)
 		}
 		alg::Balloon => {
-			PHash::hash_balloon(password, balloon_config, hash_only);
+			PHash::hash_balloon(password, configs.balloon, hash_only)
 		}
 		alg::Bcrypt => {
-			PHash::hash_bcrypt(password, bcrypt_config, hash_only);
+			PHash::hash_bcrypt(password, configs.bcrypt, hash_only)
 		}
 		alg::Pbkdf2Sha256 | alg::Pbkdf2Sha512 => {
 			let pb_scheme = format!("{:?}", algor).to_lowercase();
 			PHash::hash_pbkdf2(
 				password,
 				pb_scheme.as_str(),
-				pbkdf2_config,
+				configs.pbkdf2,
 				hash_only,
 			);
 		}
 		alg::Scrypt => {
-			PHash::hash_scrypt(password, scrypt_config, hash_only);
+			PHash::hash_scrypt(password, configs.scrypt, hash_only);
 		}
-		alg::Shacrypt => {
-			PHash::hash_sha_crypt(password, hash_only);
+		alg::Shacrypt => PHash::hash_sha_crypt(password, hash_only),
+		_ => hash_digest_output(algor, password, option, hash_only),
+	}
+}
+
+fn hash_digest_output(
+	algorithm: Algorithm,
+	input: &str,
+	option: OutputOptions,
+	hash_only: bool,
+) {
+	use Algorithm as alg;
+	match algorithm {
+		alg::Ascon => {
+			PHash::hash_ascon(input, hash_only);
 		}
 		_ => {
-			let alg_s = format!("{:?}", algor).to_uppercase();
-			let digest = RHash::new(&alg_s)
-				.process_string(password.as_bytes());
+			let alg_s = format!("{:?}", algorithm).to_uppercase();
+			let digest =
+				RHash::new(&alg_s).process_string(input.as_bytes());
 			let tokens = match option {
 				OutputOptions::Hex => vec![hex::encode(&digest)],
 				OutputOptions::Base64 => {
-					vec![base64::encode(&digest)]
+					vec![STANDARD.encode(&digest)]
 				}
 				OutputOptions::HexBase64 => vec![
 					hex::encode(&digest),
-					base64::encode(&digest),
+					STANDARD.encode(&digest),
 				],
 			};
 			let output =
-				assemble_output(hash_only, tokens, Some(password));
+				assemble_output(hash_only, tokens, Some(input));
 			println!("{}", output);
 		}
 	}
@@ -240,71 +264,159 @@ fn hash_file(
 	}
 }
 
-fn interactive_hash_string() -> Result<(), Box<dyn Error>> {
+fn interactive_digest_string() -> Result<(), Box<dyn Error>> {
 	let input = Input::<String>::new()
-		.with_prompt("Enter the string to hash")
+		.with_prompt("Enter the string to digest")
 		.interact_text()?;
 
-	let algorithm = select_algorithm()?;
+	let algorithm_label = select_digest_algorithm_label()?;
 	let output_option = select_output_option()?;
-
-	let mut argon2_config = Argon2Config::default();
-	let mut scrypt_config = ScryptConfig::default();
-	let mut bcrypt_config = BcryptConfig::default();
-	let mut pbkdf2_config = Pbkdf2Config::default();
-	let mut balloon_config = BalloonConfig::default();
-
-	match algorithm {
-		Algorithm::Argon2 => {
-			argon2_config = get_argon2_config_interactive()?;
-		}
-		Algorithm::Scrypt => {
-			scrypt_config = get_scrypt_config_interactive()?;
-		}
-		Algorithm::Bcrypt => {
-			bcrypt_config = get_bcrypt_config_interactive()?;
-		}
-		Algorithm::Pbkdf2Sha256 | Algorithm::Pbkdf2Sha512 => {
-			pbkdf2_config = get_pbkdf2_config_interactive()?;
-		}
-		Algorithm::Balloon => {
-			balloon_config = get_balloon_config_interactive()?;
-		}
-		_ => {}
-	}
-
 	let hash_only = Confirm::new()
-		.with_prompt("Print only the hash value?")
+		.with_prompt("Emit only the digest output?")
 		.default(false)
 		.interact()?;
 
-	hash_string(
-		algorithm,
+	digest_commands::digest_string(
+		&algorithm_label,
 		&input,
 		output_option,
-		&argon2_config,
-		&scrypt_config,
-		&bcrypt_config,
-		&pbkdf2_config,
-		&balloon_config,
 		hash_only,
-	);
+	)
+}
+
+fn interactive_digest_file() -> Result<(), Box<dyn Error>> {
+	let path = Input::<String>::new()
+		.with_prompt("Enter the file or directory path")
+		.interact_text()?;
+	let algorithm_label = select_digest_algorithm_label()?;
+	let output_option = select_output_option()?;
+	let hash_only = Confirm::new()
+		.with_prompt("Emit only the digest output?")
+		.default(false)
+		.interact()?;
+
+	digest_commands::digest_path(
+		&algorithm_label,
+		&path,
+		output_option,
+		hash_only,
+	)
+}
+
+fn interactive_digest_menu() -> Result<(), Box<dyn Error>> {
+	let actions =
+		vec!["Digest a string", "Digest a file or directory", "Back"];
+	loop {
+		let selection = Select::new()
+			.with_prompt("Digest options")
+			.items(&actions)
+			.interact()?;
+		match selection {
+			0 => interactive_digest_string()?,
+			1 => interactive_digest_file()?,
+			2 => break,
+			_ => unreachable!(),
+		}
+	}
 	Ok(())
 }
 
-fn interactive_hash_file() -> Result<(), Box<dyn Error>> {
-	let file_path = Input::<String>::new()
-		.with_prompt("Enter the file path")
-		.interact_text()?;
-
-	let algorithm = select_algorithm()?;
-	let output_option = select_output_option()?;
-	let hash_only = Confirm::new()
-		.with_prompt("Print only the hash value?")
-		.default(false)
-		.interact()?;
-
-	hash_file(algorithm, &file_path, output_option, hash_only);
+fn interactive_kdf_menu() -> Result<(), Box<dyn Error>> {
+	let actions = vec![
+		"Argon2",
+		"Scrypt",
+		"PBKDF2",
+		"Bcrypt",
+		"Balloon",
+		"SHA-crypt",
+		"Back",
+	];
+	loop {
+		let selection = Select::new()
+			.with_prompt("KDF options")
+			.items(&actions)
+			.interact()?;
+		match selection {
+			0 => {
+				let password =
+					prompt_password("Enter password for Argon2")?;
+				let config = get_argon2_config_interactive()?;
+				let hash_only = Confirm::new()
+					.with_prompt("Emit only the derived key output?")
+					.default(false)
+					.interact()?;
+				kdf_commands::derive_argon2(
+					&password, &config, hash_only,
+				)?;
+			}
+			1 => {
+				let password =
+					prompt_password("Enter password for Scrypt")?;
+				let config = get_scrypt_config_interactive()?;
+				let hash_only = Confirm::new()
+					.with_prompt("Emit only the derived key output?")
+					.default(false)
+					.interact()?;
+				kdf_commands::derive_scrypt(
+					&password, &config, hash_only,
+				)?;
+			}
+			2 => {
+				let password =
+					prompt_password("Enter password for PBKDF2")?;
+				let config = get_pbkdf2_config_interactive()?;
+				let variants = vec!["sha256", "sha512"];
+				let variant_idx = Select::new()
+					.with_prompt("Select PBKDF2 digest variant")
+					.items(&variants)
+					.interact()?;
+				let scheme = variants[variant_idx];
+				let hash_only = Confirm::new()
+					.with_prompt("Emit only the derived key output?")
+					.default(false)
+					.interact()?;
+				kdf_commands::derive_pbkdf2(
+					&password, scheme, &config, hash_only,
+				)?;
+			}
+			3 => {
+				let password = prompt_password(
+					"Enter password for bcrypt-pbkdf",
+				)?;
+				let config = get_bcrypt_config_interactive()?;
+				let hash_only = Confirm::new()
+					.with_prompt("Emit only the derived key output?")
+					.default(false)
+					.interact()?;
+				kdf_commands::derive_bcrypt(
+					&password, &config, hash_only,
+				)?;
+			}
+			4 => {
+				let password =
+					prompt_password("Enter password for Balloon")?;
+				let config = get_balloon_config_interactive()?;
+				let hash_only = Confirm::new()
+					.with_prompt("Emit only the derived key output?")
+					.default(false)
+					.interact()?;
+				kdf_commands::derive_balloon(
+					&password, &config, hash_only,
+				)?;
+			}
+			5 => {
+				let password =
+					prompt_password("Enter password for SHA-crypt")?;
+				let hash_only = Confirm::new()
+					.with_prompt("Emit only the derived key output?")
+					.default(false)
+					.interact()?;
+				kdf_commands::derive_sha_crypt(&password, hash_only)?;
+			}
+			6 => break,
+			_ => unreachable!(),
+		}
+	}
 	Ok(())
 }
 
@@ -424,14 +536,38 @@ fn interactive_run_benchmarks() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
-fn select_algorithm() -> Result<Algorithm, Box<dyn Error>> {
-	let algorithms: Vec<_> = Algorithm::iter().collect();
-	let selection = Select::new()
-		.with_prompt("Select an algorithm")
-		.items(&algorithms)
-		.interact()?;
+fn is_password_kdf(algorithm: Algorithm) -> bool {
+	matches!(
+		algorithm,
+		Algorithm::Argon2
+			| Algorithm::Scrypt
+			| Algorithm::Pbkdf2Sha256
+			| Algorithm::Pbkdf2Sha512
+			| Algorithm::Bcrypt
+			| Algorithm::Balloon
+			| Algorithm::Shacrypt
+	)
+}
 
-	Ok(algorithms[selection])
+fn select_digest_algorithm_label() -> Result<String, Box<dyn Error>> {
+	let algorithms: Vec<Algorithm> = Algorithm::iter()
+		.filter(|alg| !is_password_kdf(*alg))
+		.collect();
+	let labels: Vec<String> =
+		algorithms.iter().map(|alg| format!("{:?}", alg)).collect();
+	let selection = Select::new()
+		.with_prompt("Select digest algorithm")
+		.items(&labels)
+		.interact()?;
+	Ok(labels[selection].to_uppercase())
+}
+
+fn prompt_password(prompt: &str) -> Result<String, Box<dyn Error>> {
+	let password = Password::new()
+		.with_prompt(prompt)
+		.allow_empty_password(false)
+		.interact()?;
+	Ok(password)
 }
 
 fn select_output_option() -> Result<OutputOptions, Box<dyn Error>> {
@@ -541,8 +677,8 @@ fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
 	println!("{}", "Welcome to the Interactive Mode!".green().bold());
 
 	let actions = vec![
-		"Hash a string",
-		"Hash a file",
+		"Digest data",
+		"Derive password-based key",
 		"Analyze a hash",
 		"Compare hashes",
 		"Compare file hashes",
@@ -559,8 +695,8 @@ fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
 			.interact()?;
 
 		match selection {
-			0 => interactive_hash_string()?,
-			1 => interactive_hash_file()?,
+			0 => interactive_digest_menu()?,
+			1 => interactive_kdf_menu()?,
 			2 => interactive_analyze_hash()?,
 			3 => interactive_compare_hashes()?,
 			4 => interactive_compare_file_hashes()?,
@@ -588,6 +724,349 @@ fn build_cli() -> clap::Command {
 			.about("A simple hashing utility")
 			.subcommand_required(true)
 			.arg_required_else_help(true)
+			.subcommand(
+				clap::command!("digest")
+					.about("Digest data using classic hash algorithms")
+					.subcommand_required(true)
+					.arg_required_else_help(true)
+					.subcommand(
+						clap::command!("string")
+							.about("Hash a provided string")
+							.arg(
+								Arg::new("algorithm")
+									.short('a')
+									.long("algorithm")
+									.help("Digest algorithm identifier (e.g., sha256)")
+									.required(true),
+							)
+							.arg(
+								Arg::new("input")
+									.help("String to hash")
+									.required(true),
+							)
+							.arg(
+								Arg::new("output")
+									.short('o')
+									.long("output")
+									.value_parser(
+										clap::value_parser!(
+											OutputOptions
+										),
+									)
+									.help("Output format (hex, base64, hex+base64)")
+									.default_value("hex"),
+							)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only digests without original input")
+									.action(ArgAction::SetTrue),
+							),
+					)
+					.subcommand(
+						clap::command!("file")
+							.about("Hash the contents of a file or directory (non-recursive)")
+							.arg(
+								Arg::new("algorithm")
+									.short('a')
+									.long("algorithm")
+									.help("Digest algorithm identifier (e.g., sha256)")
+									.required(true),
+							)
+							.arg(
+								Arg::new("path")
+									.help("File or directory path to hash")
+									.required(true),
+							)
+							.arg(
+								Arg::new("output")
+									.short('o')
+									.long("output")
+									.value_parser(
+										clap::value_parser!(
+											OutputOptions
+										),
+									)
+									.help("Output format (hex, base64, hex+base64)")
+									.default_value("hex"),
+							)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only digests without file names")
+									.action(ArgAction::SetTrue),
+							),
+					)
+					.subcommand(
+						clap::command!("stdio")
+							.about("Hash newline-delimited stdin input")
+							.arg(
+								Arg::new("algorithm")
+									.short('a')
+									.long("algorithm")
+									.help("Digest algorithm identifier (e.g., sha256)")
+									.required(true),
+							)
+							.arg(
+								Arg::new("output")
+									.short('o')
+									.long("output")
+									.value_parser(
+										clap::value_parser!(
+											OutputOptions
+										),
+									)
+									.help("Output format (hex, base64, hex+base64)")
+									.default_value("hex"),
+							)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only digests without echoing input lines")
+									.action(ArgAction::SetTrue),
+							),
+					),
+			)
+			.subcommand(
+				clap::command!("kdf")
+					.about("Derive keys using password-based algorithms")
+					.subcommand_required(true)
+					.arg_required_else_help(true)
+					.subcommand(
+						clap::command!("argon2")
+							.about("Derive a key using Argon2id")
+					.arg(
+						Arg::new("password")
+							.long("password")
+							.help("Password to derive (omit to prompt)")
+							.required(false)
+							.conflicts_with("password-stdin"),
+					)
+					.arg(
+						Arg::new("password-stdin")
+							.long("password-stdin")
+							.help("Read password from stdin (newline trimmed)")
+							.action(ArgAction::SetTrue)
+							.conflicts_with("password"),
+					)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only derived key output")
+									.action(ArgAction::SetTrue),
+							)
+							.arg(
+								Arg::new("mem-cost")
+									.long("mem-cost")
+									.value_parser(clap::value_parser!(u32))
+									.help("Argon2 memory cost in KiB")
+									.default_value("65536"),
+							)
+							.arg(
+								Arg::new("time-cost")
+									.long("time-cost")
+									.value_parser(clap::value_parser!(u32))
+									.help("Argon2 time cost (iterations)")
+									.default_value("3"),
+							)
+							.arg(
+								Arg::new("parallelism")
+									.long("parallelism")
+									.value_parser(clap::value_parser!(u32))
+									.help("Argon2 parallelism")
+									.default_value("4"),
+							),
+					)
+					.subcommand(
+						clap::command!("scrypt")
+							.about("Derive a key using Scrypt")
+					.arg(
+						Arg::new("password")
+							.long("password")
+							.help("Password to derive (omit to prompt)")
+							.required(false)
+							.conflicts_with("password-stdin"),
+					)
+					.arg(
+						Arg::new("password-stdin")
+							.long("password-stdin")
+							.help("Read password from stdin (newline trimmed)")
+							.action(ArgAction::SetTrue)
+							.conflicts_with("password"),
+					)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only derived key output")
+									.action(ArgAction::SetTrue),
+							)
+							.arg(
+								Arg::new("log-n")
+									.long("log-n")
+									.value_parser(clap::value_parser!(u8))
+									.help("Scrypt log2(N)")
+									.default_value("15"),
+							)
+							.arg(
+								Arg::new("r")
+									.long("r")
+									.value_parser(clap::value_parser!(u32))
+									.help("Scrypt r parameter")
+									.default_value("8"),
+							)
+							.arg(
+								Arg::new("p")
+									.long("p")
+									.value_parser(clap::value_parser!(u32))
+									.help("Scrypt p parameter")
+									.default_value("1"),
+							),
+					)
+					.subcommand(
+						clap::command!("pbkdf2")
+							.about("Derive a key using PBKDF2")
+					.arg(
+						Arg::new("password")
+							.long("password")
+							.help("Password to derive (omit to prompt)")
+							.required(false)
+							.conflicts_with("password-stdin"),
+					)
+					.arg(
+						Arg::new("password-stdin")
+							.long("password-stdin")
+							.help("Read password from stdin (newline trimmed)")
+							.action(ArgAction::SetTrue)
+							.conflicts_with("password"),
+					)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only derived key output")
+									.action(ArgAction::SetTrue),
+							)
+							.arg(
+								Arg::new("rounds")
+									.long("rounds")
+									.value_parser(clap::value_parser!(u32))
+									.help("PBKDF2 rounds")
+									.default_value("100000"),
+							)
+							.arg(
+								Arg::new("length")
+									.long("length")
+									.value_parser(clap::value_parser!(usize))
+									.help("PBKDF2 output length (bytes)")
+									.default_value("32"),
+							)
+							.arg(
+								Arg::new("algorithm")
+									.long("algorithm")
+									.help("Digest variant for PBKDF2 (sha256|sha512)")
+									.default_value("sha256"),
+							),
+					)
+					.subcommand(
+						clap::command!("bcrypt")
+							.about("Derive a key using bcrypt-pbkdf")
+					.arg(
+						Arg::new("password")
+							.long("password")
+							.help("Password to derive (omit to prompt)")
+							.required(false)
+							.conflicts_with("password-stdin"),
+					)
+					.arg(
+						Arg::new("password-stdin")
+							.long("password-stdin")
+							.help("Read password from stdin (newline trimmed)")
+							.action(ArgAction::SetTrue)
+							.conflicts_with("password"),
+					)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only derived key output")
+									.action(ArgAction::SetTrue),
+							)
+							.arg(
+								Arg::new("cost")
+									.long("cost")
+									.value_parser(clap::value_parser!(u32))
+									.help("Bcrypt cost factor")
+									.default_value("12"),
+							),
+					)
+					.subcommand(
+						clap::command!("balloon")
+							.about("Derive a key using Balloon hashing")
+					.arg(
+						Arg::new("password")
+							.long("password")
+							.help("Password to derive (omit to prompt)")
+							.required(false)
+							.conflicts_with("password-stdin"),
+					)
+					.arg(
+						Arg::new("password-stdin")
+							.long("password-stdin")
+							.help("Read password from stdin (newline trimmed)")
+							.action(ArgAction::SetTrue)
+							.conflicts_with("password"),
+					)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only derived key output")
+									.action(ArgAction::SetTrue),
+							)
+							.arg(
+								Arg::new("time-cost")
+									.long("time-cost")
+									.value_parser(clap::value_parser!(u32))
+									.help("Balloon time cost")
+									.default_value("3"),
+							)
+							.arg(
+								Arg::new("memory-cost")
+									.long("memory-cost")
+									.value_parser(clap::value_parser!(u32))
+									.help("Balloon memory cost in KiB")
+									.default_value("65536"),
+							)
+							.arg(
+								Arg::new("parallelism")
+									.long("parallelism")
+									.value_parser(clap::value_parser!(u32))
+									.help("Balloon parallelism")
+									.default_value("4"),
+							),
+					)
+					.subcommand(
+						clap::command!("sha-crypt")
+							.about("Derive a key using SHA-crypt (SHA512)")
+					.arg(
+						Arg::new("password")
+							.long("password")
+							.help("Password to derive (omit to prompt)")
+							.required(false)
+							.conflicts_with("password-stdin"),
+					)
+					.arg(
+						Arg::new("password-stdin")
+							.long("password-stdin")
+							.help("Read password from stdin (newline trimmed)")
+							.action(ArgAction::SetTrue)
+							.conflicts_with("password"),
+					)
+							.arg(
+								Arg::new("hash-only")
+									.long("hash-only")
+									.help("Emit only derived key output")
+									.action(ArgAction::SetTrue),
+							),
+					),
+			)
 			.subcommand(
 				clap::command!("string")
 					.about("Hash single string object")
@@ -887,15 +1366,197 @@ fn build_cli() -> clap::Command {
 			)
 }
 
+fn handle_digest_command(
+	matches: &clap::ArgMatches,
+) -> Result<(), Box<dyn Error>> {
+	match matches.subcommand() {
+		Some(("string", args)) => {
+			let algorithm = args
+				.get_one::<String>("algorithm")
+				.expect("algorithm must be provided");
+			let input = args
+				.get_one::<String>("input")
+				.expect("input must be provided");
+			let output = args
+				.get_one::<OutputOptions>("output")
+				.copied()
+				.unwrap_or(OutputOptions::Hex);
+			let hash_only = args.get_flag("hash-only");
+			digest_commands::digest_string(
+				algorithm, input, output, hash_only,
+			)
+		}
+		Some(("file", args)) => {
+			let algorithm = args
+				.get_one::<String>("algorithm")
+				.expect("algorithm must be provided");
+			let path = args
+				.get_one::<String>("path")
+				.expect("path must be provided");
+			let output = args
+				.get_one::<OutputOptions>("output")
+				.copied()
+				.unwrap_or(OutputOptions::Hex);
+			let hash_only = args.get_flag("hash-only");
+			digest_commands::digest_path(
+				algorithm, path, output, hash_only,
+			)
+		}
+		Some(("stdio", args)) => {
+			let algorithm = args
+				.get_one::<String>("algorithm")
+				.expect("algorithm must be provided");
+			let output = args
+				.get_one::<OutputOptions>("output")
+				.copied()
+				.unwrap_or(OutputOptions::Hex);
+			let hash_only = args.get_flag("hash-only");
+			digest_commands::digest_stdio(
+				algorithm, output, hash_only,
+			)
+		}
+		_ => Ok(()),
+	}
+}
+
+fn resolve_kdf_password(
+	args: &clap::ArgMatches,
+) -> Result<String, Box<dyn Error>> {
+	if let Some(explicit) = args.get_one::<String>("password") {
+		return Ok(explicit.clone());
+	}
+	if args.get_flag("password-stdin") {
+		let mut stdin = io::stdin();
+		let mut buffer = String::new();
+		stdin.read_to_string(&mut buffer)?;
+		let trimmed =
+			buffer.trim_end_matches(&['\n', '\r'][..]).to_string();
+		return Ok(trimmed);
+	}
+	let password = Password::new()
+		.with_prompt("Enter password")
+		.allow_empty_password(false)
+		.interact()?;
+	Ok(password)
+}
+
+fn handle_kdf_command(
+	matches: &clap::ArgMatches,
+) -> Result<(), Box<dyn Error>> {
+	match matches.subcommand() {
+		Some(("argon2", args)) => {
+			let password = resolve_kdf_password(args)?;
+			let hash_only = args.get_flag("hash-only");
+			let config = Argon2Config {
+				mem_cost: *args
+					.get_one::<u32>("mem-cost")
+					.expect("mem-cost has default"),
+				time_cost: *args
+					.get_one::<u32>("time-cost")
+					.expect("time-cost has default"),
+				parallelism: *args
+					.get_one::<u32>("parallelism")
+					.expect("parallelism has default"),
+			};
+			kdf_commands::derive_argon2(&password, &config, hash_only)
+		}
+		Some(("scrypt", args)) => {
+			let password = resolve_kdf_password(args)?;
+			let hash_only = args.get_flag("hash-only");
+			let config = ScryptConfig {
+				log_n: *args
+					.get_one::<u8>("log-n")
+					.expect("log-n has default"),
+				r: *args.get_one::<u32>("r").expect("r has default"),
+				p: *args.get_one::<u32>("p").expect("p has default"),
+			};
+			kdf_commands::derive_scrypt(&password, &config, hash_only)
+		}
+		Some(("pbkdf2", args)) => {
+			let password = resolve_kdf_password(args)?;
+			let hash_only = args.get_flag("hash-only");
+			let config = Pbkdf2Config {
+				rounds: *args
+					.get_one::<u32>("rounds")
+					.expect("rounds has default"),
+				output_length: *args
+					.get_one::<usize>("length")
+					.expect("length has default"),
+			};
+			let scheme = args
+				.get_one::<String>("algorithm")
+				.expect("algorithm has default");
+			kdf_commands::derive_pbkdf2(
+				&password, scheme, &config, hash_only,
+			)
+		}
+		Some(("bcrypt", args)) => {
+			let password = resolve_kdf_password(args)?;
+			let hash_only = args.get_flag("hash-only");
+			let config = BcryptConfig {
+				cost: *args
+					.get_one::<u32>("cost")
+					.expect("cost has default"),
+			};
+			kdf_commands::derive_bcrypt(&password, &config, hash_only)
+		}
+		Some(("balloon", args)) => {
+			let password = resolve_kdf_password(args)?;
+			let hash_only = args.get_flag("hash-only");
+			let config = BalloonConfig {
+				time_cost: *args
+					.get_one::<u32>("time-cost")
+					.expect("time-cost has default"),
+				memory_cost: *args
+					.get_one::<u32>("memory-cost")
+					.expect("memory-cost has default"),
+				parallelism: *args
+					.get_one::<u32>("parallelism")
+					.expect("parallelism has default"),
+			};
+			kdf_commands::derive_balloon(
+				&password, &config, hash_only,
+			)
+		}
+		Some(("sha-crypt", args)) => {
+			let password = resolve_kdf_password(args)?;
+			let hash_only = args.get_flag("hash-only");
+			kdf_commands::derive_sha_crypt(&password, hash_only)
+		}
+		_ => Ok(()),
+	}
+}
+
+fn emit_legacy_warning(command: &str, replacement: &str) {
+	eprintln!(
+		"{}",
+		format!(
+			"warning: `rgh {}` is deprecated; use `{}` instead.",
+			command, replacement
+		)
+		.yellow()
+	);
+}
+
 pub fn run() -> Result<(), Box<dyn Error>> {
 	let capp = build_cli();
 	let m = capp.get_matches();
 
 	match m.subcommand() {
+		Some(("digest", matches)) => {
+			handle_digest_command(matches)?;
+		}
+		Some(("kdf", matches)) => {
+			handle_kdf_command(matches)?;
+		}
 		Some(("interactive", _)) => {
 			run_interactive_mode()?;
 		}
 		Some(("string", s)) => {
+			emit_legacy_warning(
+				"string",
+				"rgh digest string -a <algorithm> <INPUT>",
+			);
 			let st = s.get_one::<String>("INPUTSTRING");
 			let st = match st {
 				Some(s) => s,
@@ -954,18 +1615,15 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 					.unwrap(),
 			};
 			let hash_only = s.get_flag("hash-only");
+			let configs = HashConfigs {
+				argon2: &argon2_config,
+				scrypt: &scrypt_config,
+				bcrypt: &bcrypt_config,
+				pbkdf2: &pbkdf2_config,
+				balloon: &balloon_config,
+			};
 
-			hash_string(
-				a,
-				st,
-				option,
-				&argon2_config,
-				&scrypt_config,
-				&bcrypt_config,
-				&pbkdf2_config,
-				&balloon_config,
-				hash_only,
-			);
+			hash_string(a, st, option, &configs, hash_only);
 		}
 		Some(("compare-file-hashes", s)) => {
 			let file1 = s.get_one::<String>("FILE1");
@@ -1006,6 +1664,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			}
 		}
 		Some(("file", s)) => {
+			emit_legacy_warning(
+				"file",
+				"rgh digest file -a <algorithm> <PATH>",
+			);
 			let f = s.get_one::<String>("FILE");
 			let f = match f {
 				Some(f) => f,
@@ -1031,6 +1693,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			hash_file(a, f, option, hash_only);
 		}
 		Some(("stdio", s)) => {
+			emit_legacy_warning(
+				"stdio",
+				"rgh digest stdio -a <algorithm>",
+			);
 			let stdin = std::io::stdin();
 			let hash_only = s.get_flag("hash-only");
 			stdin.lock().lines().for_each(|l| {
@@ -1062,18 +1728,15 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				let bcrypt_config = BcryptConfig::default();
 				let pbkdf2_config = Pbkdf2Config::default();
 				let balloon_config = BalloonConfig::default();
+				let configs = HashConfigs {
+					argon2: &argon2_config,
+					scrypt: &scrypt_config,
+					bcrypt: &bcrypt_config,
+					pbkdf2: &pbkdf2_config,
+					balloon: &balloon_config,
+				};
 
-				hash_string(
-					a,
-					&l,
-					option,
-					&argon2_config,
-					&scrypt_config,
-					&bcrypt_config,
-					&pbkdf2_config,
-					&balloon_config,
-					hash_only,
-				);
+				hash_string(a, &l, option, &configs, hash_only);
 			});
 		}
 		Some(("generate-auto-completions", s)) => {
@@ -1141,44 +1804,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				.get_many("algorithms")
 				.map(|v| v.cloned().collect())
 				.unwrap_or_else(|| {
-					vec![
-						Algorithm::Md5,
-						Algorithm::Sha256,
-						Algorithm::Blake2b,
-						Algorithm::Argon2,
-						Algorithm::Sha1,
-						Algorithm::Sha512,
-						Algorithm::Blake3,
-						Algorithm::Blake2s,
-						Algorithm::Groestl,
-						Algorithm::Sha3_256,
-						Algorithm::Sha3_512,
-						Algorithm::Whirlpool,
-						Algorithm::Sm3,
-						Algorithm::Streebog256,
-						Algorithm::Streebog512,
-						Algorithm::Ripemd160,
-						Algorithm::Ripemd320,
-						Algorithm::Tiger,
-						Algorithm::Gost94,
-						Algorithm::Gost94ua,
-						Algorithm::Fsb160,
-						Algorithm::Fsb224,
-						Algorithm::Fsb256,
-						Algorithm::Fsb384,
-						Algorithm::Fsb512,
-						Algorithm::Shabal192,
-						Algorithm::Shabal224,
-						Algorithm::Shabal256,
-						Algorithm::Shabal384,
-						Algorithm::Shabal512,
-						Algorithm::Bcrypt,
-						Algorithm::Scrypt,
-						Algorithm::Pbkdf2Sha256,
-						Algorithm::Pbkdf2Sha512,
-						Algorithm::Balloon,
-						Algorithm::Ascon,
-					]
+					let mut presets = digest_benchmark_presets();
+					presets.extend(kdf_benchmark_presets());
+					presets
 				});
 			let iterations =
 				*sub_m.get_one::<u32>("iterations").unwrap();
@@ -1197,3 +1825,4 @@ fn print_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
 		&mut std::io::stdout(),
 	);
 }
+use base64::{engine::general_purpose::STANDARD, Engine};

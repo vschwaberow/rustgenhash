@@ -1,0 +1,26 @@
+{
+  "id": "kdf_argon2_default",
+  "mode": "kdf",
+  "algorithm": "ARGON2",
+  "input": {
+    "password": "correct horse battery staple",
+    "salt": "Lthx9DIsuhMsFMSczzhWBg",
+    "mem_cost": 65536,
+    "time_cost": 3,
+    "parallelism": 4
+  },
+  "expected_output": {
+    "digest": "$argon2id$v=19$m=65536,t=3,p=4$Lthx9DIsuhMsFMSczzhWBg$B0OEL7lxDSSUbvNo8PeFm1NuZQy+5Y9UnU7pbjwtvqI",
+    "metadata": {
+      "mem_cost": 65536,
+      "time_cost": 3,
+      "parallelism": 4,
+      "salt": "Lthx9DIsuhMsFMSczzhWBg"
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Validates Argon2 KDF output and parameter metadata via new command path.",
+    "skip_reason": null
+  }
+}

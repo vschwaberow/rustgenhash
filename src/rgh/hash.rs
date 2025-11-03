@@ -16,6 +16,10 @@ use balloon_hash::{
 	},
 	Algorithm as BalAlgorithm, Balloon, Params as BalParams,
 };
+use base64::{
+	engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
+	Engine,
+};
 use blake2::Digest;
 use digest::DynDigest;
 use pbkdf2::{
@@ -27,7 +31,7 @@ use scrypt::{
 	Scrypt,
 };
 use skein::{consts::U32, Skein1024, Skein256, Skein512};
-use std::collections::HashMap;
+use std::{collections::HashMap, io};
 
 pub(crate) fn assemble_output(
 	hash_only: bool,
@@ -151,6 +155,19 @@ macro_rules! impl_hash_function {
 
 pub struct PHash {}
 impl PHash {
+	pub fn derive_argon2_output(
+		password: &str,
+		cfg: &Argon2Config,
+		hash_only: bool,
+	) -> Result<String, String> {
+		let salt = SaltString::generate(&mut OsRng);
+		Self::hash_argon2_impl(password, cfg, &salt)
+			.map(|hash| {
+				assemble_output(hash_only, vec![hash], Some(password))
+			})
+			.map_err(|err| err.to_string())
+	}
+
 	impl_hash_function!(hash_ascon, AsconHash::digest);
 
 	impl_password_hash_fn!(
@@ -186,6 +203,18 @@ impl PHash {
 		BalloonConfig,
 		BalSaltString::generate(&mut BalOsRng)
 	);
+	pub fn derive_balloon_output(
+		password: &str,
+		cfg: &BalloonConfig,
+		hash_only: bool,
+	) -> Result<String, String> {
+		let salt = BalSaltString::generate(&mut BalOsRng);
+		Self::hash_balloon_impl(password, cfg, &salt)
+			.map(|hash| {
+				assemble_output(hash_only, vec![hash], Some(password))
+			})
+			.map_err(|err| err.to_string())
+	}
 	pub(crate) fn hash_balloon_impl(
 		password: &str,
 		cfg: &BalloonConfig,
@@ -212,6 +241,18 @@ impl PHash {
 		ScryptConfig,
 		ScSaltString::generate(&mut OsRng)
 	);
+	pub fn derive_scrypt_output(
+		password: &str,
+		cfg: &ScryptConfig,
+		hash_only: bool,
+	) -> Result<String, String> {
+		let salt = ScSaltString::generate(&mut OsRng);
+		Self::hash_scrypt_impl(password, cfg, &salt)
+			.map(|hash| {
+				assemble_output(hash_only, vec![hash], Some(password))
+			})
+			.map_err(|err| err.to_string())
+	}
 	pub(crate) fn hash_scrypt_impl(
 		password: &str,
 		cfg: &ScryptConfig,
@@ -234,31 +275,49 @@ impl PHash {
 		cfg: &BcryptConfig,
 		hash_only: bool,
 	) {
-		let salt = SaltString::generate(&mut OsRng);
-		let hex = Self::hash_bcrypt_hex(password, cfg, &salt)
-			.unwrap_or_else(|e| {
-				eprintln!("Error: {}", e);
+		match Self::derive_bcrypt_output(password, cfg, hash_only) {
+			Ok(output) => {
+				println!("{}", output);
+			}
+			Err(err) => {
+				eprintln!("Error: {}", err);
 				std::process::exit(1);
-			});
-		let output =
-			assemble_output(hash_only, vec![hex], Some(password));
-		println!("{}", output);
+			}
+		}
+	}
+
+	pub fn derive_bcrypt_output(
+		password: &str,
+		cfg: &BcryptConfig,
+		hash_only: bool,
+	) -> Result<String, String> {
+		let salt = SaltString::generate(&mut OsRng);
+		Self::hash_bcrypt_hex(password, cfg, &salt)
+			.map(|hex| {
+				assemble_output(hash_only, vec![hex], Some(password))
+			})
+			.map_err(|err| err.to_string())
 	}
 
 	pub fn hash_sha_crypt(password: &str, hash_only: bool) {
+		match Self::derive_sha_crypt_output(password, hash_only) {
+			Ok(output) => println!("{}", output),
+			Err(err) => {
+				eprintln!("Error: {}", err);
+				std::process::exit(1);
+			}
+		}
+	}
+
+	pub fn derive_sha_crypt_output(
+		password: &str,
+		hash_only: bool,
+	) -> Result<String, String> {
 		let params = sha_crypt::Sha512Params::new(10_000)
-			.unwrap_or_else(|e| {
-				println!("Error: {:?}", e);
-				std::process::exit(1);
-			});
+			.map_err(|err| format!("{:?}", err))?;
 		let hash = sha_crypt::sha512_simple(password, &params)
-			.unwrap_or_else(|e| {
-				println!("Error: {:?}", e);
-				std::process::exit(1);
-			});
-		let output =
-			assemble_output(hash_only, vec![hash], Some(password));
-		println!("{}", output);
+			.map_err(|err| format!("{:?}", err))?;
+		Ok(assemble_output(hash_only, vec![hash], Some(password)))
 	}
 
 	pub fn hash_pbkdf2(
@@ -267,13 +326,30 @@ impl PHash {
 		cfg: &Pbkdf2Config,
 		hash_only: bool,
 	) {
+		match Self::derive_pbkdf2_output(
+			password, pb_scheme, cfg, hash_only,
+		) {
+			Ok(output) => println!("{}", output),
+			Err(err) => {
+				eprintln!("Error: {}", err);
+				std::process::exit(1);
+			}
+		}
+	}
+
+	pub fn derive_pbkdf2_output(
+		password: &str,
+		pb_scheme: &str,
+		cfg: &Pbkdf2Config,
+		hash_only: bool,
+	) -> Result<String, String> {
 		let schemes = HashMap::from([
 			("pbkdf2sha256", "pbkdf2-sha256"),
 			("pbkdf2sha512", "pbkdf2-sha512"),
 		]);
 		let alg =
 			PbIdent::new(schemes.get(pb_scheme).unwrap_or(&"NONE"))
-				.unwrap();
+				.map_err(|err| err.to_string())?;
 		let salt = PbSaltString::generate(&mut OsRng);
 		let params = pbkdf2::Params {
 			output_length: cfg.output_length,
@@ -287,19 +363,49 @@ impl PHash {
 			params,
 			salt.as_salt(),
 		)
-		.unwrap_or_else(|_| {
-			eprintln!("Error: Could not hash PBKDF2 password");
-			std::process::exit(1);
-		});
-		let output = assemble_output(
+		.map_err(|err| err.to_string())?;
+		Ok(assemble_output(
 			hash_only,
 			vec![hash.to_string()],
 			Some(password),
-		);
-		println!("{}", output);
+		))
 	}
 
-	fn hash_bcrypt_hex(
+	pub(crate) fn hash_pbkdf2_with_salt(
+		password: &str,
+		pb_scheme: &str,
+		cfg: &Pbkdf2Config,
+		salt_b64: &str,
+	) -> Result<String, String> {
+		let schemes = HashMap::from([
+			("pbkdf2sha256", "pbkdf2-sha256"),
+			("pbkdf2sha512", "pbkdf2-sha512"),
+		]);
+		let alg =
+			PbIdent::new(schemes.get(pb_scheme).unwrap_or(&"NONE"))
+				.map_err(|err| err.to_string())?;
+		let salt_bytes = STANDARD_NO_PAD
+			.decode(salt_b64)
+			.map_err(|err| err.to_string())?;
+		let salt = PbSaltString::b64_encode(&salt_bytes)
+			.map_err(|err| err.to_string())?;
+		let params = pbkdf2::Params {
+			output_length: cfg.output_length,
+			rounds: cfg.rounds,
+		};
+		let hash = Pbkdf2::hash_password_customized(
+			&Pbkdf2,
+			password.as_bytes(),
+			Some(alg),
+			None,
+			params,
+			salt.as_salt(),
+		)
+		.map_err(|err| err.to_string())?;
+		Ok(hash.to_string())
+	}
+
+	pub(crate) fn hash_bcrypt_hex(
 		password: &str,
 		cfg: &BcryptConfig,
 		salt: &SaltString,
@@ -319,7 +425,8 @@ impl PHash {
 		cfg: &BcryptConfig,
 		salt_b64: &str,
 	) -> Result<String, String> {
-		let salt_bytes = base64::decode(salt_b64)
+		let salt_bytes = STANDARD_NO_PAD
+			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
 		let salt = SaltString::b64_encode(&salt_bytes)
 			.map_err(|err| err.to_string())?;
@@ -332,7 +439,8 @@ impl PHash {
 		cfg: &Argon2Config,
 		salt_b64: &str,
 	) -> Result<String, String> {
-		let salt_bytes = base64::decode(salt_b64)
+		let salt_bytes = STANDARD_NO_PAD
+			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
 		let salt = SaltString::b64_encode(&salt_bytes)
 			.map_err(|err| err.to_string())?;
@@ -345,7 +453,8 @@ impl PHash {
 		cfg: &BalloonConfig,
 		salt_b64: &str,
 	) -> Result<String, String> {
-		let salt_bytes = base64::decode(salt_b64)
+		let salt_bytes = STANDARD_NO_PAD
+			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
 		let salt = BalSaltString::b64_encode(&salt_bytes)
 			.map_err(|err| err.to_string())?;
@@ -358,7 +467,8 @@ impl PHash {
 		cfg: &ScryptConfig,
 		salt_b64: &str,
 	) -> Result<String, String> {
-		let salt_bytes = base64::decode(salt_b64)
+		let salt_bytes = STANDARD_NO_PAD
+			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
 		let salt = ScSaltString::b64_encode(&salt_bytes)
 			.map_err(|err| err.to_string())?;
@@ -442,27 +552,45 @@ impl RHash {
 		output: OutputOptions,
 		hash_only: bool,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		let md = std::fs::metadata(path)?;
-		if md.is_file() {
+		let lines =
+			self.compute_path_lines(path, output, hash_only)?;
+		lines.iter().for_each(|line| self.print_hash(line));
+		Ok(())
+	}
+
+	pub fn compute_path_lines(
+		&mut self,
+		path: &str,
+		output: OutputOptions,
+		hash_only: bool,
+	) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+		let metadata = std::fs::metadata(path)?;
+		let mut outputs = Vec::new();
+		if metadata.is_file() {
 			let hash = self.read_file(path)?;
-			self.print_hash(
-				&self.format_hash(&hash, path, output, hash_only)?,
+			outputs.push(
+				self.format_hash(&hash, path, output, hash_only)?,
 			);
-		} else if md.is_dir() {
+		} else if metadata.is_dir() {
 			for entry in std::fs::read_dir(path)? {
 				let entry = entry?;
 				if entry.path().is_file() {
 					let entry_path = entry.path();
-					let path =
-						entry_path.to_str().ok_or("Invalid path")?;
-					let hash = self.read_file(path)?;
-					self.print_hash(&self.format_hash(
-						&hash, path, output, hash_only,
+					let entry_str =
+						entry_path.to_str().ok_or_else(|| {
+							io::Error::new(
+								io::ErrorKind::InvalidData,
+								"Invalid path",
+							)
+						})?;
+					let hash = self.read_file(entry_str)?;
+					outputs.push(self.format_hash(
+						&hash, entry_str, output, hash_only,
 					)?);
 				}
 			}
 		}
-		Ok(())
+		Ok(outputs)
 	}
 
 	fn print_hash(&self, s: &str) {
@@ -478,13 +606,13 @@ impl RHash {
 	) -> Result<String, Box<dyn std::error::Error>> {
 		let tokens = match output {
 			OutputOptions::Base64 => {
-				vec![base64::encode(hash)]
+				vec![STANDARD.encode(hash)]
 			}
 			OutputOptions::Hex => {
 				vec![hex::encode(hash)]
 			}
 			OutputOptions::HexBase64 => {
-				vec![hex::encode(hash), base64::encode(hash)]
+				vec![hex::encode(hash), STANDARD.encode(hash)]
 			}
 		};
 		Ok(assemble_output(hash_only, tokens, Some(path)))
@@ -498,4 +626,33 @@ impl RHash {
 		self.digest.update(&data);
 		Ok(self.digest.finalize_reset().to_vec())
 	}
+}
+
+pub fn digest_bytes_to_string(
+	algorithm: &str,
+	data: &[u8],
+	output: OutputOptions,
+	hash_only: bool,
+	original: Option<&str>,
+) -> Result<String, String> {
+	let mut engine = RHash::new(&algorithm.to_uppercase());
+	let digest = engine.process_string(data);
+	let tokens = match output {
+		OutputOptions::Hex => vec![hex::encode(&digest)],
+		OutputOptions::Base64 => vec![STANDARD.encode(&digest)],
+		OutputOptions::HexBase64 => {
+			vec![hex::encode(&digest), STANDARD.encode(&digest)]
+		}
+	};
+	Ok(assemble_output(hash_only, tokens, original))
+}
+
+pub fn digest_path_to_strings(
+	algorithm: &str,
+	path: &str,
+	output: OutputOptions,
+	hash_only: bool,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+	let mut engine = RHash::new(&algorithm.to_uppercase());
+	engine.compute_path_lines(path, output, hash_only)
 }

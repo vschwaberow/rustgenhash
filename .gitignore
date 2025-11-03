@@ -5,3 +5,11 @@ target/audit/issues/
 rustgenhash.iml
 .vscode
 /reports
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*
+*.log
+.env
+.env.*
