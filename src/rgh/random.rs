@@ -6,7 +6,7 @@
 
 use crate::rgh::app::OutputOptions;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use getrandom::fill as getrandom_fill;
+use getrandom::getrandom;
 use rand::thread_rng;
 use rand_core::{RngCore, SeedableRng};
 use std::error::Error;
@@ -76,7 +76,7 @@ impl RandomNumberGenerator {
 
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom_fill(&mut buffer).unwrap();
+				getrandom(&mut buffer).unwrap();
 			}
 			RngType::ThreadRng => {
 				thread_rng().fill_bytes(&mut buffer);

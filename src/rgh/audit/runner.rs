@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use chrono::Utc;
+use clap::ValueEnum;
 use digest::Digest;
 use serde_json::{json, Value};
 
@@ -13,7 +14,8 @@ use super::{
 	AuditCase, AuditError, AuditMode, AuditRunMetadata, AuditSeverity,
 };
 use crate::rgh::analyze::{compare_hashes, HashAnalyzer};
-use crate::rgh::app::OutputOptions;
+use crate::rgh::app::{Algorithm, OutputOptions};
+use crate::rgh::benchmark::run_benchmarks_to_writer;
 use crate::rgh::hash::{
 	digest_bytes_to_string, digest_path_to_strings, Argon2Config,
 	BalloonConfig, BcryptConfig, PHash, Pbkdf2Config, ScryptConfig,
@@ -77,9 +79,9 @@ pub fn execute_case(
 		AuditMode::Kdf => run_kdf_case(&case)?,
 		AuditMode::Analyze => run_analyze_case(&case)?,
 		AuditMode::Compare => run_compare_case(&case)?,
+		AuditMode::Benchmark => run_benchmark_case(&case)?,
 		AuditMode::Header
 		| AuditMode::Random
-		| AuditMode::Benchmark
 		| AuditMode::Interactive => {
 			return Ok(AuditOutcome::skipped(case));
 		}
@@ -787,6 +789,58 @@ fn run_compare_case(case: &AuditCase) -> Result<Value, AuditError> {
 		compare_hashes(left, right)
 	};
 	Ok(json!({ "matches": matches }))
+}
+
+fn run_benchmark_case(case: &AuditCase) -> Result<Value, AuditError> {
+	let iterations = case
+		.input
+		.get("iterations")
+		.and_then(Value::as_u64)
+		.unwrap_or(1000);
+	let iterations = u32::try_from(iterations).map_err(|_| {
+		AuditError::Invalid(format!(
+			"Iteration count out of range for fixture `{}`",
+			case.id
+		))
+	})?;
+
+	let algorithm = Algorithm::from_str(&case.algorithm, true)
+		.map_err(|_| {
+			AuditError::Invalid(format!(
+				"Unsupported benchmark algorithm `{}` in fixture `{}`",
+				case.algorithm, case.id
+			))
+		})?;
+
+	let mut buffer = Vec::new();
+	let algorithms = [algorithm];
+	run_benchmarks_to_writer(&algorithms, iterations, &mut buffer)
+		.map_err(|err| {
+			AuditError::Invalid(format!(
+				"Benchmark execution failed for fixture `{}`: {}",
+				case.id, err
+			))
+		})?;
+
+	let stdout = String::from_utf8(buffer).map_err(|err| {
+		AuditError::Invalid(format!(
+			"Benchmark output not valid UTF-8 for fixture `{}`: {}",
+			case.id, err
+		))
+	})?;
+
+	let asm_enabled = stdout
+		.lines()
+		.find_map(|line| line.strip_prefix("asm_enabled: "))
+		.map(|value| value.trim().eq_ignore_ascii_case("true"))
+		.ok_or_else(|| {
+			AuditError::Invalid(format!(
+				"Benchmark output missing asm_enabled metadata for fixture `{}`",
+				case.id
+			))
+		})?;
+
+	Ok(json!({ "asm_enabled": asm_enabled }))
 }
 
 fn compute_digest(

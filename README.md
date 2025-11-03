@@ -98,6 +98,14 @@ Scheme for benchmarking a hash algorithm:
 rgh benchmark -a <algorithm> -i <iterations>
 ```
 
+## Performance Profile
+
+- Assembly-optimized code paths (`asm-accel` feature) are enabled by default for SHA-1, SHA-2, MD5, and Whirlpool on x86_64 and Apple Silicon (aarch64) targets. Unsupported targets automatically fall back to portable implementations.
+- Benchmark output includes an `asm_enabled` flag; use `scripts/benchmark/run.sh --mode baseline|optimized` to capture reproducible measurements and emit artifacts under `target/audit/`.
+- To opt out (e.g., deterministic builds or restricted environments), run with `--no-default-features --features portable-only` or set the same flags in `Cargo.toml`.
+- CI builds exercise wasm32 portable fallback and native macOS/Windows targets (`.github/workflows/build.yml`) to guarantee cross-platform coverage.
+- Observed SHA-256 speedup on a Ryzen 5 4600H host: baseline `0.001035 ms/op` → optimized `0.000989 ms/op` (~4.4% faster). Throughput gains vary by CPU and governor settings.
+
 The interactive wizard reflects the new structure:
 
 ```bash

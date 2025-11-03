@@ -6,15 +6,31 @@
 
 use crate::rgh::app::Algorithm;
 use crate::rgh::hash::{
-	Argon2Config, BalloonConfig, BcryptConfig, PHash, Pbkdf2Config,
-	RHash, ScryptConfig,
+	asm_accelerated_digests, Argon2Config, BalloonConfig,
+	BcryptConfig, PHash, Pbkdf2Config, RHash, ScryptConfig,
 };
+use std::io::{self, Write};
 use std::time::{Duration, Instant};
 
 pub fn run_benchmarks(algorithms: &[Algorithm], iterations: u32) {
-	println!("Running benchmarks...");
-	println!("Iterations per algorithm: {}", iterations);
-	println!("----------------------------");
+	let stdout = io::stdout();
+	let mut handle = stdout.lock();
+	if let Err(err) =
+		run_benchmarks_to_writer(algorithms, iterations, &mut handle)
+	{
+		eprintln!("Failed to write benchmark output: {}", err);
+	}
+}
+
+pub fn run_benchmarks_to_writer<W: Write>(
+	algorithms: &[Algorithm],
+	iterations: u32,
+	mut writer: W,
+) -> io::Result<()> {
+	writeln!(writer, "Running benchmarks...")?;
+	writeln!(writer, "Iterations per algorithm: {}", iterations)?;
+	writeln!(writer, "----------------------------")?;
+	writeln!(writer, "asm_enabled: {}", asm_acceleration_active())?;
 
 	let argon2_config = Argon2Config::default();
 	let scrypt_config = ScryptConfig::default();
@@ -194,12 +210,15 @@ pub fn run_benchmarks(algorithms: &[Algorithm], iterations: u32) {
 			}
 		};
 
-		println!(
+		writeln!(
+			writer,
 			"{:?}: avg time per operation: {:.6} ms",
 			alg,
 			duration.as_secs_f64() * 1000.0 / iterations as f64
-		);
+		)?;
 	}
+
+	Ok(())
 }
 
 fn is_kdf_algorithm(alg: Algorithm) -> bool {
@@ -225,6 +244,10 @@ pub fn kdf_benchmark_presets() -> Vec<Algorithm> {
 	Algorithm::iter()
 		.filter(|alg| is_kdf_algorithm(*alg))
 		.collect()
+}
+
+fn asm_acceleration_active() -> bool {
+	!asm_accelerated_digests().is_empty()
 }
 
 fn benchmark_rhash(alg: &str, iterations: u32) -> Duration {

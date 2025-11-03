@@ -4,11 +4,15 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
-use reqwest::blocking::Client;
-use sha2::Digest;
 use std::error::Error;
-use std::time::Duration;
 use url::Url;
+
+#[cfg(not(target_arch = "wasm32"))]
+use reqwest::blocking::Client;
+#[cfg(not(target_arch = "wasm32"))]
+use sha2::Digest;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
 
 pub fn parse_url(
 	url: &str,
@@ -30,6 +34,15 @@ pub fn parse_url(
 	};
 	Ok(parsed_url)
 }
+
+#[cfg(target_arch = "wasm32")]
+pub fn generate_hhhash(
+	_url: String,
+) -> Result<String, Box<dyn Error>> {
+	Err("HHHash generation is not supported on wasm targets".into())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn generate_hhhash(
 	url: String,
 ) -> Result<String, Box<dyn Error>> {
