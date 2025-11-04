@@ -89,13 +89,13 @@ impl Walker {
 			None
 		};
 
-	let mut iter = walker.into_iter();
-	while let Some(entry) = iter.next() {
-		let entry = entry.map_err(to_io_error)?;
-		let file_type = entry.file_type();
-		if entry.depth() == 0 && file_type.is_dir() {
-			continue;
-		}
+		let mut iter = walker.into_iter();
+		while let Some(entry) = iter.next() {
+			let entry = entry.map_err(to_io_error)?;
+			let file_type = entry.file_type();
+			if entry.depth() == 0 && file_type.is_dir() {
+				continue;
+			}
 			if file_type.is_dir() {
 				if let (true, Some(set)) =
 					(self.follow_links(), visited.as_mut())

@@ -35,12 +35,12 @@ impl ManifestWriter {
 		plan: DirectoryHashPlan,
 		profile: ErrorHandlingProfile,
 	) -> Self {
-	let summary = ManifestSummary {
-		root: plan.root_path.clone(),
-		strategy: profile.strategy,
-		..ManifestSummary::default()
-	};
-	Self {
+		let summary = ManifestSummary {
+			root: plan.root_path.clone(),
+			strategy: profile.strategy,
+			..ManifestSummary::default()
+		};
+		Self {
 			plan,
 			error_profile: profile,
 			summary,

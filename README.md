@@ -62,6 +62,32 @@ Directory hashing options:
 - `--progress`/`--no-progress` override adaptive stderr progress reporting (auto-disabled for `--hash-only`).
 ```
 
+#### Weak Digest Algorithms
+
+| Algorithm | Risk | Safer alternatives | References |
+|-----------|------|--------------------|------------|
+| MD5 | ⚠ Weak | SHA-256, BLAKE3 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
+| SHA-1 | ⚠ Weak | SHA-256, SHA-512 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
+| SHA-224 | ⚠ Weak | SHA-256, SHA-512 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
+
+⚠ entries indicate algorithms retained solely for legacy verification; automation should migrate to the recommended replacements.
+
+#### Supported Digest Algorithms
+
+- **SHA-2 family**: SHA-256, SHA-384, SHA-512 (recommended); SHA-224 (⚠ Weak, legacy compatibility only).
+- **SHA-3 family**: SHA3-224, SHA3-256, SHA3-384, SHA3-512.
+- **BLAKE family**: BLAKE2b, BLAKE2s, BLAKE3 (memory-hard friendly, modern).
+- **FSB family**: FSB-160, FSB-224, FSB-256, FSB-384, FSB-512.
+- **GOST & Streebog**: GOST R 34.11-94, GOST R 34.11-94-UA, Streebog-256, Streebog-512.
+- **JH finalists**: JH-224, JH-256, JH-384, JH-512.
+- **Skein family**: Skein-256, Skein-512, Skein-1024.
+- **Shabal family**: Shabal-192, Shabal-224, Shabal-256, Shabal-384, Shabal-512.
+- **RIPEMD family**: RIPEMD-160, RIPEMD-320.
+- **Other classic digests**: Ascon, Belthash, Groestl, SM3, Tiger, Whirlpool.
+- **Legacy MD family**: MD2, MD4, MD5 (⚠ Weak) retained for checksums and historical datasets.
+
+The CLI exposes each algorithm via `-a/--algorithm`; `rgh digest --help` highlights weak options inline.
+
 ### Password-based KDF commands
 
 KDF subcommands produce structured JSON output by default (use `--hash-only` to emit just the derived key). Passwords can
@@ -75,6 +101,17 @@ be provided via `--password`, through the interactive prompt, or piped in using 
 | `rgh kdf bcrypt` | `--cost` | 64 byte hex digest + metadata |
 | `rgh kdf balloon` | `--time-cost`, `--memory-cost`, `--parallelism` | Balloon hash string + metadata |
 | `rgh kdf sha-crypt` | (rounds fixed to 10 000) | `$6$` SHA-crypt string + metadata |
+
+#### Supported Password Derivation Schemes
+
+| Algorithm | Risk | Notes |
+|-----------|------|-------|
+| Argon2id | ✅ Recommended | Memory-hard PHC winner; default choice for new deployments. |
+| Scrypt | ✅ Recommended | Memory-hard; tune `log_n`, `r`, `p` to meet policy requirements. |
+| Balloon | ✅ Recommended | Configurable memory-hard alternative influenced by Argon2. |
+| PBKDF2-SHA256 / PBKDF2-SHA512 | ⚠ Legacy | Acceptable with high iteration counts; prefer Argon2 or Scrypt when feasible. |
+| Bcrypt | ⚠ Legacy | 72-byte password truncation; preserved for POSIX compatibility. |
+| SHA-crypt (`sha512`) | ⚠ Legacy | Provided for Unix compatibility; migrate to memory-hard schemes. |
 
 Example:
 
@@ -181,3 +218,6 @@ Release managers must complete `docs/qa/release-readiness.md` before tagging:
 ## Contribution 
 
 If you want to contribute to this project, please feel free to do so. I am happy to accept pull requests. Any help is appreciated. If you have any questions, please feel free to contact me.
+
+[nist]: https://doi.org/10.6028/NIST.SP.800-131Ar2
+[bsi]: https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf

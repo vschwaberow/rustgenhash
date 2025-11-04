@@ -30,6 +30,7 @@ use crate::rgh::hash::{
 	ScryptConfig,
 };
 use crate::rgh::output::{DigestOutputFormat, DigestSource};
+use crate::rgh::weak::warning_for;
 use base64::{engine::general_purpose::STANDARD, Engine};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -564,6 +565,18 @@ fn run_digest_string_case(
 		"default_lines": default_result.lines,
 		"hash_only_lines": hash_only_result.lines,
 	});
+	if let Some(warning) = warning_for(&case.algorithm) {
+		if let Some(obj) = output.as_object_mut() {
+			obj.insert(
+				"warning_banner".to_string(),
+				json!(warning.banner()),
+			);
+			obj.insert(
+				"warning_references".to_string(),
+				json!(warning.references),
+			);
+		}
+	}
 	if !default_result.warnings.is_empty() {
 		if let Some(obj) = output.as_object_mut() {
 			obj.insert(
@@ -699,6 +712,18 @@ fn run_digest_file_case(
 		"should_write_manifest": defaults.should_write_manifest,
 		"fatal_error": defaults.fatal_error,
 	});
+	if let Some(warning) = warning_for(&case.algorithm) {
+		if let Some(obj) = payload.as_object_mut() {
+			obj.insert(
+				"warning_banner".to_string(),
+				json!(warning.banner()),
+			);
+			obj.insert(
+				"warning_references".to_string(),
+				json!(warning.references),
+			);
+		}
+	}
 	if !default_warnings.is_empty() {
 		if let Some(obj) = payload.as_object_mut() {
 			obj.insert(
@@ -838,6 +863,18 @@ fn run_digest_stdio_case(
 		"default_lines": default_result.lines,
 		"hash_only_lines": hash_only_result.lines,
 	});
+	if let Some(warning) = warning_for(&case.algorithm) {
+		if let Some(obj) = payload.as_object_mut() {
+			obj.insert(
+				"warning_banner".to_string(),
+				json!(warning.banner()),
+			);
+			obj.insert(
+				"warning_references".to_string(),
+				json!(warning.references),
+			);
+		}
+	}
 	if !default_result.warnings.is_empty() {
 		if let Some(obj) = payload.as_object_mut() {
 			obj.insert(

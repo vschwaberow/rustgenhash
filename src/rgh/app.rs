@@ -28,6 +28,9 @@ use crate::rgh::output::{
 	DigestOutputFormat, DigestSource, SerializationResult,
 };
 use crate::rgh::random::{RandomNumberGenerator, RngType};
+use crate::rgh::weak::{
+	all_metadata, emit_warning_banner, warning_for,
+};
 use clap::{crate_name, Arg, ArgAction};
 use clap_complete::{generate, Generator, Shell};
 use colored::*;
@@ -35,6 +38,7 @@ use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
 use std::error::Error;
 use std::io::{self, BufRead, Read};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use std::time::Duration;
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -47,6 +51,31 @@ Primary command families:
 
 {all-args}{after-help}
 ";
+
+static DIGEST_ALGORITHM_HELP: OnceLock<String> = OnceLock::new();
+
+pub const WEAK_PROMPT_OPTIONS: [&str; 2] =
+	["Choose safer algorithm", "Continue anyway"];
+pub const WEAK_PROMPT_DEFAULT_INDEX: usize = 0;
+
+fn digest_algorithm_help_text() -> &'static str {
+	DIGEST_ALGORITHM_HELP.get_or_init(|| {
+		let display_names = all_metadata()
+			.iter()
+			.map(|meta| meta.display_name)
+			.collect::<Vec<_>>()
+			.join(", ");
+		let identifiers = all_metadata()
+			.iter()
+			.map(|meta| meta.algorithm_id)
+			.collect::<Vec<_>>()
+			.join(", ");
+		format!(
+			"Digest algorithm identifier (e.g., sha256). ⚠ Weak: {display_names} ({identifiers}). See README section \"Weak Digest Algorithms\" for safer alternatives.",
+		)
+	})
+	.as_str()
+}
 
 #[derive(clap::ValueEnum, Debug, Copy, Clone, EnumIter)]
 pub enum Algorithm {
@@ -301,7 +330,7 @@ fn interactive_digest_string() -> Result<(), Box<dyn Error>> {
 		.with_prompt("Enter the string to digest")
 		.interact_text()?;
 
-	let algorithm_label = select_digest_algorithm_label()?;
+	let algorithm_label = select_digest_algorithm_with_guard()?;
 	let output_option =
 		choose_output_format_for_algorithm(&algorithm_label)?;
 	let hash_only = Confirm::new()
@@ -321,7 +350,7 @@ fn interactive_digest_file() -> Result<(), Box<dyn Error>> {
 	let path = Input::<String>::new()
 		.with_prompt("Enter the file or directory path")
 		.interact_text()?;
-	let algorithm_label = select_digest_algorithm_label()?;
+	let algorithm_label = select_digest_algorithm_with_guard()?;
 	let output_option =
 		choose_output_format_for_algorithm(&algorithm_label)?;
 	let hash_only = Confirm::new()
@@ -713,6 +742,32 @@ fn select_digest_algorithm_label() -> Result<String, Box<dyn Error>> {
 	Ok(labels[selection].to_uppercase())
 }
 
+fn confirm_weak_algorithm_selection(
+	algorithm_label: &str,
+) -> Result<bool, Box<dyn Error>> {
+	if let Some(message) = warning_for(algorithm_label) {
+		emit_warning_banner(&message);
+		let choice = Select::new()
+			.with_prompt("Weak algorithm selected")
+			.items(&WEAK_PROMPT_OPTIONS)
+			.default(WEAK_PROMPT_DEFAULT_INDEX)
+			.interact()?;
+		Ok(choice == 1)
+	} else {
+		Ok(true)
+	}
+}
+
+fn select_digest_algorithm_with_guard(
+) -> Result<String, Box<dyn Error>> {
+	loop {
+		let candidate = select_digest_algorithm_label()?;
+		if confirm_weak_algorithm_selection(&candidate)? {
+			return Ok(candidate);
+		}
+	}
+}
+
 fn prompt_password(prompt: &str) -> Result<String, Box<dyn Error>> {
 	let password = Password::new()
 		.with_prompt(prompt)
@@ -915,11 +970,11 @@ fn build_cli() -> clap::Command {
 						clap::command!("string")
 							.about("Hash a provided string")
 							.arg(
-								Arg::new("algorithm")
-									.short('a')
-									.long("algorithm")
-									.help("Digest algorithm identifier (e.g., sha256)")
-									.required(true),
+					Arg::new("algorithm")
+						.short('a')
+						.long("algorithm")
+						.help(digest_algorithm_help_text())
+						.required(true),
 							)
 							.arg(
 								Arg::new("input")
@@ -949,11 +1004,11 @@ fn build_cli() -> clap::Command {
 					clap::command!("file")
 						.about("Hash the contents of a file or directory")
 						.arg(
-							Arg::new("algorithm")
-								.short('a')
-								.long("algorithm")
-								.help("Digest algorithm identifier (e.g., sha256)")
-								.required(true),
+					Arg::new("algorithm")
+						.short('a')
+						.long("algorithm")
+						.help(digest_algorithm_help_text())
+						.required(true),
 						)
 						.arg(
 							Arg::new("path")
@@ -1040,11 +1095,11 @@ fn build_cli() -> clap::Command {
 						clap::command!("stdio")
 							.about("Hash newline-delimited stdin input")
 							.arg(
-								Arg::new("algorithm")
-									.short('a')
-									.long("algorithm")
-									.help("Digest algorithm identifier (e.g., sha256)")
-									.required(true),
+					Arg::new("algorithm")
+						.short('a')
+						.long("algorithm")
+						.help(digest_algorithm_help_text())
+						.required(true),
 							)
 							.arg(
 								Arg::new("format")
@@ -1436,13 +1491,13 @@ fn build_cli() -> clap::Command {
 				.about("Hash single file or single directory")
 				.arg(Arg::new("FILE").display_order(1).required(true))
 				.arg(
-					Arg::new("algorithm")
-						.display_order(2)
-						.value_parser(clap::value_parser!(Algorithm))
-						.help("Hashing algorithm to use")
-						.short('a')
-						.long("algorithm")
-						.required(true),
+				Arg::new("algorithm")
+					.display_order(2)
+					.value_parser(clap::value_parser!(Algorithm))
+					.help(digest_algorithm_help_text())
+					.short('a')
+					.long("algorithm")
+					.required(true),
 				)
 				.arg(
 					Arg::new("format")
@@ -1467,12 +1522,12 @@ fn build_cli() -> clap::Command {
 				.about("Hash input from stdin")
 				.display_order(2)
 				.arg(
-					Arg::new("algorithm")
-						.required(true)
-						.short('a')
-						.long("algorithm")
-						.value_parser(clap::value_parser!(Algorithm))
-						.help("Hashing algorithm"),
+				Arg::new("algorithm")
+					.required(true)
+					.short('a')
+					.long("algorithm")
+					.value_parser(clap::value_parser!(Algorithm))
+					.help(digest_algorithm_help_text()),
 				)
 				.arg(
 					Arg::new("format")
@@ -1688,9 +1743,8 @@ fn handle_digest_command(
 				.map(String::as_str)
 				.unwrap_or("fail-fast");
 			let error_strategy = parse_error_strategy(error_strategy);
-		let manifest_path = args
-			.get_one::<String>("manifest")
-			.map(PathBuf::from);
+			let manifest_path =
+				args.get_one::<String>("manifest").map(PathBuf::from);
 			let path = args
 				.get_one::<String>("path")
 				.expect("path must be provided");
@@ -1702,10 +1756,10 @@ fn handle_digest_command(
 				threads,
 				mmap_threshold,
 			};
-		let error_profile = ErrorHandlingProfile {
-			strategy: error_strategy,
-			..Default::default()
-		};
+			let error_profile = ErrorHandlingProfile {
+				strategy: error_strategy,
+				..Default::default()
+			};
 			let options = crate::rgh::hash::FileDigestOptions {
 				algorithm,
 				plan,

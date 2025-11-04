@@ -20,6 +20,7 @@ pub mod rgh {
 	pub mod multihash;
 	pub mod output;
 	pub mod random;
+	pub mod weak;
 }
 
 pub fn render_kdf_output(

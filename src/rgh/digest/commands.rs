@@ -11,6 +11,7 @@ use crate::rgh::output::{
 	DigestOutputFormat, DigestSource, OutputError,
 	SerializationResult,
 };
+use crate::rgh::weak::{emit_warning_banner, warning_for};
 use std::error::Error;
 use std::io::{self, BufRead};
 
@@ -21,6 +22,9 @@ pub fn digest_string(
 	format: DigestOutputFormat,
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
+	if let Some(warning) = warning_for(algorithm) {
+		emit_warning_banner(&warning);
+	}
 	let record = digest_bytes_to_record(
 		algorithm,
 		input.as_bytes(),
@@ -44,6 +48,9 @@ pub fn digest_string(
 pub fn digest_path(
 	options: FileDigestOptions,
 ) -> Result<(), Box<dyn Error>> {
+	if let Some(warning) = warning_for(&options.algorithm) {
+		emit_warning_banner(&warning);
+	}
 	let (outcome, serialization) = match digest_with_options(&options)
 	{
 		Ok(result) => result,
@@ -76,6 +83,9 @@ pub fn digest_stdio(
 			algorithm
 		);
 		std::process::exit(2);
+	}
+	if let Some(warning) = warning_for(algorithm) {
+		emit_warning_banner(&warning);
 	}
 	let stdin = std::io::stdin();
 	let mut records = Vec::new();
