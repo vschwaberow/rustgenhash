@@ -1,0 +1,23 @@
+{
+  "id": "digest_string_sha256_multihash",
+  "mode": "digest_string",
+  "algorithm": "SHA256",
+  "input": {
+    "value": "rustgenhash"
+  },
+  "expected_output": {
+    "digest": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf",
+    "format": "multihash",
+    "default_lines": [
+      "zQmTY2GYmjoMc6n2Ka8up2xyYVKstkU3Hd3duBo9qhdNjFt rustgenhash"
+    ],
+    "hash_only_lines": [
+      "zQmTY2GYmjoMc6n2Ka8up2xyYVKstkU3Hd3duBo9qhdNjFt"
+    ]
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Ensures string mode emits base58btc multihash tokens with hash-only symmetry.",
+    "skip_reason": null
+  }
+}

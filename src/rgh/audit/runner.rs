@@ -389,6 +389,7 @@ fn parse_output_format(value: Option<&str>) -> DigestOutputFormat {
 		"csv" => DigestOutputFormat::Csv,
 		"base64" => DigestOutputFormat::Base64,
 		"hashcat" => DigestOutputFormat::Hashcat,
+		"multihash" => DigestOutputFormat::Multihash,
 		_ => DigestOutputFormat::Hex,
 	}
 }
@@ -536,7 +537,7 @@ fn run_digest_string_case(
 		))
 	})?;
 	let default_result = serialize_digest_output(
-		&[record.clone()],
+		std::slice::from_ref(&record),
 		output_format,
 		false,
 	)
@@ -547,7 +548,7 @@ fn run_digest_string_case(
 		))
 	})?;
 	let hash_only_result = serialize_digest_output(
-		&[record.clone()],
+		std::slice::from_ref(&record),
 		output_format,
 		true,
 	)
@@ -640,8 +641,10 @@ fn run_digest_file_case(
 		threads,
 		mmap_threshold,
 	};
-	let mut error_profile = ErrorHandlingProfile::default();
-	error_profile.strategy = error_strategy;
+	let error_profile = ErrorHandlingProfile {
+		strategy: error_strategy,
+		..Default::default()
+	};
 	let progress = ProgressConfig {
 		mode: ProgressMode::Disabled,
 		throttle: Duration::from_millis(500),
@@ -767,6 +770,52 @@ fn run_digest_stdio_case(
 		.collect();
 	let record_values: Vec<_> =
 		records.iter().map(|(_, record)| record.clone()).collect();
+	if let Some(expected_exit) = case
+		.expected_output
+		.get("exit_code")
+		.and_then(Value::as_i64)
+	{
+		if expected_exit != 0 {
+			let default_error = serialize_digest_output(
+				&record_values,
+				output_format,
+				false,
+			)
+			.expect_err("expected digest stdio failure");
+			let hash_only_error = serialize_digest_output(
+				&record_values,
+				output_format,
+				true,
+			)
+			.expect_err("expected digest stdio failure");
+			let default_message = default_error.to_string();
+			let hash_only_message = hash_only_error.to_string();
+			if default_message != hash_only_message {
+				return Err(AuditError::Invalid(format!(
+					"Digest stdio failure emitted mismatched errors for fixture `{}`",
+					case.id
+				)));
+			}
+			let expected_error = case
+				.expected_output
+				.get("error")
+				.and_then(Value::as_str)
+				.unwrap_or_default();
+			if !default_message.contains(expected_error) {
+				return Err(AuditError::Invalid(format!(
+					"Digest stdio failure message `{}` did not contain expected fragment `{}` for fixture `{}`",
+					default_message,
+					expected_error,
+					case.id
+				)));
+			}
+			return Ok(json!({
+				"format": format_value,
+				"exit_code": expected_exit,
+				"error": default_message,
+			}));
+		}
+	}
 	let default_result =
 		serialize_digest_output(&record_values, output_format, false)
 			.map_err(|err| {

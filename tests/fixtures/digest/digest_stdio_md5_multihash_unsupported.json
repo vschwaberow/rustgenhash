@@ -1,0 +1,20 @@
+{
+  "id": "digest_stdio_md5_multihash_unsupported",
+  "mode": "digest_stdio",
+  "algorithm": "MD5",
+  "input": {
+    "lines": [
+      "alpha"
+    ]
+  },
+  "expected_output": {
+    "format": "multihash",
+    "exit_code": 2,
+    "error": "multihash format is unavailable for algorithm md5"
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Validates that unsupported algorithms surface exit code 2 with a clear multihash error message.",
+    "skip_reason": null
+  }
+}

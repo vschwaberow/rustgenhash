@@ -33,7 +33,7 @@ impl DirectoryHashPlan {
 
 	pub fn should_use_mmap(&self, size: u64) -> bool {
 		self.mmap_threshold
-			.map_or(false, |threshold| size >= threshold)
+			.is_some_and(|threshold| size >= threshold)
 	}
 }
 

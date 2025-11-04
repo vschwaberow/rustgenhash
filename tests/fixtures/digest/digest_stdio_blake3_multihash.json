@@ -1,0 +1,37 @@
+{
+  "id": "digest_stdio_blake3_multihash",
+  "mode": "digest_stdio",
+  "algorithm": "BLAKE3",
+  "input": {
+    "lines": [
+      "alpha",
+      "beta"
+    ]
+  },
+  "expected_output": {
+    "format": "multihash",
+    "records": [
+      {
+        "source": "alpha",
+        "digest": "644a9bc57c6063e2ba4028fa73ed585170ae7db8ac7723d32be49c021a0225f5"
+      },
+      {
+        "source": "beta",
+        "digest": "c607f0e66519ff41d34c1c8e2e312228c3cc358c0a5b75cef4b22cf8ed3875db"
+      }
+    ],
+    "default_lines": [
+      "zgW4RA2eWRvU4h1Q7PBZpKH5MtatKvmEkaW1xAtF2DSE6JG alpha",
+      "zgWAzh2G63XQebaiGm8ZFT2vobeLwMG7yS7dWi8KpEensaa beta"
+    ],
+    "hash_only_lines": [
+      "zgW4RA2eWRvU4h1Q7PBZpKH5MtatKvmEkaW1xAtF2DSE6JG",
+      "zgWAzh2G63XQebaiGm8ZFT2vobeLwMG7yS7dWi8KpEensaa"
+    ]
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Ensures stdio mode streams multihash tokens per line with blake3.",
+    "skip_reason": null
+  }
+}

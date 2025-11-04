@@ -6,8 +6,10 @@ use crate::rgh::hash::{
 	digest_bytes_to_record, digest_with_options,
 	serialize_digest_output, FileDigestOptions,
 };
+use crate::rgh::multihash::MulticodecSupportMatrix;
 use crate::rgh::output::{
-	DigestOutputFormat, DigestSource, SerializationResult,
+	DigestOutputFormat, DigestSource, OutputError,
+	SerializationResult,
 };
 use std::error::Error;
 use std::io::{self, BufRead};
@@ -27,8 +29,13 @@ pub fn digest_string(
 	)
 	.map_err(io::Error::other)?;
 	let serialization =
-		serialize_digest_output(&[record], format, hash_only)
-			.map_err(io::Error::other)?;
+		match serialize_digest_output(&[record], format, hash_only) {
+			Ok(result) => result,
+			Err(err) => {
+				exit_on_multihash_error(&err);
+				return Err(Box::new(io::Error::other(err)));
+			}
+		};
 	emit_serialized_output(serialization);
 	Ok(())
 }
@@ -37,7 +44,17 @@ pub fn digest_string(
 pub fn digest_path(
 	options: FileDigestOptions,
 ) -> Result<(), Box<dyn Error>> {
-	let (outcome, serialization) = digest_with_options(&options)?;
+	let (outcome, serialization) = match digest_with_options(&options)
+	{
+		Ok(result) => result,
+		Err(err) => match err.downcast::<OutputError>() {
+			Ok(output_err) => {
+				exit_on_multihash_error(&output_err);
+				return Err(output_err);
+			}
+			Err(other) => return Err(other),
+		},
+	};
 	emit_serialized_output(serialization);
 	if outcome.exit_code != 0 {
 		std::process::exit(outcome.exit_code);
@@ -51,6 +68,15 @@ pub fn digest_stdio(
 	format: DigestOutputFormat,
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
+	if matches!(format, DigestOutputFormat::Multihash)
+		&& MulticodecSupportMatrix::lookup(algorithm).is_none()
+	{
+		eprintln!(
+			"error: multihash format is unavailable for algorithm {}",
+			algorithm
+		);
+		std::process::exit(2);
+	}
 	let stdin = std::io::stdin();
 	let mut records = Vec::new();
 	for line in stdin.lock().lines() {
@@ -65,8 +91,13 @@ pub fn digest_stdio(
 		records.push(record);
 	}
 	let serialization =
-		serialize_digest_output(&records, format, hash_only)
-			.map_err(io::Error::other)?;
+		match serialize_digest_output(&records, format, hash_only) {
+			Ok(result) => result,
+			Err(err) => {
+				exit_on_multihash_error(&err);
+				return Err(Box::new(io::Error::other(err)));
+			}
+		};
 	emit_serialized_output(serialization);
 	Ok(())
 }
@@ -78,5 +109,12 @@ fn emit_serialized_output(result: SerializationResult) {
 
 	for line in result.lines {
 		println!("{}", line);
+	}
+}
+
+fn exit_on_multihash_error(err: &OutputError) {
+	if let Some(multihash_err) = err.multihash() {
+		eprintln!("error: {}", multihash_err);
+		std::process::exit(2);
 	}
 }

@@ -9,6 +9,7 @@ use crate::rgh::file::{
 	ManifestEntry, ManifestOutcome, ManifestSummary, ManifestWriter,
 	ProgressConfig, ProgressEmitter, Walker,
 };
+use crate::rgh::multihash::MultihashEncoder;
 use crate::rgh::output::{
 	serialize_records, DigestOutputFormat, DigestRecord,
 	DigestSource, OutputError, OutputFormatProfile,
@@ -613,7 +614,7 @@ impl RHash {
 		Self {
 			digest: create_hasher!(alg,
 				"BELTHASH" => belt_hash::BeltHash::new(),
-				"BLAKE2B"   => blake2::Blake2b512::new(),
+			"BLAKE2B"   => blake2::Blake2b512::new(),
 				"BLAKE2S"   => blake2::Blake2s256::new(),
 				"BLAKE3"    => blake3::Hasher::new(),
 				"FSB160"    => fsb::Fsb160::new(),
@@ -837,12 +838,24 @@ fn digest_with_options_internal(
 			emitter.record(size);
 			emitter.maybe_emit();
 		}
-		let hex_digest = record.digest_hex.clone();
+		let mut manifest_digest = record.digest_hex.clone();
+		if options.format == DigestOutputFormat::Multihash {
+			let algorithm = options.algorithm.to_ascii_lowercase();
+			match MultihashEncoder::encode(&algorithm, &digest_bytes)
+			{
+				Ok(token) => manifest_digest = token,
+				Err(err) => eprintln!(
+					"warning: failed to encode multihash for manifest entry {}: {}",
+					display_path,
+					err
+				),
+			}
+		}
 		records.push(record);
 		writer.record_success(
 			path,
 			&options.algorithm,
-			hex_digest,
+			manifest_digest,
 			size,
 			modified,
 		);

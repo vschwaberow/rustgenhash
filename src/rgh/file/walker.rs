@@ -89,15 +89,13 @@ impl Walker {
 			None
 		};
 
-		let mut iter = walker.into_iter();
-		while let Some(entry) = iter.next() {
-			let entry = entry.map_err(to_io_error)?;
-			if entry.depth() == 0 {
-				if entry.file_type().is_dir() {
-					continue;
-				}
-			}
-			let file_type = entry.file_type();
+	let mut iter = walker.into_iter();
+	while let Some(entry) = iter.next() {
+		let entry = entry.map_err(to_io_error)?;
+		let file_type = entry.file_type();
+		if entry.depth() == 0 && file_type.is_dir() {
+			continue;
+		}
 			if file_type.is_dir() {
 				if let (true, Some(set)) =
 					(self.follow_links(), visited.as_mut())
@@ -149,7 +147,7 @@ impl Walker {
 		matches!(self.plan.follow_symlinks, SymlinkPolicy::All)
 	}
 
-	fn sort(&self, entries: &mut Vec<WalkEntry>) {
+	fn sort(&self, entries: &mut [WalkEntry]) {
 		match self.plan.order {
 			WalkOrder::Lexicographic => {
 				entries.sort_by(|a, b| a.path.cmp(&b.path))
@@ -162,7 +160,7 @@ fn to_io_error(err: walkdir::Error) -> io::Error {
 	if let Some(inner) = err.io_error() {
 		return io::Error::new(inner.kind(), inner.to_string());
 	}
-	io::Error::new(io::ErrorKind::Other, err.to_string())
+	io::Error::other(err.to_string())
 }
 
 #[cfg(test)]
@@ -225,7 +223,7 @@ mod tests {
 		let root = tmp.path();
 		write(&root.join("file.txt"), "base");
 		write(&root.join("target.txt"), "target");
-		symlink(&root.join("target.txt"), &root.join("link.txt"))
+		symlink(root.join("target.txt"), root.join("link.txt"))
 			.unwrap();
 
 		let plan_never = make_plan(root, SymlinkPolicy::Never, false);

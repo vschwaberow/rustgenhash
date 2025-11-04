@@ -23,6 +23,7 @@ use crate::rgh::hash::{
 };
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::kdf::commands as kdf_commands;
+use crate::rgh::multihash::MulticodecSupportMatrix;
 use crate::rgh::output::{
 	DigestOutputFormat, DigestSource, SerializationResult,
 };
@@ -301,7 +302,8 @@ fn interactive_digest_string() -> Result<(), Box<dyn Error>> {
 		.interact_text()?;
 
 	let algorithm_label = select_digest_algorithm_label()?;
-	let output_option = select_output_format()?;
+	let output_option =
+		choose_output_format_for_algorithm(&algorithm_label)?;
 	let hash_only = Confirm::new()
 		.with_prompt("Emit only the digest output?")
 		.default(false)
@@ -320,7 +322,8 @@ fn interactive_digest_file() -> Result<(), Box<dyn Error>> {
 		.with_prompt("Enter the file or directory path")
 		.interact_text()?;
 	let algorithm_label = select_digest_algorithm_label()?;
-	let output_option = select_output_format()?;
+	let output_option =
+		choose_output_format_for_algorithm(&algorithm_label)?;
 	let hash_only = Confirm::new()
 		.with_prompt("Emit only the digest output?")
 		.default(false)
@@ -727,6 +730,7 @@ fn select_output_format() -> Result<DigestOutputFormat, Box<dyn Error>>
 		DigestOutputFormat::JsonLines,
 		DigestOutputFormat::Csv,
 		DigestOutputFormat::Hashcat,
+		DigestOutputFormat::Multihash,
 	];
 	let selection = Select::new()
 		.with_prompt("Select output format")
@@ -734,6 +738,32 @@ fn select_output_format() -> Result<DigestOutputFormat, Box<dyn Error>>
 		.interact()?;
 
 	Ok(options[selection])
+}
+
+fn choose_output_format_for_algorithm(
+	algorithm_label: &str,
+) -> Result<DigestOutputFormat, Box<dyn Error>> {
+	let supported =
+		MulticodecSupportMatrix::algorithm_names().join(", ");
+	loop {
+		let format = select_output_format()?;
+		if matches!(format, DigestOutputFormat::Multihash) {
+			let normalized = algorithm_label.to_ascii_lowercase();
+			if MulticodecSupportMatrix::lookup(&normalized).is_none()
+			{
+				println!(
+					"warning: multihash format is unavailable for algorithm {}. Supported combinations: {}",
+					algorithm_label,
+					supported
+				);
+				continue;
+			}
+			println!(
+				"info: multihash tokens will be emitted as base58btc strings prefixed with 'z'."
+			);
+		}
+		return Ok(format);
+	}
 }
 
 fn get_argon2_config_interactive(
@@ -905,7 +935,7 @@ fn build_cli() -> clap::Command {
 											DigestOutputFormat
 										),
 									)
-									.help("Output format (json, jsonl, csv, hex, base64, hashcat)")
+					.help("Output format (json, jsonl, csv, hex, base64, hashcat, multihash=base58btc)")
 									.default_value("hex"),
 							)
 							.arg(
@@ -939,7 +969,7 @@ fn build_cli() -> clap::Command {
 										DigestOutputFormat
 									),
 								)
-								.help("Output format (json, jsonl, csv, hex, base64, hashcat)")
+					.help("Output format (json, jsonl, csv, hex, base64, hashcat, multihash=base58btc)")
 								.default_value("hex"),
 						)
 						.arg(
@@ -1025,7 +1055,7 @@ fn build_cli() -> clap::Command {
 											DigestOutputFormat
 										),
 									)
-									.help("Output format (json, jsonl, csv, hex, base64, hashcat)")
+					.help("Output format (json, jsonl, csv, hex, base64, hashcat, multihash=base58btc)")
 									.default_value("hex"),
 							)
 							.arg(
@@ -1658,9 +1688,9 @@ fn handle_digest_command(
 				.map(String::as_str)
 				.unwrap_or("fail-fast");
 			let error_strategy = parse_error_strategy(error_strategy);
-			let manifest_path = args
-				.get_one::<String>("manifest")
-				.map(|p| PathBuf::from(p));
+		let manifest_path = args
+			.get_one::<String>("manifest")
+			.map(PathBuf::from);
 			let path = args
 				.get_one::<String>("path")
 				.expect("path must be provided");
@@ -1672,8 +1702,10 @@ fn handle_digest_command(
 				threads,
 				mmap_threshold,
 			};
-			let mut error_profile = ErrorHandlingProfile::default();
-			error_profile.strategy = error_strategy;
+		let error_profile = ErrorHandlingProfile {
+			strategy: error_strategy,
+			..Default::default()
+		};
 			let options = crate::rgh::hash::FileDigestOptions {
 				algorithm,
 				plan,

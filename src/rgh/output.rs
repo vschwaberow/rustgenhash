@@ -3,6 +3,7 @@
 // Module: output
 // Purpose: Unified digest serialization across CLI formats.
 
+use crate::rgh::multihash::{MultihashEncoder, MultihashError};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::{DateTime, Utc};
 use clap::ValueEnum;
@@ -23,6 +24,7 @@ pub enum DigestOutputFormat {
 	Hex,
 	Base64,
 	Hashcat,
+	Multihash,
 }
 
 impl DigestOutputFormat {
@@ -34,6 +36,7 @@ impl DigestOutputFormat {
 			Self::Hex => "hex",
 			Self::Base64 => "base64",
 			Self::Hashcat => "hashcat",
+			Self::Multihash => "multihash",
 		}
 	}
 }
@@ -47,6 +50,7 @@ impl fmt::Display for DigestOutputFormat {
 			Self::Hex => "Hexadecimal",
 			Self::Base64 => "Base64",
 			Self::Hashcat => "Hashcat (wordlist)",
+			Self::Multihash => "Multihash (base58btc)",
 		};
 		write!(f, "{}", label)
 	}
@@ -82,6 +86,9 @@ impl OutputFormatProfile {
 			DigestOutputFormat::Hashcat => {
 				(Some("text/plain"), false, true)
 			}
+			DigestOutputFormat::Multihash => {
+				(Some("text/plain"), false, true)
+			}
 		};
 
 		Self {
@@ -106,6 +113,7 @@ impl OutputFormatProfile {
 pub struct DigestRecord {
 	pub path: Option<String>,
 	pub algorithm: String,
+	pub digest: Vec<u8>,
 	pub digest_hex: String,
 	pub digest_base64: String,
 	pub source: DigestSource,
@@ -121,6 +129,7 @@ impl DigestRecord {
 		Self {
 			path,
 			algorithm: algorithm.to_uppercase(),
+			digest: digest.to_vec(),
 			digest_hex: hex::encode(digest),
 			digest_base64: STANDARD.encode(digest),
 			source,
@@ -157,13 +166,27 @@ impl SerializationResult {
 #[derive(Debug)]
 pub struct OutputError {
 	message: String,
+	multihash: Option<Box<MultihashError>>,
 }
 
 impl OutputError {
 	pub fn new(message: impl Into<String>) -> Self {
 		Self {
 			message: message.into(),
+			multihash: None,
 		}
+	}
+
+	pub fn from_multihash(error: MultihashError) -> Self {
+		let message = error.to_string();
+		Self {
+			message,
+			multihash: Some(Box::new(error)),
+		}
+	}
+
+	pub fn multihash(&self) -> Option<&MultihashError> {
+		self.multihash.as_deref()
 	}
 }
 
@@ -235,6 +258,9 @@ pub fn serialize_records(
 		}
 		DigestOutputFormat::Hashcat => {
 			serialize_hashcat(records, hash_only, &mut result)?
+		}
+		DigestOutputFormat::Multihash => {
+			serialize_multihash(records, hash_only, &mut result)?
 		}
 	}
 
@@ -386,6 +412,31 @@ fn serialize_hashcat(
 
 	for record in records {
 		result.lines.push(record.digest_hex.clone());
+	}
+
+	Ok(())
+}
+
+fn serialize_multihash(
+	records: &[DigestRecord],
+	hash_only: bool,
+	result: &mut SerializationResult,
+) -> Result<(), OutputError> {
+	for record in records {
+		let algorithm = record.algorithm.to_ascii_lowercase();
+		let token =
+			MultihashEncoder::encode(&algorithm, &record.digest)
+				.map_err(OutputError::from_multihash)?;
+		if hash_only {
+			result.lines.push(token);
+		} else {
+			match record.path.as_deref() {
+				Some(path) if !path.is_empty() => {
+					result.lines.push(format!("{token} {path}"));
+				}
+				_ => result.lines.push(token),
+			}
+		}
 	}
 
 	Ok(())

@@ -4,6 +4,9 @@ rustgenhash is a tool to generate hashes on the commandline from stdio.
 
 It can be used to generate single or multiple hashes for usage in password databases or even in penetration testing scenarios where you want to test password cracking tools. It can also help to identify the nature of a provided hash.
 
+> Multihash output support follows the [multiformats Multihash specification](https://github.com/multiformats/multihash) and uses the Rust [`multihash`](https://crates.io/crates/multihash) v0.18 and [`multibase`](https://crates.io/crates/multibase) v0.9 crates for TLV encoding and base58btc emission.
+> Supported multicodec mappings currently cover `sha2-256`, `sha2-512`, `blake2b-256`, and `blake3-256`. When `--format multihash` is selected, manifests record the emitted base58btc tokens verbatim.
+
 ## Install
 
 rustgenhash is written in Rust. You can install the tool with your Rust installation using following command:
@@ -26,9 +29,9 @@ Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash`, `
 
 | Command | Description | Key flags |
 |---------|-------------|-----------|
-| `rgh digest string -a <ALG> <TEXT>` | Hash inline text with the selected algorithm. | `--output {hex,base64,hexbase64}`, `--hash-only` |
-| `rgh digest file -a <ALG> <PATH>` | Hash files or directories (opt-in recursion, manifests, progress). | `--recursive`, `--follow-symlinks`, `--threads`, `--mmap-threshold`, `--manifest`, `--error-strategy`, `--progress/--no-progress`, `--hash-only` |
-| `rgh digest stdio -a <ALG>` | Read newline-delimited input from stdin and emit one digest per line. | `--output`, `--hash-only` |
+| `rgh digest string -a <ALG> <TEXT>` | Hash inline text with the selected algorithm. | `--format {hex,base64,json,jsonl,csv,hashcat,multihash}`, `--hash-only` |
+| `rgh digest file -a <ALG> <PATH>` | Hash files or directories (opt-in recursion, manifests, progress). | `--format`, `--recursive`, `--follow-symlinks`, `--threads`, `--mmap-threshold`, `--manifest`, `--error-strategy`, `--progress/--no-progress`, `--hash-only` |
+| `rgh digest stdio -a <ALG>` | Read newline-delimited input from stdin and emit one digest per line. | `--format`, `--hash-only` |
 
 Examples:
 
@@ -39,6 +42,9 @@ rgh digest file -a sha256 target/release/rgh
 # Compute hashes for a list while keeping one token per line
 cat passwords.txt | rgh digest stdio -a sha3_512 --hash-only
 
+# Emit multibase multihash tokens for interoperability with CID tooling
+rgh digest file -a sha256 --format multihash tests/fixtures/file/sample.txt
+
 # Recursively hash a backup tree and write a manifest
 rgh digest file -a sha256 --recursive --manifest backup-hashes.json /mnt/backups
 
@@ -48,7 +54,7 @@ Directory hashing options:
 - `--follow-symlinks {never,files,all}` controls whether symbolic links are hashed or followed.
 - `--threads {1|auto|N}` enables Rayon-backed parallel hashing when more than one worker is requested.
 - `--mmap-threshold <SIZE|off>` switches to memory-mapped IO for large files (e.g., `64MiB`).
-- `--manifest <FILE>` writes a JSON summary containing per-file digests, failures, and performance metadata (fail-fast suppresses the file to avoid partial output).
+- `--manifest <FILE>` writes a JSON summary containing per-file digests, failures, and performance metadata (fail-fast suppresses the file to avoid partial output). When `--format multihash` is selected, the manifest preserves the emitted base58btc tokens.
 - `--error-strategy {fail-fast,continue,report-only}` determines how failures affect exit codes and manifest writes:
   - `fail-fast` stops on the first unreadable entry, exits `1`, and skips manifest creation.
   - `continue` records failures, hashes readable files, and exits `2` when any recoverable errors occur.
