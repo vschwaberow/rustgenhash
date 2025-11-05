@@ -5,10 +5,10 @@
 // Copyright (c) 2025 Volker Schwaberow
 //! Helpers for identifying compromised/weak digest algorithms and presenting
 use rustgenhash::rgh::app::{
-    WEAK_PROMPT_DEFAULT_INDEX, WEAK_PROMPT_OPTIONS,
+	WEAK_PROMPT_DEFAULT_INDEX, WEAK_PROMPT_OPTIONS,
 };
 use rustgenhash::rgh::weak::{
-    all_metadata, metadata_for, warning_for,
+	all_metadata, metadata_for, warning_for,
 };
 use std::process::Command;
 
@@ -25,15 +25,15 @@ fn metadata_lists_expected_algorithms() {
 
 #[test]
 fn warning_for_returns_expected_banner() {
-    let warning = warning_for("MD5").expect("md5 should be weak");
-    assert!(warning.headline.contains("MD5"));
-    assert!(warning.body.contains("NIST SP 800-131A"));
-    assert!(warning.body.contains("ENISA"));
-    assert!(warning.body.contains("BSI"));
-    // References should include both citation URLs.
-    assert!(warning.references.iter().any(|r| r.contains("NIST")));
-    assert!(warning.references.iter().any(|r| r.contains("enisa")));
-    assert!(warning.references.iter().any(|r| r.contains("bsi")));
+	let warning = warning_for("MD5").expect("md5 should be weak");
+	assert!(warning.headline.contains("MD5"));
+	assert!(warning.body.contains("NIST SP 800-131A"));
+	assert!(warning.body.contains("ENISA"));
+	assert!(warning.body.contains("BSI"));
+	// References should include both citation URLs.
+	assert!(warning.references.iter().any(|r| r.contains("NIST")));
+	assert!(warning.references.iter().any(|r| r.contains("enisa")));
+	assert!(warning.references.iter().any(|r| r.contains("bsi")));
 
 	// Non-weak algorithm returns None.
 	assert!(warning_for("sha256").is_none());
@@ -69,14 +69,14 @@ fn cli_digest_string_emits_single_warning_banner(
 		"expected single references line, got `{}`",
 		stderr
 	);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("secret"));
-    Ok(())
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	assert!(stdout.contains("secret"));
+	Ok(())
 }
 
 #[test]
 fn interactive_prompt_defaults_are_safe() {
-    assert_eq!(WEAK_PROMPT_DEFAULT_INDEX, 0);
-    assert_eq!(WEAK_PROMPT_OPTIONS[0], "Choose safer algorithm");
-    assert_eq!(WEAK_PROMPT_OPTIONS[1], "Continue anyway");
+	assert_eq!(WEAK_PROMPT_DEFAULT_INDEX, 0);
+	assert_eq!(WEAK_PROMPT_OPTIONS[0], "Choose safer algorithm");
+	assert_eq!(WEAK_PROMPT_OPTIONS[1], "Continue anyway");
 }

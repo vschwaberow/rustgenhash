@@ -1,0 +1,16 @@
+{
+  "id": "interactive_md5_warning",
+  "mode": "interactive",
+  "algorithm": "interactive",
+  "input": {
+    "scenario": "digest-md5-warning"
+  },
+  "expected_output": {
+    "reason": "Requires terminal"
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Documented interactive flow requiring explicit confirmation before hashing with MD5 (weak algorithm banner displayed, default option promotes safer selection).",
+    "skip_reason": "Requires TTY interaction"
+  }
+}

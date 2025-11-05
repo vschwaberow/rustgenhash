@@ -1,0 +1,26 @@
+{
+  "id": "mac_kmac256_file",
+  "mode": "mac_file",
+  "algorithm": "kmac256",
+  "key": {
+    "source": "tests/fixtures/keys/kmac.key"
+  },
+  "input": {
+    "type": "file",
+    "path": "tests/fixtures/file/sample.txt"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "default_line": "f1da31385c8e9bd97a65f9323c7dfd63417b1e5fd6137a1178257cabe9c6fbb5bdca6442f0f972d158baad542fa384d2aae1bbba0940dd08e47ceee5d29d2a1e tests/fixtures/file/sample.txt",
+    "hash_only_line": "f1da31385c8e9bd97a65f9323c7dfd63417b1e5fd6137a1178257cabe9c6fbb5bdca6442f0f972d158baad542fa384d2aae1bbba0940dd08e47ceee5d29d2a1e",
+    "exit_code": 0
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Validates file-mode MAC generation for KMAC256 using fixture key material.",
+    "skip_reason": null
+  }
+}

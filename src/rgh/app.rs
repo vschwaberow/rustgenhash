@@ -23,6 +23,8 @@ use crate::rgh::hash::{
 };
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::kdf::commands as kdf_commands;
+use crate::rgh::mac::commands::{run_mac, MacInput, MacOptions};
+use crate::rgh::mac::key::KeySource;
 use crate::rgh::multihash::MulticodecSupportMatrix;
 use crate::rgh::output::{
 	DigestOutputFormat, DigestSource, SerializationResult,
@@ -31,7 +33,7 @@ use crate::rgh::random::{RandomNumberGenerator, RngType};
 use crate::rgh::weak::{
 	all_metadata, emit_warning_banner, warning_for,
 };
-use clap::{crate_name, Arg, ArgAction};
+use clap::{crate_name, Arg, ArgAction, ArgGroup};
 use clap_complete::{generate, Generator, Shell};
 use colored::*;
 use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
@@ -47,6 +49,7 @@ Written by {author-with-newline}{about-with-newline}
 Primary command families:
   rgh digest <mode>   Hash strings/files/stdin (e.g. rgh digest string -a sha256 'text')
   rgh kdf <algorithm> Derive passwords with JSON metadata (e.g. rgh kdf argon2 --password-stdin)
+  rgh mac --alg <id>  Generate keyed MACs (e.g. rgh mac --alg hmac-sha256 --key key.bin --input 'text')
 {usage-heading} {usage}
 
 {all-args}{after-help}
@@ -57,6 +60,19 @@ static DIGEST_ALGORITHM_HELP: OnceLock<String> = OnceLock::new();
 pub const WEAK_PROMPT_OPTIONS: [&str; 2] =
 	["Choose safer algorithm", "Continue anyway"];
 pub const WEAK_PROMPT_DEFAULT_INDEX: usize = 0;
+
+const MAC_ALGORITHMS: [&str; 8] = [
+	"hmac-sha1",
+	"hmac-sha256",
+	"hmac-sha512",
+	"hmac-sha3-256",
+	"hmac-sha3-512",
+	"kmac128",
+	"kmac256",
+	"blake3-keyed",
+];
+
+const MAC_ALGORITHM_HELP: &str = "MAC algorithm identifier (legacy: hmac-sha1; modern: hmac-sha256/512, hmac-sha3-256/512, kmac128/256, blake3-keyed).";
 
 fn digest_algorithm_help_text() -> &'static str {
 	DIGEST_ALGORITHM_HELP.get_or_init(|| {
@@ -1109,20 +1125,83 @@ fn build_cli() -> clap::Command {
 										clap::value_parser!(
 											DigestOutputFormat
 										),
-									)
-					.help("Output format (json, jsonl, csv, hex, base64, hashcat, multihash=base58btc)")
-									.default_value("hex"),
 							)
-							.arg(
-								Arg::new("hash-only")
-									.long("hash-only")
-									.help("Emit only digests without echoing input lines")
-									.action(ArgAction::SetTrue),
-							),
-					),
+				.help("Output format (json, jsonl, csv, hex, base64, hashcat, multihash=base58btc)")
+						.default_value("hex"),
+				)
+				.arg(
+					Arg::new("hash-only")
+						.long("hash-only")
+						.help("Emit only digests without echoing input lines")
+						.action(ArgAction::SetTrue),
+				),
+			),
+	)
+	.subcommand(
+		clap::command!("mac")
+			.about("Generate message authentication codes")
+			.arg(
+				Arg::new("algorithm")
+					.short('a')
+					.long("alg")
+					.visible_alias("algorithm")
+					.help(MAC_ALGORITHM_HELP)
+					.value_parser(MAC_ALGORITHMS)
+					.required(true),
 			)
-			.subcommand(
-				clap::command!("kdf")
+			.arg(
+				Arg::new("key")
+					.long("key")
+					.value_name("PATH")
+					.help("Read key bytes from file")
+					.conflicts_with("key-stdin"),
+			)
+			.arg(
+				Arg::new("key-stdin")
+					.long("key-stdin")
+					.help("Read key bytes from stdin")
+					.action(ArgAction::SetTrue)
+					.conflicts_with("key"),
+			)
+			.arg(
+				Arg::new("input")
+					.long("input")
+					.value_name("TEXT")
+					.help("Inline UTF-8 text to authenticate")
+					.conflicts_with("file")
+					.conflicts_with("stdin"),
+			)
+			.arg(
+				Arg::new("file")
+					.long("file")
+					.value_name("PATH")
+					.help("Hash the contents of a file")
+					.conflicts_with("stdin"),
+			)
+			.arg(
+				Arg::new("stdin")
+					.long("stdin")
+					.help("Read newline-delimited input from stdin")
+					.action(ArgAction::SetTrue),
+			)
+			.arg(
+				Arg::new("hash-only")
+					.long("hash-only")
+					.help("Emit only the MAC digest without input echo")
+					.action(ArgAction::SetTrue),
+			)
+			.arg(
+				Arg::new("format")
+					.long("format")
+					.help("MAC output format")
+					.value_parser(["text", "json"])
+					.default_value("text"),
+			)
+			.group(ArgGroup::new("mac-key").args(["key", "key-stdin"]).required(true))
+			.group(ArgGroup::new("mac-input").args(["input", "file", "stdin"]).required(true)),
+	)
+	.subcommand(
+		clap::command!("kdf")
 					.about("Derive keys using password-based algorithms")
 					.subcommand_required(true)
 					.arg_required_else_help(true)
@@ -1682,7 +1761,58 @@ fn build_cli() -> clap::Command {
 							.default_value("100")
 							.help("Number of iterations for each benchmark")
 					)
-			)
+	)
+}
+
+fn handle_mac_command(
+	matches: &clap::ArgMatches,
+) -> Result<(), Box<dyn Error>> {
+	let algorithm = matches
+		.get_one::<String>("algorithm")
+		.expect("algorithm must be provided")
+		.to_owned();
+
+	let key_source =
+		if let Some(path) = matches.get_one::<String>("key") {
+			KeySource::File(PathBuf::from(path))
+		} else if matches.get_flag("key-stdin") {
+			KeySource::Stdin
+		} else {
+			return Err(Box::new(io::Error::new(
+			io::ErrorKind::InvalidInput,
+			"exactly one of --key or --key-stdin must be supplied",
+		)));
+		};
+
+	let input = if let Some(text) = matches.get_one::<String>("input")
+	{
+		MacInput::Inline(text.clone())
+	} else if let Some(path) = matches.get_one::<String>("file") {
+		MacInput::File(PathBuf::from(path))
+	} else if matches.get_flag("stdin") {
+		MacInput::Stdin
+	} else {
+		return Err(Box::new(io::Error::new(
+			io::ErrorKind::InvalidInput,
+			"provide one of --input, --file, or --stdin",
+		)));
+	};
+
+	let hash_only = matches.get_flag("hash-only");
+	let json = matches
+		.get_one::<String>("format")
+		.map(|value| value.eq_ignore_ascii_case("json"))
+		.unwrap_or(false);
+
+	let options = MacOptions {
+		algorithm,
+		key_source,
+		input,
+		hash_only,
+		json,
+	};
+
+	run_mac(options)
 }
 
 fn handle_digest_command(
@@ -2007,6 +2137,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 	match m.subcommand() {
 		Some(("digest", matches)) => {
 			handle_digest_command(matches)?;
+		}
+		Some(("mac", matches)) => {
+			handle_mac_command(matches)?;
 		}
 		Some(("kdf", matches)) => {
 			handle_kdf_command(matches)?;

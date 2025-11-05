@@ -4,13 +4,14 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
+use std::fs::File;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use chrono::Utc;
 use clap::ValueEnum;
 use digest::Digest;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use super::{
 	AuditCase, AuditError, AuditMode, AuditRunMetadata, AuditSeverity,
@@ -28,6 +29,14 @@ use crate::rgh::hash::{
 	serialize_digest_output, Argon2Config, BalloonConfig,
 	BcryptConfig, FileDigestOptions, PHash, Pbkdf2Config,
 	ScryptConfig,
+};
+use crate::rgh::mac::executor as mac_executor;
+use crate::rgh::mac::{
+	commands::legacy_warning_message,
+	key::{load_key as load_mac_key, KeySource as MacKeySource},
+	registry::{
+		self as mac_registry, MacAlgorithmMetadata, MacExecutor,
+	},
 };
 use crate::rgh::output::{DigestOutputFormat, DigestSource};
 use crate::rgh::weak::warning_for;
@@ -87,6 +96,9 @@ pub fn execute_case(
 		AuditMode::DigestString => run_digest_string_case(&case)?,
 		AuditMode::DigestFile => run_digest_file_case(&case)?,
 		AuditMode::DigestStdio => run_digest_stdio_case(&case)?,
+		AuditMode::MacString => run_mac_string_case(&case)?,
+		AuditMode::MacFile => run_mac_file_case(&case)?,
+		AuditMode::MacStdio => run_mac_stdio_case(&case)?,
 		AuditMode::Kdf => run_kdf_case(&case)?,
 		AuditMode::Analyze => run_analyze_case(&case)?,
 		AuditMode::Compare => run_compare_case(&case)?,
@@ -892,6 +904,195 @@ fn run_digest_stdio_case(
 		}
 	}
 	Ok(payload)
+}
+
+fn parse_mac_key_source(
+	case: &AuditCase,
+) -> Result<MacKeySource, AuditError> {
+	let key_value = case.key.as_ref().ok_or_else(|| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` missing key definition",
+			case.id
+		))
+	})?;
+	let source = key_value
+		.get("source")
+		.and_then(Value::as_str)
+		.ok_or_else(|| {
+			AuditError::Invalid(format!(
+				"Fixture `{}` missing key.source field",
+				case.id
+			))
+		})?;
+	Ok(MacKeySource::File(PathBuf::from(source)))
+}
+
+fn load_mac_fixture_key(key_source: &MacKeySource) -> Result<Vec<u8>, AuditError> {
+	load_mac_key(key_source)
+		.map_err(|err| AuditError::Invalid(format!("{}", err)))
+}
+
+fn create_mac_executor_for_case(
+	algorithm: &str,
+	case_id: &str,
+	key: &[u8],
+) -> Result<(Box<dyn MacExecutor>, MacAlgorithmMetadata), AuditError>
+{
+	mac_registry::create_executor(algorithm, key).map_err(|err| {
+		AuditError::Invalid(format!("Fixture `{}`: {}", case_id, err))
+	})
+}
+
+fn run_mac_string_case(
+	case: &AuditCase,
+) -> Result<Value, AuditError> {
+	let key_source = parse_mac_key_source(case)?;
+	let key_bytes = load_mac_fixture_key(&key_source)?;
+	let input_obj = case.input.as_object().ok_or_else(|| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` input must be an object",
+			case.id
+		))
+	})?;
+	let message = input_obj
+		.get("value")
+		.and_then(Value::as_str)
+		.ok_or_else(|| {
+			AuditError::Invalid(format!(
+				"Fixture `{}` missing input.value",
+				case.id
+			))
+		})?;
+	let (executor, metadata) = create_mac_executor_for_case(
+		&case.algorithm,
+		&case.id,
+		&key_bytes,
+	)?;
+	let digest =
+		mac_executor::consume_bytes(message.as_bytes(), executor);
+	let hex = mac_executor::digest_to_hex(&digest);
+	let mut root = serde_json::Map::new();
+	root.insert(
+		"default_line".into(),
+		Value::String(format!("{} {}", hex, message)),
+	);
+	root.insert("hash_only_line".into(), Value::String(hex.clone()));
+	root.insert("exit_code".into(), Value::from(0));
+	if metadata.is_legacy() {
+		root.insert(
+			"stderr_contains".into(),
+			Value::Array(vec![Value::String(
+				legacy_warning_message(&metadata),
+			)]),
+		);
+	}
+	Ok(Value::Object(root))
+}
+
+fn run_mac_file_case(case: &AuditCase) -> Result<Value, AuditError> {
+	let key_source = parse_mac_key_source(case)?;
+	let key_bytes = load_mac_fixture_key(&key_source)?;
+	let path_str =
+		case.input.get("path").and_then(Value::as_str).ok_or_else(
+			|| {
+				AuditError::Invalid(format!(
+					"Fixture `{}` missing input.path",
+					case.id
+				))
+			},
+		)?;
+	let path = PathBuf::from(path_str);
+	let file =
+		File::open(&path).map_err(|source| AuditError::Io {
+			source,
+			path: path.clone(),
+		})?;
+	let (executor, metadata) = create_mac_executor_for_case(
+		&case.algorithm,
+		&case.id,
+		&key_bytes,
+	)?;
+	let digest = mac_executor::consume_reader(file, executor)
+		.map_err(|source| AuditError::Io {
+			source,
+			path: path.clone(),
+		})?;
+	let hex = mac_executor::digest_to_hex(&digest);
+	let mut root = Map::new();
+	root.insert(
+		"default_line".into(),
+		Value::String(format!("{} {}", hex, path.display())),
+	);
+	root.insert("hash_only_line".into(), Value::String(hex.clone()));
+	root.insert("exit_code".into(), Value::from(0));
+	if metadata.is_legacy() {
+		root.insert(
+			"stderr_contains".into(),
+			Value::Array(vec![Value::String(
+				legacy_warning_message(&metadata),
+			)]),
+		);
+	}
+	Ok(Value::Object(root))
+}
+
+fn run_mac_stdio_case(case: &AuditCase) -> Result<Value, AuditError> {
+	let key_source = parse_mac_key_source(case)?;
+	let key_bytes = load_mac_fixture_key(&key_source)?;
+	let lines = case
+		.input
+		.get("lines")
+		.and_then(Value::as_array)
+		.ok_or_else(|| {
+			AuditError::Invalid(format!(
+				"Fixture `{}` missing input.lines",
+				case.id
+			))
+		})?;
+	let mut default_lines = Vec::new();
+	let mut hash_only_lines = Vec::new();
+	let mut records = Vec::new();
+	let mut legacy_warning: Option<Value> = None;
+	for entry in lines {
+		let line = entry.as_str().ok_or_else(|| {
+			AuditError::Invalid(format!(
+				"Fixture `{}` has non-string entry in input.lines",
+				case.id
+			))
+		})?;
+		let (executor, metadata) = create_mac_executor_for_case(
+			&case.algorithm,
+			&case.id,
+			&key_bytes,
+		)?;
+		if metadata.is_legacy() && legacy_warning.is_none() {
+			legacy_warning = Some(Value::String(
+				legacy_warning_message(&metadata),
+			));
+		}
+		let digest =
+			mac_executor::consume_bytes(line.as_bytes(), executor);
+		let hex = mac_executor::digest_to_hex(&digest);
+		default_lines
+			.push(Value::String(format!("{} {}", hex, line)));
+		hash_only_lines.push(Value::String(hex.clone()));
+		records.push(json!({ "source": line, "digest": hex }));
+	}
+	let mut root = Map::new();
+	root.insert("default_lines".into(), Value::Array(default_lines));
+	root.insert(
+		"hash_only_lines".into(),
+		Value::Array(hash_only_lines),
+	);
+	root.insert("records".into(), Value::Array(records));
+	root.insert("exit_code".into(), Value::from(0));
+	if let Some(warning) = legacy_warning {
+		root.insert(
+			"stderr_contains".into(),
+			Value::Array(vec![warning]),
+		);
+	}
+	Ok(Value::Object(root))
 }
 
 fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {

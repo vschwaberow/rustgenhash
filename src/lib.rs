@@ -17,6 +17,7 @@ pub mod rgh {
 	pub mod hash;
 	pub mod hhhash;
 	pub mod kdf;
+	pub mod mac;
 	pub mod multihash;
 	pub mod output;
 	pub mod random;

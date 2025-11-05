@@ -93,6 +93,34 @@ The CLI exposes each algorithm via `-a/--algorithm`; `rgh digest --help` highlig
 KDF subcommands produce structured JSON output by default (use `--hash-only` to emit just the derived key). Passwords can
 be provided via `--password`, through the interactive prompt, or piped in using `--password-stdin` (newline trimmed).
 
+### MAC commands
+
+`rgh mac` produces keyed message authentication codes for strings, files, or stdin streams.
+
+| Identifier | Algorithm | Notes |
+|------------|-----------|-------|
+| `hmac-sha1` | HMAC-SHA1 | ⚠ Legacy — emits warning banner before use |
+| `hmac-sha256` | HMAC-SHA256 | Default HMAC variant |
+| `hmac-sha512` | HMAC-SHA512 |  |
+| `hmac-sha3-256` | HMAC-SHA3-256 |  |
+| `hmac-sha3-512` | HMAC-SHA3-512 |  |
+| `kmac128` | NIST SP 800-185 KMAC128 | Uses cSHAKE128 customization string `"KMAC"` |
+| `kmac256` | NIST SP 800-185 KMAC256 | Uses cSHAKE256 customization string `"KMAC"` |
+| `blake3-keyed` | BLAKE3 keyed hash | Requires 32 byte key |
+
+Examples:
+
+```bash
+# HMAC of inline text with key stored on disk
+rgh mac --alg hmac-sha256 --key tests/fixtures/keys/hmac.key --input "alpha"
+
+# KMAC256 over a file with key streamed from stdin
+cat tests/fixtures/keys/kmac.key | rgh mac --alg kmac256 --key-stdin --file reports/archive.zip --hash-only
+
+# BLAKE3 keyed MAC for stdin lines, JSON output
+cat payloads.txt | rgh mac --alg blake3-keyed --key tests/fixtures/keys/blake3.key --stdin --format json
+```
+
 | Command | Parameters | Output |
 |---------|------------|--------|
 | `rgh kdf argon2` | `--mem-cost`, `--time-cost`, `--parallelism` | PHC string with Argon2id parameters + JSON metadata |

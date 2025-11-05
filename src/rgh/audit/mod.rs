@@ -39,6 +39,12 @@ pub enum AuditMode {
 	DigestFile,
 	#[serde(rename = "digest_stdio")]
 	DigestStdio,
+	#[serde(rename = "mac_string")]
+	MacString,
+	#[serde(rename = "mac_file")]
+	MacFile,
+	#[serde(rename = "mac_stdio")]
+	MacStdio,
 	#[serde(rename = "kdf")]
 	Kdf,
 	Header,
@@ -73,6 +79,8 @@ pub struct AuditCase {
 	pub mode: AuditMode,
 	pub algorithm: String,
 	pub input: Value,
+	#[serde(default)]
+	pub key: Option<Value>,
 	pub expected_output: Value,
 	#[serde(default)]
 	pub metadata: AuditMetadata,
