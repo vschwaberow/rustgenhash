@@ -23,10 +23,9 @@
     "failure_count": 0,
     "should_write_manifest": true,
     "fatal_error": null,
-    "warning_banner": "⚠ WARNING: SHA-1 is a weak algorithm (collisions known) See NIST SP 800-131A rev.2 §3, ENISA 2023 Cryptographic Guidelines, and BSI TR-02102-1 recommendations. Use SHA-256 or SHA-512.",
+    "warning_banner": "⚠ WARNING: SHA-1 is a weak algorithm (collisions known) See NIST SP 800-131A rev.2 §3 and BSI TR-02102-1 recommendations. Use SHA-256 or SHA-512.",
     "warning_references": [
       "https://doi.org/10.6028/NIST.SP.800-131Ar2",
-      "https://www.enisa.europa.eu/publications/algorithms-key-sizes-and-parameters-report-2023",
       "https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf"
     ]
   },

@@ -11,6 +11,7 @@ use crate::rgh::hash::{
 	Argon2Config, BalloonConfig, BcryptConfig, PHash, Pbkdf2Config,
 	ScryptConfig,
 };
+use crate::rgh::kdf::hkdf::{self, HkdfAlgorithm, HkdfRequest};
 use argon2::password_hash::{
 	rand_core::OsRng as ArgonOsRng, SaltString as ArgonSaltString,
 };
@@ -213,6 +214,46 @@ pub fn derive_sha_crypt(
 	println!(
 		"{}",
 		render_kdf_output("sha-crypt", &digest, metadata, hash_only)
+	);
+	Ok(())
+}
+
+pub struct HkdfCliOptions {
+	pub algorithm: HkdfAlgorithm,
+	pub ikm: Vec<u8>,
+	pub salt: Vec<u8>,
+	pub info: Vec<u8>,
+	pub length: usize,
+	pub hash_only: bool,
+}
+
+pub fn derive_hkdf(
+	options: HkdfCliOptions,
+) -> Result<(), Box<dyn Error>> {
+	let request = HkdfRequest {
+		algorithm: options.algorithm,
+		ikm: options.ikm,
+		salt: options.salt,
+		info: options.info,
+		length: options.length,
+	};
+	let response = hkdf::derive(&request)?;
+	let digest_hex = hex::encode(response.derived_key);
+	let metadata = json!({
+		"length": response.length,
+		"ikm_length": response.ikm_length,
+		"salt": hex::encode(response.salt),
+		"info": hex::encode(response.info),
+		"hash": response.algorithm,
+	});
+	println!(
+		"{}",
+		render_kdf_output(
+			response.algorithm,
+			&digest_hex,
+			metadata,
+			options.hash_only
+		)
 	);
 	Ok(())
 }

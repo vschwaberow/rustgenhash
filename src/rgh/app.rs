@@ -23,8 +23,10 @@ use crate::rgh::hash::{
 };
 use crate::rgh::hhhash::generate_hhhash;
 use crate::rgh::kdf::commands as kdf_commands;
+use crate::rgh::kdf::hkdf::{self, HkdfAlgorithm};
 use crate::rgh::mac::commands::{run_mac, MacInput, MacOptions};
 use crate::rgh::mac::key::KeySource;
+use crate::rgh::mac::registry;
 use crate::rgh::multihash::MulticodecSupportMatrix;
 use crate::rgh::output::{
 	DigestOutputFormat, DigestSource, SerializationResult,
@@ -40,6 +42,7 @@ use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
 use std::error::Error;
 use std::io::{self, BufRead, Read};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::OnceLock;
 use std::time::Duration;
 use strum::{EnumIter, IntoEnumIterator};
@@ -61,6 +64,8 @@ pub const WEAK_PROMPT_OPTIONS: [&str; 2] =
 	["Choose safer algorithm", "Continue anyway"];
 pub const WEAK_PROMPT_DEFAULT_INDEX: usize = 0;
 
+/// Identifiers accepted by `rgh mac --alg`; `hmac-sha1` remains for legacy
+/// compatibility only and is flagged per NIST SP 800-131A Rev. 2 guidance.
 const MAC_ALGORITHMS: [&str; 8] = [
 	"hmac-sha1",
 	"hmac-sha256",
@@ -72,7 +77,9 @@ const MAC_ALGORITHMS: [&str; 8] = [
 	"blake3-keyed",
 ];
 
-const MAC_ALGORITHM_HELP: &str = "MAC algorithm identifier (legacy: hmac-sha1; modern: hmac-sha256/512, hmac-sha3-256/512, kmac128/256, blake3-keyed).";
+const MAC_ALGORITHM_HELP: &str = "MAC algorithm identifier. ⚠ Legacy: hmac-sha1 (see NIST SP 800-131A Rev.2 §3). Recommended options: hmac-sha2, hmac-sha3, kmac128/256, blake3-keyed.";
+
+const MAC_ALGORITHM_MATRIX_HELP: &str = "Algorithms:\n  hmac-sha1        ⚠ Legacy – retain only for backward compatibility (NIST SP 800-131A Rev.2 §3)\n  hmac-sha256/512  SHA-2 based HMAC as per RFC 2104\n  hmac-sha3-256/512 SHA-3 based HMAC (FIPS 202)\n  kmac128/256      SP 800-185 KMAC (cSHAKE-based)\n  blake3-keyed     BLAKE3 keyed mode (§5)\n\nReferences:\n  https://doi.org/10.6028/NIST.SP.800-131Ar2\n  https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf\n  https://doi.org/10.6028/NIST.SP.800-185\n  https://github.com/BLAKE3-team/BLAKE3-specs";
 
 fn digest_algorithm_help_text() -> &'static str {
 	DIGEST_ALGORITHM_HELP.get_or_init(|| {
@@ -418,6 +425,268 @@ fn interactive_digest_menu() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
+fn interactive_mac_menu() -> Result<(), Box<dyn Error>> {
+	let metadata = registry::metadata();
+	if metadata.is_empty() {
+		println!(
+			"{}",
+			"No MAC algorithms are currently registered.".yellow()
+		);
+		return Ok(());
+	}
+
+	let mut last_selection = 0usize;
+
+	loop {
+		let algorithm_labels: Vec<String> = metadata
+			.iter()
+			.map(|meta| {
+				let legacy_tag =
+					if meta.is_legacy() { " ⚠ Legacy" } else { "" };
+				format!(
+					"{} ({}){}",
+					meta.display_name, meta.identifier, legacy_tag
+				)
+			})
+			.collect();
+
+		let selection = Select::new()
+			.with_prompt("Select MAC algorithm")
+			.items(&algorithm_labels)
+			.default(last_selection.min(algorithm_labels.len() - 1))
+			.interact()?;
+		let metadata_choice = metadata[selection];
+		last_selection = selection;
+
+		if metadata_choice.is_legacy() {
+			println!(
+				"{}",
+				format!(
+					"⚠ {} is considered legacy per NIST SP 800-131A Rev.2 §3; prefer SHA-2, SHA-3, KMAC, or BLAKE3 keyed alternatives.",
+					metadata_choice.display_name
+				)
+				.yellow()
+			);
+			let decision = Select::new()
+				.with_prompt("How would you like to proceed?")
+				.items(&WEAK_PROMPT_OPTIONS)
+				.default(WEAK_PROMPT_DEFAULT_INDEX)
+				.interact()?;
+			if decision == WEAK_PROMPT_DEFAULT_INDEX {
+				println!("{}", "Selecting a safer algorithm.".cyan());
+				continue;
+			}
+		}
+
+		let key_methods =
+			vec!["Read key from file", "Paste key (hidden)"];
+		let key_choice = Select::new()
+			.with_prompt("How should the key be provided?")
+			.items(&key_methods)
+			.default(0)
+			.interact()?;
+		let key_source = match key_choice {
+			0 => {
+				let path: String = Input::new()
+					.with_prompt("Path to key file")
+					.interact_text()?;
+				KeySource::File(PathBuf::from(path))
+			}
+			1 => {
+				println!(
+					"{}",
+					"Typed keys will not be echoed and are not stored.".yellow()
+				);
+				let proceed = Confirm::new()
+					.with_prompt("Continue with inline key entry?")
+					.default(false)
+					.interact()?;
+				if !proceed {
+					println!(
+						"{}",
+						"Inline key entry cancelled; choose another key source.".cyan()
+					);
+					continue;
+				}
+				let secret = Password::new()
+					.with_prompt(
+						"Enter key bytes (press Enter to finish)",
+					)
+					.allow_empty_password(false)
+					.interact()?;
+				KeySource::Inline(secret.into_bytes())
+			}
+			_ => unreachable!(),
+		};
+
+		let input_options = vec!["Inline text", "File path"];
+		let input_choice = Select::new()
+			.with_prompt("Select MAC input source")
+			.items(&input_options)
+			.default(0)
+			.interact()?;
+		let mac_input = match input_choice {
+			0 => {
+				let text: String = Input::new()
+					.with_prompt("Enter text to authenticate")
+					.interact_text()?;
+				if text.is_empty() {
+					println!(
+						"{}",
+						"Input text cannot be empty.".red()
+					);
+					continue;
+				}
+				MacInput::Inline(text)
+			}
+			1 => {
+				let path: String = Input::new()
+					.with_prompt("Path to file to authenticate")
+					.interact_text()?;
+				MacInput::File(PathBuf::from(path))
+			}
+			_ => unreachable!(),
+		};
+
+		let output_modes =
+			vec!["Digest and context", "JSON output", "Hash only"];
+		let output_choice = Select::new()
+			.with_prompt("Choose output mode")
+			.items(&output_modes)
+			.default(0)
+			.interact()?;
+		let (hash_only, json) = match output_choice {
+			0 => (false, false),
+			1 => (false, true),
+			2 => (true, false),
+			_ => unreachable!(),
+		};
+
+		let confirm = Confirm::new()
+			.with_prompt("Compute MAC now and display the result?")
+			.default(false)
+			.interact()?;
+		if !confirm {
+			println!(
+				"{}",
+				"MAC computation cancelled before output.".cyan()
+			);
+			return Ok(());
+		}
+
+		let options = MacOptions {
+			algorithm: metadata_choice.identifier.to_string(),
+			key_source,
+			input: mac_input,
+			hash_only,
+			json,
+		};
+
+		match run_mac(options) {
+			Ok(_) => {
+				println!("{}", "MAC computation complete.".green())
+			}
+			Err(err) => {
+				eprintln!("error: {}", err);
+			}
+		}
+
+		return Ok(());
+	}
+}
+
+fn interactive_hkdf() -> Result<(), Box<dyn Error>> {
+	println!(
+		"{}",
+		"Input keying material will be captured without echo."
+			.yellow()
+	);
+	let proceed = Confirm::new()
+		.with_prompt("Continue with HKDF derivation?")
+		.default(false)
+		.interact()?;
+	if !proceed {
+		println!("{}", "HKDF flow cancelled before entry.".cyan());
+		return Ok(());
+	}
+	let ikm = Password::new()
+		.with_prompt("Enter input keying material (IKM)")
+		.allow_empty_password(false)
+		.interact()?;
+	let length: usize = Input::new()
+		.with_prompt("Derived length (bytes)")
+		.default(32)
+		.interact_text()?;
+	if length == 0 {
+		return Err(Box::new(io::Error::new(
+			io::ErrorKind::InvalidInput,
+			"Derived length must be greater than zero",
+		)));
+	}
+	let digest_options =
+		vec!["sha256", "sha512", "sha3-256", "sha3-512"];
+	let digest_choice = Select::new()
+		.with_prompt("Select HKDF digest")
+		.items(&digest_options)
+		.default(0)
+		.interact()?;
+	let digest_label = digest_options[digest_choice];
+	let algorithm = HkdfAlgorithm::from_str(digest_label)?;
+	let salt_text: String = Input::new()
+		.with_prompt("Salt (hex, leave blank for empty)")
+		.allow_empty(true)
+		.interact_text()?;
+	let salt_clean = salt_text.trim().to_string();
+	let salt_value = if salt_clean.is_empty() {
+		None
+	} else {
+		Some(salt_clean)
+	};
+	let salt_bytes =
+		hkdf::parse_optional_hex("salt", salt_value.as_ref())?;
+	if salt_value.is_none() {
+		eprintln!("info: default salt = empty string");
+	}
+	let info_text: String = Input::new()
+		.with_prompt("Info (hex, optional)")
+		.allow_empty(true)
+		.interact_text()?;
+	let info_clean = info_text.trim().to_string();
+	let info_value = if info_clean.is_empty() {
+		None
+	} else {
+		Some(info_clean)
+	};
+	let info_bytes =
+		hkdf::parse_optional_hex("info", info_value.as_ref())?;
+	let hash_only = Confirm::new()
+		.with_prompt("Emit only derived key hex?")
+		.default(false)
+		.interact()?;
+	let confirm = Confirm::new()
+		.with_prompt("Compute HKDF now and display the result?")
+		.default(false)
+		.interact()?;
+	if !confirm {
+		println!(
+			"{}",
+			"HKDF derivation cancelled before execution.".cyan()
+		);
+		return Ok(());
+	}
+	let options = kdf_commands::HkdfCliOptions {
+		algorithm,
+		ikm: ikm.into_bytes(),
+		salt: salt_bytes,
+		info: info_bytes,
+		length,
+		hash_only,
+	};
+	kdf_commands::derive_hkdf(options)?;
+	println!("{}", "HKDF derivation complete.".green());
+	Ok(())
+}
+
 fn interactive_kdf_menu() -> Result<(), Box<dyn Error>> {
 	let actions = vec![
 		"Argon2",
@@ -426,6 +695,7 @@ fn interactive_kdf_menu() -> Result<(), Box<dyn Error>> {
 		"Bcrypt",
 		"Balloon",
 		"SHA-crypt",
+		"HKDF",
 		"Back",
 	];
 	loop {
@@ -510,7 +780,10 @@ fn interactive_kdf_menu() -> Result<(), Box<dyn Error>> {
 					.interact()?;
 				kdf_commands::derive_sha_crypt(&password, hash_only)?;
 			}
-			6 => break,
+			6 => {
+				interactive_hkdf()?;
+			}
+			7 => break,
 			_ => unreachable!(),
 		}
 	}
@@ -931,6 +1204,7 @@ fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
 
 	let actions = vec![
 		"Digest data",
+		"Generate MAC",
 		"Derive password-based key",
 		"Analyze a hash",
 		"Compare hashes",
@@ -949,14 +1223,15 @@ fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
 
 		match selection {
 			0 => interactive_digest_menu()?,
-			1 => interactive_kdf_menu()?,
-			2 => interactive_analyze_hash()?,
-			3 => interactive_compare_hashes()?,
-			4 => interactive_compare_file_hashes()?,
-			5 => interactive_generate_random()?,
-			6 => interactive_generate_hhhash()?,
-			7 => interactive_run_benchmarks()?,
-			8 => {
+			1 => interactive_mac_menu()?,
+			2 => interactive_kdf_menu()?,
+			3 => interactive_analyze_hash()?,
+			4 => interactive_compare_hashes()?,
+			5 => interactive_compare_file_hashes()?,
+			6 => interactive_generate_random()?,
+			7 => interactive_generate_hhhash()?,
+			8 => interactive_run_benchmarks()?,
+			9 => {
 				println!("{}", "Goodbye!".cyan());
 				break;
 			}
@@ -1140,10 +1415,11 @@ fn build_cli() -> clap::Command {
 	.subcommand(
 		clap::command!("mac")
 			.about("Generate message authentication codes")
+			.after_help(MAC_ALGORITHM_MATRIX_HELP)
 			.arg(
 				Arg::new("algorithm")
-					.short('a')
-					.long("alg")
+				.short('a')
+				.long("alg")
 					.visible_alias("algorithm")
 					.help(MAC_ALGORITHM_HELP)
 					.value_parser(MAC_ALGORITHMS)
@@ -1365,14 +1641,60 @@ fn build_cli() -> clap::Command {
 							.arg(
 								Arg::new("cost")
 									.long("cost")
-									.value_parser(clap::value_parser!(u32))
-									.help("Bcrypt cost factor")
-									.default_value("12"),
-							),
-					)
-					.subcommand(
-						clap::command!("balloon")
-							.about("Derive a key using Balloon hashing")
+					.value_parser(clap::value_parser!(u32))
+					.help("Bcrypt cost factor")
+					.default_value("12"),
+			),
+		)
+		.subcommand(
+			clap::command!("hkdf")
+				.about("Derive key material using HKDF (RFC 5869)")
+		.arg(
+			Arg::new("ikm-stdin")
+				.long("ikm-stdin")
+				.help("Read input keying material from stdin")
+				.action(ArgAction::SetTrue)
+				.required(true),
+		)
+		.arg(
+			Arg::new("salt")
+				.long("salt")
+				.value_name("HEX")
+				.help("Optional hex-encoded salt (defaults to empty)"),
+		)
+		.arg(
+			Arg::new("info")
+				.long("info")
+				.value_name("HEX")
+				.help("Optional hex-encoded context info"),
+		)
+		.arg(
+			Arg::new("len")
+				.long("len")
+				.value_parser(clap::value_parser!(usize))
+				.help("Desired derived length in bytes")
+				.required(true),
+		)
+		.arg(
+			Arg::new("hash")
+				.long("hash")
+				.value_parser(["sha256", "sha512", "sha3-256", "sha3-512"])
+				.help("Digest variant for HKDF expand step")
+				.default_value("sha256"),
+		)
+		.arg(
+			Arg::new("hash-only")
+				.long("hash-only")
+				.help("Emit only the derived key hex output")
+				.action(ArgAction::SetTrue),
+		)
+			.after_help(
+				"Salt and info accept hex-encoded strings; omitting --salt defaults to empty salt (stderr warns).",
+			),
+		)
+		.subcommand(
+			clap::command!("balloon")
+				.about("Derive a key using Balloon hashing")
 					.arg(
 						Arg::new("password")
 							.long("password")
@@ -2091,6 +2413,45 @@ fn handle_kdf_command(
 					.expect("cost has default"),
 			};
 			kdf_commands::derive_bcrypt(&password, &config, hash_only)
+		}
+		Some(("hkdf", args)) => {
+			if !args.get_flag("ikm-stdin") {
+				return Err(Box::new(io::Error::new(
+					io::ErrorKind::InvalidInput,
+					"--ikm-stdin flag must be provided for HKDF",
+				)));
+			}
+			let mut ikm = Vec::new();
+			io::stdin().read_to_end(&mut ikm)?;
+			if ikm.is_empty() {
+				return Err(Box::new(io::Error::new(
+					io::ErrorKind::InvalidInput,
+					"stdin keying material was empty",
+				)));
+			}
+			let salt_arg = args.get_one::<String>("salt");
+			let info_arg = args.get_one::<String>("info");
+			let salt = hkdf::parse_optional_hex("salt", salt_arg)?;
+			let info = hkdf::parse_optional_hex("info", info_arg)?;
+			let length = *args
+				.get_one::<usize>("len")
+				.expect("len is required");
+			let hash = args
+				.get_one::<String>("hash")
+				.expect("hash has default");
+			let algorithm = HkdfAlgorithm::from_str(hash)?;
+			if salt_arg.is_none() {
+				eprintln!("info: default salt = empty string");
+			}
+			let options = kdf_commands::HkdfCliOptions {
+				algorithm,
+				ikm,
+				salt,
+				info,
+				length,
+				hash_only: args.get_flag("hash-only"),
+			};
+			kdf_commands::derive_hkdf(options)
 		}
 		Some(("balloon", args)) => {
 			let password = resolve_kdf_password(args)?;

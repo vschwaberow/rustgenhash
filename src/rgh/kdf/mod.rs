@@ -6,3 +6,4 @@
 // Password-based key derivation command group.
 
 pub mod commands;
+pub mod hkdf;

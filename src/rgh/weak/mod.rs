@@ -11,13 +11,10 @@ use colored::Colorize;
 
 const NIST_REFERENCE: &str =
 	"https://doi.org/10.6028/NIST.SP.800-131Ar2";
-const ENISA_REFERENCE: &str =
-    "https://www.enisa.europa.eu/publications/algorithms-key-sizes-and-parameters-report-2023";
 const BSI_REFERENCE: &str =
     "https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf";
 
-const REFERENCES: &[&str] =
-	&[NIST_REFERENCE, ENISA_REFERENCE, BSI_REFERENCE];
+const REFERENCES: &[&str] = &[NIST_REFERENCE, BSI_REFERENCE];
 
 /// Metadata describing a weak algorithm entry in the registry.
 #[derive(Debug, Clone)]
@@ -85,9 +82,9 @@ pub fn warning_for(algorithm: &str) -> Option<WarningMessage> {
 		metadata.display_name
 	);
 	let body = format!(
-        "See NIST SP 800-131A rev.2 §3, ENISA 2023 Cryptographic Guidelines, and BSI TR-02102-1 recommendations. {}.",
-        metadata.replacement_hint
-    );
+		"See NIST SP 800-131A rev.2 §3 and BSI TR-02102-1 recommendations. {}.",
+		metadata.replacement_hint
+	);
 	Some(WarningMessage {
 		severity_icon: "⚠",
 		headline,

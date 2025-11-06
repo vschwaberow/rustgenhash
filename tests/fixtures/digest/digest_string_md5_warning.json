@@ -14,10 +14,9 @@
     "hash_only_lines": [
       "5ebe2294ecd0e0f08eab7690d2a6ee69"
     ],
-    "warning_banner": "⚠ WARNING: MD5 is a weak algorithm (collisions known) See NIST SP 800-131A rev.2 §3, ENISA 2023 Cryptographic Guidelines, and BSI TR-02102-1 recommendations. Use SHA-256 or BLAKE3 for new digests.",
+    "warning_banner": "⚠ WARNING: MD5 is a weak algorithm (collisions known) See NIST SP 800-131A rev.2 §3 and BSI TR-02102-1 recommendations. Use SHA-256 or BLAKE3 for new digests.",
     "warning_references": [
       "https://doi.org/10.6028/NIST.SP.800-131Ar2",
-      "https://www.enisa.europa.eu/publications/algorithms-key-sizes-and-parameters-report-2023",
       "https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf"
     ]
   },

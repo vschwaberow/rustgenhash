@@ -163,7 +163,7 @@ fn right_encode(value: u64) -> Vec<u8> {
 fn bytepad(encoded: &[u8], w: usize) -> Vec<u8> {
 	let mut result = left_encode(w as u64);
 	result.extend_from_slice(encoded);
-	while result.len() % w != 0 {
+	while !result.len().is_multiple_of(w) {
 		result.push(0);
 	}
 	result

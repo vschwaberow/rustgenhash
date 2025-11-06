@@ -53,14 +53,11 @@ pub fn run_mac(options: MacOptions) -> Result<(), Box<dyn Error>> {
 		}
 		MacInput::File(path) => {
 			let file = File::open(path).map_err(|err| {
-				Box::new(io::Error::new(
-					io::ErrorKind::Other,
-					format!(
-						"failed to open `{}`: {}",
-						path.display(),
-						err
-					),
-				)) as Box<dyn Error>
+				Box::new(io::Error::other(format!(
+					"failed to open `{}`: {}",
+					path.display(),
+					err
+				))) as Box<dyn Error>
 			})?;
 			let (executor, metadata) =
 				create_executor(&options.algorithm, &key)?;
@@ -120,7 +117,7 @@ pub fn legacy_warning_message(
 	metadata: &MacAlgorithmMetadata,
 ) -> String {
 	format!(
-		"warning: {} is considered legacy and should only be used for backwards compatibility",
+		"warning: {} is considered legacy per NIST SP 800-131A Rev.2 §3; prefer SHA-2, SHA-3, KMAC, or BLAKE3 keyed alternatives",
 		metadata.display_name
 	)
 }

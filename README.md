@@ -97,16 +97,16 @@ be provided via `--password`, through the interactive prompt, or piped in using 
 
 `rgh mac` produces keyed message authentication codes for strings, files, or stdin streams.
 
-| Identifier | Algorithm | Notes |
-|------------|-----------|-------|
-| `hmac-sha1` | HMAC-SHA1 | ⚠ Legacy — emits warning banner before use |
-| `hmac-sha256` | HMAC-SHA256 | Default HMAC variant |
-| `hmac-sha512` | HMAC-SHA512 |  |
-| `hmac-sha3-256` | HMAC-SHA3-256 |  |
-| `hmac-sha3-512` | HMAC-SHA3-512 |  |
-| `kmac128` | NIST SP 800-185 KMAC128 | Uses cSHAKE128 customization string `"KMAC"` |
-| `kmac256` | NIST SP 800-185 KMAC256 | Uses cSHAKE256 customization string `"KMAC"` |
-| `blake3-keyed` | BLAKE3 keyed hash | Requires 32 byte key |
+| Identifier | Algorithm | Risk | Notes |
+|------------|-----------|------|-------|
+| `hmac-sha1` | HMAC-SHA1 | ⚠ Legacy | See [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi]; prefer SHA-2/3 variants |
+| `hmac-sha256` | HMAC-SHA256 | ✅ Recommended | [RFC 2104][rfc-2104] with SHA-2 core (FIPS 180-4) |
+| `hmac-sha512` | HMAC-SHA512 | ✅ Recommended | [RFC 2104][rfc-2104] with SHA-2 core (FIPS 180-4) |
+| `hmac-sha3-256` | HMAC-SHA3-256 | ✅ Recommended | HMAC over [FIPS 202][fips-202] SHA3-256 sponge |
+| `hmac-sha3-512` | HMAC-SHA3-512 | ✅ Recommended | HMAC over [FIPS 202][fips-202] SHA3-512 sponge |
+| `kmac128` | NIST SP 800-185 KMAC128 | ✅ Recommended | [NIST SP 800-185][nist-800-185] cSHAKE128-based MAC |
+| `kmac256` | NIST SP 800-185 KMAC256 | ✅ Recommended | [NIST SP 800-185][nist-800-185] cSHAKE256-based MAC |
+| `blake3-keyed` | BLAKE3 keyed hash | ✅ Recommended | [BLAKE3 specification §5][blake3-spec]; requires 32 byte key |
 
 Examples:
 
@@ -129,6 +129,7 @@ cat payloads.txt | rgh mac --alg blake3-keyed --key tests/fixtures/keys/blake3.k
 | `rgh kdf bcrypt` | `--cost` | 64 byte hex digest + metadata |
 | `rgh kdf balloon` | `--time-cost`, `--memory-cost`, `--parallelism` | Balloon hash string + metadata |
 | `rgh kdf sha-crypt` | (rounds fixed to 10 000) | `$6$` SHA-crypt string + metadata |
+| `rgh kdf hkdf` | `--ikm-stdin`, `--salt <HEX>`, `--info <HEX>`, `--len <BYTES>`, `--hash {sha256,sha512,sha3-256,sha3-512}` | JSON with algorithm/hash metadata (`--hash-only` emits derived key hex) |
 
 #### Supported Password Derivation Schemes
 
@@ -140,6 +141,8 @@ cat payloads.txt | rgh mac --alg blake3-keyed --key tests/fixtures/keys/blake3.k
 | PBKDF2-SHA256 / PBKDF2-SHA512 | ⚠ Legacy | Acceptable with high iteration counts; prefer Argon2 or Scrypt when feasible. |
 | Bcrypt | ⚠ Legacy | 72-byte password truncation; preserved for POSIX compatibility. |
 | SHA-crypt (`sha512`) | ⚠ Legacy | Provided for Unix compatibility; migrate to memory-hard schemes. |
+
+HKDF derives keyed material from input keying material (IKM) supplied via stdin. `--salt` and `--info` expect hex strings; omitting `--salt` defaults to an empty salt and prints `info: default salt = empty string` on stderr. Use `--hash` to choose the underlying digest (SHA-2 or SHA-3 families) and `--len` to request the desired output length.
 
 Example:
 
@@ -249,3 +252,7 @@ If you want to contribute to this project, please feel free to do so. I am happy
 
 [nist]: https://doi.org/10.6028/NIST.SP.800-131Ar2
 [bsi]: https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf
+[rfc-2104]: https://www.rfc-editor.org/rfc/rfc2104
+[fips-202]: https://doi.org/10.6028/NIST.FIPS.202
+[nist-800-185]: https://doi.org/10.6028/NIST.SP.800-185
+[blake3-spec]: https://github.com/BLAKE3-team/BLAKE3-specs

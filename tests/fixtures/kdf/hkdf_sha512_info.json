@@ -1,0 +1,26 @@
+{
+  "id": "kdf_hkdf_sha512_info",
+  "mode": "kdf",
+  "algorithm": "hkdf-sha512",
+  "input": {
+    "ikm_hex": "657069736f6465206f6e65",
+    "salt_hex": "00010203040506070809",
+    "info_hex": "f0f1f2f3f4f5",
+    "len": 64
+  },
+  "expected_output": {
+    "digest": "943c37403843d95e20c2bdf15de11fed18a9a31a2a6b57b1c7ede559ba4e3abb8656a5770650e155cdade5e4d63f57c816a1c9e01de37cc1190e69de7d59d3f6",
+    "metadata": {
+      "hash": "hkdf-sha512",
+      "ikm_length": 11,
+      "length": 64,
+      "salt": "00010203040506070809",
+      "info": "f0f1f2f3f4f5"
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Asserts HKDF-SHA512 expansion with explicit salt/info parameters and 64 byte output.",
+    "skip_reason": null
+  }
+}

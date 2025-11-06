@@ -6,6 +6,7 @@
 
 use std::fs::File;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::Duration;
 
 use chrono::Utc;
@@ -30,6 +31,7 @@ use crate::rgh::hash::{
 	BcryptConfig, FileDigestOptions, PHash, Pbkdf2Config,
 	ScryptConfig,
 };
+use crate::rgh::kdf::hkdf::{self, HkdfAlgorithm, HkdfRequest};
 use crate::rgh::mac::executor as mac_executor;
 use crate::rgh::mac::{
 	commands::legacy_warning_message,
@@ -927,7 +929,9 @@ fn parse_mac_key_source(
 	Ok(MacKeySource::File(PathBuf::from(source)))
 }
 
-fn load_mac_fixture_key(key_source: &MacKeySource) -> Result<Vec<u8>, AuditError> {
+fn load_mac_fixture_key(
+	key_source: &MacKeySource,
+) -> Result<Vec<u8>, AuditError> {
 	load_mac_key(key_source)
 		.map_err(|err| AuditError::Invalid(format!("{}", err)))
 }
@@ -1096,6 +1100,12 @@ fn run_mac_stdio_case(case: &AuditCase) -> Result<Value, AuditError> {
 }
 
 fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {
+	if let Ok(algorithm) =
+		HkdfAlgorithm::from_str(case.algorithm.as_str())
+	{
+		return run_hkdf_fixture(case, algorithm);
+	}
+
 	let password = case
 		.input
 		.get("password")
@@ -1238,6 +1248,109 @@ fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {
 			other, case.id
 		))),
 	}
+}
+
+fn get_optional_hex_field(
+	input: &Map<String, Value>,
+	field: &str,
+	case_id: &str,
+) -> Result<Vec<u8>, AuditError> {
+	match input.get(field) {
+		Some(Value::String(value)) => {
+			if value.is_empty() {
+				Ok(Vec::new())
+			} else {
+				hex::decode(value).map_err(|err| {
+					AuditError::Invalid(format!(
+						"Fixture `{}` field `{}` must be valid hex: {}",
+						case_id, field, err
+					))
+				})
+			}
+		}
+		Some(_) => Err(AuditError::Invalid(format!(
+			"Fixture `{}` field `{}` must be a string",
+			case_id, field
+		))),
+		None => Ok(Vec::new()),
+	}
+}
+
+fn get_required_hex_field(
+	input: &Map<String, Value>,
+	field: &str,
+	case_id: &str,
+) -> Result<Vec<u8>, AuditError> {
+	let value = input.get(field).and_then(Value::as_str).ok_or_else(
+		|| {
+			AuditError::Invalid(format!(
+				"Fixture `{}` missing `{}`",
+				case_id, field
+			))
+		},
+	)?;
+	if value.is_empty() {
+		return Err(AuditError::Invalid(format!(
+			"Fixture `{}` `{}` must not be empty",
+			case_id, field
+		)));
+	}
+	hex::decode(value).map_err(|err| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` field `{}` must be valid hex: {}",
+			case_id, field, err
+		))
+	})
+}
+
+fn run_hkdf_fixture(
+	case: &AuditCase,
+	algorithm: HkdfAlgorithm,
+) -> Result<Value, AuditError> {
+	let input_obj = case.input.as_object().ok_or_else(|| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` input must be an object",
+			case.id
+		))
+	})?;
+	let ikm = get_required_hex_field(input_obj, "ikm_hex", &case.id)?;
+	let salt =
+		get_optional_hex_field(input_obj, "salt_hex", &case.id)?;
+	let info =
+		get_optional_hex_field(input_obj, "info_hex", &case.id)?;
+	let length = input_obj
+		.get("len")
+		.and_then(Value::as_u64)
+		.ok_or_else(|| {
+			AuditError::Invalid(format!(
+				"Fixture `{}` missing `len`",
+				case.id
+			))
+		})? as usize;
+	let request = HkdfRequest {
+		algorithm,
+		ikm,
+		salt,
+		info,
+		length,
+	};
+	let response = hkdf::derive(&request).map_err(|err| {
+		AuditError::Invalid(format!(
+			"Fixture `{}` HKDF derivation failed: {}",
+			case.id, err
+		))
+	})?;
+	let digest_hex = hex::encode(response.derived_key);
+	Ok(json!({
+		"digest": digest_hex,
+		"metadata": {
+			"hash": response.algorithm,
+			"length": response.length,
+			"ikm_length": response.ikm_length,
+			"salt": hex::encode(response.salt),
+			"info": hex::encode(response.info)
+		}
+	}))
 }
 
 fn run_analyze_case(case: &AuditCase) -> Result<Value, AuditError> {

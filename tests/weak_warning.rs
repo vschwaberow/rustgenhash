@@ -28,11 +28,9 @@ fn warning_for_returns_expected_banner() {
 	let warning = warning_for("MD5").expect("md5 should be weak");
 	assert!(warning.headline.contains("MD5"));
 	assert!(warning.body.contains("NIST SP 800-131A"));
-	assert!(warning.body.contains("ENISA"));
 	assert!(warning.body.contains("BSI"));
 	// References should include both citation URLs.
 	assert!(warning.references.iter().any(|r| r.contains("NIST")));
-	assert!(warning.references.iter().any(|r| r.contains("enisa")));
 	assert!(warning.references.iter().any(|r| r.contains("bsi")));
 
 	// Non-weak algorithm returns None.
