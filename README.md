@@ -60,6 +60,37 @@ Directory hashing options:
   - `continue` records failures, hashes readable files, and exits `2` when any recoverable errors occur.
   - `report-only` logs failures for review but exits `0` to keep downstream scripts green.
 - `--progress`/`--no-progress` override adaptive stderr progress reporting (auto-disabled for `--hash-only`).
+
+### MAC commands
+
+`rgh mac` generates keyed message authentication codes for inline text, files, or newline-delimited stdin streams. Supply a key via `--key <PATH>` or `--key-stdin` and choose output formatting with `--hash-only` (digest only) or `--format json`.
+
+| Algorithm | Description | Key requirements | Notes |
+|-----------|-------------|------------------|-------|
+| `hmac-sha1` | HMAC-SHA1 | ≥ 1 byte | ⚠ Legacy — retained for backward compatibility ([NIST SP 800-131A rev.2 §3][nist]) |
+| `hmac-sha256` / `hmac-sha512` | HMAC over SHA-2 | ≥ 1 byte | [RFC 2104][rfc-2104] with FIPS 180-4 core |
+| `hmac-sha3-256` / `hmac-sha3-512` | HMAC over SHA-3 | ≥ 1 byte | [FIPS 202][fips-202] sponge construction |
+| `kmac128` / `kmac256` | NIST SP 800-185 KMAC | Arbitrary | cSHAKE-based MAC ([NIST SP 800-185][nist-800-185]) |
+| `cmac-aes128` / `cmac-aes192` / `cmac-aes256` | AES-CMAC | 16 / 24 / 32 bytes | Deterministic CMAC per [NIST SP 800-38B][nist-800-38b] |
+| `poly1305` | Poly1305 one-time MAC | 32 bytes | Warns on key reuse; follows [RFC 8439 §2.5][rfc-8439] guidance |
+| `blake3-keyed` | BLAKE3 keyed mode | 32 bytes | High-speed keyed hashing ([BLAKE3 spec][blake3-spec]) |
+
+Examples:
+
+```bash
+# CMAC over inline evidence string with 128-bit AES key
+rgh mac --alg cmac-aes128 --key tests/fixtures/keys/cmac_aes128.key --input "compliance-mac"
+# stdout → 3d5db00e9962fadb33cf8153f3167dae compliance-mac
+
+# CMAC over a file with a 256-bit key
+rgh mac --alg cmac-aes256 --key tests/fixtures/keys/cmac_aes256.key --file tests/fixtures/file/cmac_evidence.txt
+# stdout → 3e8413cbda3fc1bd20809494a42d4a5c tests/fixtures/file/cmac_evidence.txt
+
+# Poly1305 streaming MAC with reuse warning on the second line
+printf "config\npipeline\n" | rgh mac --alg poly1305 --key tests/fixtures/keys/poly1305.key --stdin
+# stderr → Poly1305 requires one-time keys; reuse detected
+# stdout → 1cb7a97202776f414eae3333aefc9f57 config
+#           720c7a23b362a576bb8e3cc3187c8e2b pipeline
 ```
 
 #### Weak Digest Algorithms
@@ -206,7 +237,11 @@ The interactive wizard reflects the new structure:
 ```bash
 rgh interactive
 # → Choose between “Digest data” and “Derive password-based key” before drilling into specific modes.
+# → Select CMAC or Poly1305 to see key length guidance and confirmation prompts.
 ```
+
+- CMAC selection enforces 16/24/32-byte AES keys before execution.
+- Poly1305 selection requires a one-time 32-byte key confirmation and surfaces reuse warnings.
 
 ## Quality Audit
 
@@ -255,4 +290,6 @@ If you want to contribute to this project, please feel free to do so. I am happy
 [rfc-2104]: https://www.rfc-editor.org/rfc/rfc2104
 [fips-202]: https://doi.org/10.6028/NIST.FIPS.202
 [nist-800-185]: https://doi.org/10.6028/NIST.SP.800-185
+[nist-800-38b]: https://doi.org/10.6028/NIST.SP.800-38B
+[rfc-8439]: https://www.rfc-editor.org/rfc/rfc8439
 [blake3-spec]: https://github.com/BLAKE3-team/BLAKE3-specs

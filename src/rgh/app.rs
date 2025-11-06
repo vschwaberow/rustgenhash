@@ -40,12 +40,15 @@ use clap_complete::{generate, Generator, Shell};
 use colored::*;
 use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
 use std::error::Error;
+use std::fs;
 use std::io::{self, BufRead, Read};
 use std::path::PathBuf;
+use std::process;
 use std::str::FromStr;
 use std::sync::OnceLock;
 use std::time::Duration;
 use strum::{EnumIter, IntoEnumIterator};
+use zeroize::Zeroizing;
 
 const HELP_TEMPLATE: &str = "{before-help}{name} {version}
 Written by {author-with-newline}{about-with-newline}
@@ -66,7 +69,7 @@ pub const WEAK_PROMPT_DEFAULT_INDEX: usize = 0;
 
 /// Identifiers accepted by `rgh mac --alg`; `hmac-sha1` remains for legacy
 /// compatibility only and is flagged per NIST SP 800-131A Rev. 2 guidance.
-const MAC_ALGORITHMS: [&str; 8] = [
+const MAC_ALGORITHMS: [&str; 12] = [
 	"hmac-sha1",
 	"hmac-sha256",
 	"hmac-sha512",
@@ -74,12 +77,30 @@ const MAC_ALGORITHMS: [&str; 8] = [
 	"hmac-sha3-512",
 	"kmac128",
 	"kmac256",
+	"cmac-aes128",
+	"cmac-aes192",
+	"cmac-aes256",
+	"poly1305",
 	"blake3-keyed",
 ];
 
-const MAC_ALGORITHM_HELP: &str = "MAC algorithm identifier. ⚠ Legacy: hmac-sha1 (see NIST SP 800-131A Rev.2 §3). Recommended options: hmac-sha2, hmac-sha3, kmac128/256, blake3-keyed.";
+const MAC_ALGORITHM_HELP: &str = "MAC algorithm identifier. ⚠ Legacy: hmac-sha1 (see NIST SP 800-131A Rev.2 §3). AES-CMAC keys must be 16/24/32 bytes respectively; Poly1305 keys must be 32 bytes and warn on reuse. Recommended options: hmac-sha2, hmac-sha3, kmac128/256, cmac-aes*, poly1305, blake3-keyed.";
 
-const MAC_ALGORITHM_MATRIX_HELP: &str = "Algorithms:\n  hmac-sha1        ⚠ Legacy – retain only for backward compatibility (NIST SP 800-131A Rev.2 §3)\n  hmac-sha256/512  SHA-2 based HMAC as per RFC 2104\n  hmac-sha3-256/512 SHA-3 based HMAC (FIPS 202)\n  kmac128/256      SP 800-185 KMAC (cSHAKE-based)\n  blake3-keyed     BLAKE3 keyed mode (§5)\n\nReferences:\n  https://doi.org/10.6028/NIST.SP.800-131Ar2\n  https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf\n  https://doi.org/10.6028/NIST.SP.800-185\n  https://github.com/BLAKE3-team/BLAKE3-specs";
+const MAC_ALGORITHM_MATRIX_HELP: &str = "Algorithms:\n  hmac-sha1          ⚠ Legacy – retain only for backward compatibility (NIST SP 800-131A Rev.2 §3)\n  hmac-sha256/512    SHA-2 based HMAC as per RFC 2104\n  hmac-sha3-256/512  SHA-3 based HMAC (FIPS 202)\n  kmac128/256        SP 800-185 KMAC (cSHAKE-based)\n  cmac-aes128/192/256 AES CMAC per NIST SP 800-38B (keys 16/24/32 bytes)\n  poly1305           One-time MAC per RFC 8439 §2.5 (32-byte key; reuse warning)\n  blake3-keyed       BLAKE3 keyed mode (§5)\n\nReferences:\n  https://doi.org/10.6028/NIST.SP.800-131Ar2\n  https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf\n  https://doi.org/10.6028/NIST.SP.800-185\n  https://doi.org/10.6028/NIST.SP.800-38B\n  https://www.rfc-editor.org/rfc/rfc8439\n  https://github.com/BLAKE3-team/BLAKE3-specs";
+
+fn mac_expected_key_length(identifier: &str) -> Option<usize> {
+	match identifier {
+		"cmac-aes128" => Some(16),
+		"cmac-aes192" => Some(24),
+		"cmac-aes256" => Some(32),
+		"poly1305" => Some(32),
+		_ => None,
+	}
+}
+
+fn is_poly1305(identifier: &str) -> bool {
+	identifier.eq_ignore_ascii_case("poly1305")
+}
 
 fn digest_algorithm_help_text() -> &'static str {
 	DIGEST_ALGORITHM_HELP.get_or_init(|| {
@@ -457,6 +478,40 @@ fn interactive_mac_menu() -> Result<(), Box<dyn Error>> {
 			.interact()?;
 		let metadata_choice = metadata[selection];
 		last_selection = selection;
+		let algorithm_id = metadata_choice.identifier;
+		let expected_key_len = mac_expected_key_length(algorithm_id);
+		if algorithm_id.starts_with("cmac-") {
+			if let Some(len) = expected_key_len {
+				println!(
+					"{}",
+					format!(
+						"{} expects an AES key of exactly {} bytes (NIST SP 800-38B).",
+						metadata_choice.display_name,
+						len
+					)
+					.yellow()
+				);
+			}
+		}
+		if is_poly1305(algorithm_id) {
+			println!(
+				"{}",
+				"Poly1305 requires a single-use 32-byte key (RFC 8439 §2.5). Reusing the key will emit a warning.".yellow()
+			);
+			let proceed = Confirm::new()
+				.with_prompt(
+					"Confirm you will rotate this Poly1305 key after use?",
+				)
+				.default(true)
+				.interact()?;
+			if !proceed {
+				println!(
+					"{}",
+					"Poly1305 selection cancelled; choose another algorithm or key source.".cyan()
+				);
+				continue;
+			}
+		}
 
 		if metadata_choice.is_legacy() {
 			println!(
@@ -490,7 +545,39 @@ fn interactive_mac_menu() -> Result<(), Box<dyn Error>> {
 				let path: String = Input::new()
 					.with_prompt("Path to key file")
 					.interact_text()?;
-				KeySource::File(PathBuf::from(path))
+				let path_buf = PathBuf::from(path);
+				if let Some(expected) = expected_key_len {
+					match fs::metadata(&path_buf) {
+						Ok(metadata) => {
+							if metadata.len() != expected as u64 {
+								println!(
+									"{}",
+									format!(
+										"Key file must be {} bytes for {}; observed {} bytes.",
+										expected,
+										metadata_choice.display_name,
+										metadata.len()
+									)
+									.red()
+								);
+								continue;
+							}
+						}
+						Err(err) => {
+							println!(
+								"{}",
+								format!(
+									"Failed to inspect key file `{}`: {}",
+									path_buf.display(),
+									err
+								)
+								.red()
+							);
+							continue;
+						}
+					}
+				}
+				KeySource::File(path_buf)
 			}
 			1 => {
 				println!(
@@ -514,7 +601,23 @@ fn interactive_mac_menu() -> Result<(), Box<dyn Error>> {
 					)
 					.allow_empty_password(false)
 					.interact()?;
-				KeySource::Inline(secret.into_bytes())
+				let secret_bytes = secret.into_bytes();
+				if let Some(expected) = expected_key_len {
+					if secret_bytes.len() != expected {
+						println!(
+							"{}",
+							format!(
+								"Inline key must be {} bytes for {}; observed {} bytes.",
+								expected,
+								metadata_choice.display_name,
+								secret_bytes.len()
+							)
+							.red()
+						);
+						continue;
+					}
+				}
+				KeySource::Inline(Zeroizing::new(secret_bytes))
 			}
 			_ => unreachable!(),
 		};
@@ -2134,7 +2237,23 @@ fn handle_mac_command(
 		json,
 	};
 
-	run_mac(options)
+	match run_mac(options) {
+		Ok(_) => Ok(()),
+		Err(err) => match err.downcast::<registry::MacError>() {
+			Ok(mac_err) => match mac_err.kind() {
+				registry::MacErrorKind::InvalidKey
+				| registry::MacErrorKind::InvalidKeyLength
+				| registry::MacErrorKind::UnsupportedAlgorithm => {
+					eprintln!("error: {}", mac_err);
+					process::exit(2);
+				}
+				registry::MacErrorKind::Crypto => {
+					Err(mac_err as Box<dyn Error>)
+				}
+			},
+			Err(err) => Err(err),
+		},
+	}
 }
 
 fn handle_digest_command(

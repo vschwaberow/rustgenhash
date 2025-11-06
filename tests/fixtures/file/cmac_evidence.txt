@@ -1,0 +1,1 @@
+CMAC evidence payload for AES-256 fixture.

@@ -1,0 +1,47 @@
+{
+  "id": "mac_poly1305_stdio",
+  "mode": "mac_stdio",
+  "algorithm": "poly1305",
+  "key": {
+    "source": "tests/fixtures/keys/poly1305.key"
+  },
+  "input": {
+    "lines": [
+      "config",
+      "pipeline"
+    ]
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "default_lines": [
+      "1cb7a97202776f414eae3333aefc9f57 config",
+      "720c7a23b362a576bb8e3cc3187c8e2b pipeline"
+    ],
+    "hash_only_lines": [
+      "1cb7a97202776f414eae3333aefc9f57",
+      "720c7a23b362a576bb8e3cc3187c8e2b"
+    ],
+    "records": [
+      {
+        "source": "config",
+        "digest": "1cb7a97202776f414eae3333aefc9f57"
+      },
+      {
+        "source": "pipeline",
+        "digest": "720c7a23b362a576bb8e3cc3187c8e2b"
+      }
+    ],
+    "stderr_contains": [
+      "Poly1305 requires one-time keys; reuse detected"
+    ],
+    "exit_code": 0
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Validates Poly1305 stdin streaming, including reuse warning on the second invocation with the same key.",
+    "skip_reason": null
+  }
+}

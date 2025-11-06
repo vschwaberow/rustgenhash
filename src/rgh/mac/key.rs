@@ -9,12 +9,16 @@ use std::fs;
 use std::io::{self, Read};
 
 use super::registry::{MacError, MacErrorKind};
+use zeroize::Zeroizing;
+
+const AES_CMAC_KEY_LENGTHS: &[usize] = &[16, 24, 32];
+const POLY1305_KEY_LENGTH: usize = 32;
 
 #[derive(Debug)]
 pub enum KeySource {
 	File(std::path::PathBuf),
 	Stdin,
-	Inline(Vec<u8>),
+	Inline(Zeroizing<Vec<u8>>),
 }
 
 impl KeySource {
@@ -63,8 +67,40 @@ pub fn load_key(source: &KeySource) -> Result<Vec<u8>, MacError> {
 					"inline key must not be empty",
 				))
 			} else {
-				Ok(bytes.clone())
+				Ok(bytes.as_slice().to_vec())
 			}
 		}
+	}
+}
+
+/// Validates that the provided key length is suitable for AES-CMAC.
+pub fn validate_cmac_key_length(key: &[u8]) -> Result<(), MacError> {
+	if AES_CMAC_KEY_LENGTHS.contains(&key.len()) {
+		Ok(())
+	} else {
+		Err(MacError::new(
+			MacErrorKind::InvalidKeyLength,
+			format!(
+				"Invalid CMAC key length: expected 16, 24, or 32 bytes but received {}",
+				key.len()
+			),
+		))
+	}
+}
+
+/// Validates the Poly1305 one-time key length requirement.
+pub fn validate_poly1305_key_length(
+	key: &[u8],
+) -> Result<(), MacError> {
+	if key.len() == POLY1305_KEY_LENGTH {
+		Ok(())
+	} else {
+		Err(MacError::new(
+			MacErrorKind::InvalidKeyLength,
+			format!(
+				"Poly1305 requires a 32-byte one-time key but received {} bytes",
+				key.len()
+			),
+		))
 	}
 }

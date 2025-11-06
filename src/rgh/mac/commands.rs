@@ -9,6 +9,7 @@ use crate::rgh::mac::executor::{
 	consume_bytes, consume_reader, digest_to_hex,
 };
 use crate::rgh::mac::key::{load_key, KeySource};
+use crate::rgh::mac::poly1305::Poly1305ReuseTracker;
 use crate::rgh::mac::registry::{
 	self, MacAlgorithmMetadata, MacExecutor,
 };
@@ -17,6 +18,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::PathBuf;
+use zeroize::Zeroize;
 
 #[derive(Debug)]
 pub struct MacOptions {
@@ -35,11 +37,22 @@ pub enum MacInput {
 }
 
 pub fn run_mac(options: MacOptions) -> Result<(), Box<dyn Error>> {
-	let key = load_key(&options.key_source)
+	let mut key = load_key(&options.key_source)
 		.map_err(|err| Box::new(err) as Box<dyn Error>)?;
+	let mut poly1305_tracker =
+		if options.algorithm.eq_ignore_ascii_case("poly1305") {
+			Some(Poly1305ReuseTracker::default())
+		} else {
+			None
+		};
 
-	match &options.input {
+	let result = match &options.input {
 		MacInput::Inline(text) => {
+			if let Some(tracker) = poly1305_tracker.as_mut() {
+				if let Some(warning) = tracker.check_reuse(&key) {
+					eprintln!("{}", warning);
+				}
+			}
 			let (executor, metadata) =
 				create_executor(&options.algorithm, &key)?;
 			print_legacy_banner(&metadata);
@@ -49,7 +62,7 @@ pub fn run_mac(options: MacOptions) -> Result<(), Box<dyn Error>> {
 				&metadata,
 				MacOutput::Inline(text),
 				&digest,
-			)?;
+			)
 		}
 		MacInput::File(path) => {
 			let file = File::open(path).map_err(|err| {
@@ -59,6 +72,11 @@ pub fn run_mac(options: MacOptions) -> Result<(), Box<dyn Error>> {
 					err
 				))) as Box<dyn Error>
 			})?;
+			if let Some(tracker) = poly1305_tracker.as_mut() {
+				if let Some(warning) = tracker.check_reuse(&key) {
+					eprintln!("{}", warning);
+				}
+			}
 			let (executor, metadata) =
 				create_executor(&options.algorithm, &key)?;
 			print_legacy_banner(&metadata);
@@ -69,7 +87,7 @@ pub fn run_mac(options: MacOptions) -> Result<(), Box<dyn Error>> {
 				&metadata,
 				MacOutput::File(path),
 				&digest,
-			)?;
+			)
 		}
 		MacInput::Stdin => {
 			let mut warned_blank = false;
@@ -87,6 +105,11 @@ pub fn run_mac(options: MacOptions) -> Result<(), Box<dyn Error>> {
 					}
 					continue;
 				}
+				if let Some(tracker) = poly1305_tracker.as_mut() {
+					if let Some(warning) = tracker.check_reuse(&key) {
+						eprintln!("{}", warning);
+					}
+				}
 				let (executor, metadata) =
 					create_executor(&options.algorithm, &key)?;
 				if !legacy_printed {
@@ -101,10 +124,12 @@ pub fn run_mac(options: MacOptions) -> Result<(), Box<dyn Error>> {
 					&digest,
 				)?;
 			}
+			Ok(())
 		}
-	}
+	};
 
-	Ok(())
+	key.zeroize();
+	result
 }
 
 enum MacOutput<'a> {

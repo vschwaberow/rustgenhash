@@ -1,0 +1,26 @@
+{
+  "id": "mac_cmac_aes128_string",
+  "mode": "mac_string",
+  "algorithm": "cmac-aes128",
+  "key": {
+    "source": "tests/fixtures/keys/cmac_aes128.key"
+  },
+  "input": {
+    "type": "inline",
+    "value": "compliance-mac"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "default_line": "3d5db00e9962fadb33cf8153f3167dae compliance-mac",
+    "hash_only_line": "3d5db00e9962fadb33cf8153f3167dae",
+    "exit_code": 0
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "AES-128 CMAC over inline evidence string; vector derived from NIST SP 800-38B appendix keys.",
+    "skip_reason": null
+  }
+}

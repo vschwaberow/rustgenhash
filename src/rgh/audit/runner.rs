@@ -36,6 +36,7 @@ use crate::rgh::mac::executor as mac_executor;
 use crate::rgh::mac::{
 	commands::legacy_warning_message,
 	key::{load_key as load_mac_key, KeySource as MacKeySource},
+	poly1305::Poly1305ReuseTracker,
 	registry::{
 		self as mac_registry, MacAlgorithmMetadata, MacExecutor,
 	},
@@ -967,30 +968,61 @@ fn run_mac_string_case(
 				case.id
 			))
 		})?;
-	let (executor, metadata) = create_mac_executor_for_case(
-		&case.algorithm,
-		&case.id,
-		&key_bytes,
-	)?;
-	let digest =
-		mac_executor::consume_bytes(message.as_bytes(), executor);
-	let hex = mac_executor::digest_to_hex(&digest);
-	let mut root = serde_json::Map::new();
-	root.insert(
-		"default_line".into(),
-		Value::String(format!("{} {}", hex, message)),
-	);
-	root.insert("hash_only_line".into(), Value::String(hex.clone()));
-	root.insert("exit_code".into(), Value::from(0));
-	if metadata.is_legacy() {
-		root.insert(
-			"stderr_contains".into(),
-			Value::Array(vec![Value::String(
-				legacy_warning_message(&metadata),
-			)]),
-		);
+	let expected =
+		case.expected_output.as_object().ok_or_else(|| {
+			AuditError::Invalid(format!(
+				"Fixture `{}` expected_output must be an object",
+				case.id
+			))
+		})?;
+	let expected_exit = expected
+		.get("exit_code")
+		.and_then(Value::as_i64)
+		.unwrap_or(0);
+
+	match mac_registry::create_executor(&case.algorithm, &key_bytes) {
+		Ok((executor, metadata)) => {
+			let digest = mac_executor::consume_bytes(
+				message.as_bytes(),
+				executor,
+			);
+			let hex = mac_executor::digest_to_hex(&digest);
+			let mut root = serde_json::Map::new();
+			root.insert(
+				"default_line".into(),
+				Value::String(format!("{} {}", hex, message)),
+			);
+			root.insert(
+				"hash_only_line".into(),
+				Value::String(hex.clone()),
+			);
+			root.insert("exit_code".into(), Value::from(0));
+			if metadata.is_legacy() {
+				root.insert(
+					"stderr_contains".into(),
+					Value::Array(vec![Value::String(
+						legacy_warning_message(&metadata),
+					)]),
+				);
+			}
+			Ok(Value::Object(root))
+		}
+		Err(err) => {
+			if expected_exit == 2 {
+				let mut root = serde_json::Map::new();
+				root.insert(
+					"error".into(),
+					Value::String(err.to_string()),
+				);
+				root.insert("exit_code".into(), Value::from(2));
+				return Ok(Value::Object(root));
+			}
+			Err(AuditError::Invalid(format!(
+				"Fixture `{}`: {}",
+				case.id, err
+			)))
+		}
 	}
-	Ok(Value::Object(root))
 }
 
 fn run_mac_file_case(case: &AuditCase) -> Result<Value, AuditError> {
@@ -1056,7 +1088,13 @@ fn run_mac_stdio_case(case: &AuditCase) -> Result<Value, AuditError> {
 	let mut default_lines = Vec::new();
 	let mut hash_only_lines = Vec::new();
 	let mut records = Vec::new();
-	let mut legacy_warning: Option<Value> = None;
+	let mut warnings: Vec<String> = Vec::new();
+	let mut reuse_tracker =
+		if case.algorithm.eq_ignore_ascii_case("poly1305") {
+			Some(Poly1305ReuseTracker::default())
+		} else {
+			None
+		};
 	for entry in lines {
 		let line = entry.as_str().ok_or_else(|| {
 			AuditError::Invalid(format!(
@@ -1064,15 +1102,23 @@ fn run_mac_stdio_case(case: &AuditCase) -> Result<Value, AuditError> {
 				case.id
 			))
 		})?;
+		if let Some(tracker) = reuse_tracker.as_mut() {
+			if let Some(warning) = tracker.check_reuse(&key_bytes) {
+				if !warnings.iter().any(|w| w == warning) {
+					warnings.push(warning.to_string());
+				}
+			}
+		}
 		let (executor, metadata) = create_mac_executor_for_case(
 			&case.algorithm,
 			&case.id,
 			&key_bytes,
 		)?;
-		if metadata.is_legacy() && legacy_warning.is_none() {
-			legacy_warning = Some(Value::String(
-				legacy_warning_message(&metadata),
-			));
+		if metadata.is_legacy() {
+			let warning_msg = legacy_warning_message(&metadata);
+			if !warnings.iter().any(|w| w == &warning_msg) {
+				warnings.push(warning_msg);
+			}
 		}
 		let digest =
 			mac_executor::consume_bytes(line.as_bytes(), executor);
@@ -1090,10 +1136,12 @@ fn run_mac_stdio_case(case: &AuditCase) -> Result<Value, AuditError> {
 	);
 	root.insert("records".into(), Value::Array(records));
 	root.insert("exit_code".into(), Value::from(0));
-	if let Some(warning) = legacy_warning {
+	if !warnings.is_empty() {
 		root.insert(
 			"stderr_contains".into(),
-			Value::Array(vec![warning]),
+			Value::Array(
+				warnings.into_iter().map(Value::String).collect(),
+			),
 		);
 	}
 	Ok(Value::Object(root))

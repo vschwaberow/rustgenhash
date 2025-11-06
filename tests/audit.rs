@@ -55,6 +55,20 @@ fn audit_fixtures_smoke() {
 		"Failed to load fixtures"
 	);
 
+	let required_cases = [
+		"mac_cmac_aes128_string",
+		"mac_cmac_aes256_file",
+		"mac_poly1305_stdio",
+		"mac_poly1305_key_error",
+	];
+	for required in required_cases {
+		assert!(
+			cases.iter().any(|case| case.id == required),
+			"Required CMAC fixture `{}` missing from audit registry",
+			required
+		);
+	}
+
 	let outcomes =
 		execute_cases(cases).expect("Failed to execute audit cases");
 	let metadata = compute_run_metadata(&outcomes);

@@ -9,7 +9,7 @@
 
 use std::borrow::Cow;
 
-use super::{blake3, hmac, kmac};
+use super::{blake3, cmac, hmac, kmac, poly1305};
 
 pub trait MacExecutor: Send + 'static {
 	fn update(&mut self, data: &[u8]);
@@ -122,6 +122,8 @@ pub fn algorithms() -> impl Iterator<Item = &'static MacAlgorithm> {
 	hmac::catalog()
 		.iter()
 		.chain(kmac::catalog().iter())
+		.chain(cmac::catalog().iter())
+		.chain(poly1305::catalog().iter())
 		.chain(blake3::catalog().iter())
 }
 

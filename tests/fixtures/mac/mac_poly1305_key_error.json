@@ -1,0 +1,25 @@
+{
+  "id": "mac_poly1305_key_error",
+  "mode": "mac_string",
+  "algorithm": "poly1305",
+  "key": {
+    "source": "tests/fixtures/keys/poly1305_short.key"
+  },
+  "input": {
+    "type": "inline",
+    "value": "invalid"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "error": "Poly1305 requires a 32-byte one-time key but received 16 bytes",
+    "exit_code": 2
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Short Poly1305 key should fail validation with exit code 2 and guidance.",
+    "skip_reason": null
+  }
+}

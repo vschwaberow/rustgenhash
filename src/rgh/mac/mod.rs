@@ -8,9 +8,11 @@
 //! Submodules provide registry, key loading, algorithm executors, and CLI handlers.
 
 pub mod blake3;
+pub mod cmac;
 pub mod commands;
 pub mod executor;
 pub mod hmac;
 pub mod key;
 pub mod kmac;
+pub mod poly1305;
 pub mod registry;
