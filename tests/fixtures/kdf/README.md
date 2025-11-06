@@ -8,3 +8,5 @@ Canonical fixtures for `rgh kdf` commands. Include parameter sets (memory, time,
 - `kdf_hkdf_expand_only.json`: HKDF expand-only vectors covering PRK-supplied success and missing PRK error cases.
 - `kdf_pbkdf2_profile_nist_sp800132.json`: PBKDF2 derived key using the NIST SP 800-132 2023 preset.
 - `kdf_scrypt_profile_owasp.json`: scrypt derived key based on OWASP 2024 recommended parameters.
+- `kdf_pbkdf2_invalid_iterations.json`: PBKDF2 preset violation expecting exit code `2` with NIST SP 800-132 guidance.
+- `kdf_scrypt_zero_password.json`: Scrypt invocation with zero-length secret; aborts with exit code `2` and password validation error.

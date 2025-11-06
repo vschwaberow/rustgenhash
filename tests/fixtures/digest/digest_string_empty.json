@@ -1,0 +1,23 @@
+{
+  "id": "digest_string_empty",
+  "mode": "digest_string",
+  "algorithm": "SHA256",
+  "input": {
+    "value": ""
+  },
+  "expected_output": {
+    "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "format": "hex",
+    "default_lines": [
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "hash_only_lines": [
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ]
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Covers empty input for SHA-256 string hashing without emitting warnings.",
+    "skip_reason": null
+  }
+}

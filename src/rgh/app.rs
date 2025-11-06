@@ -2818,11 +2818,12 @@ fn handle_kdf_command(
 				} else if rounds < profile.rounds {
 					return Err(Box::new(io::Error::new(
 						io::ErrorKind::InvalidInput,
+						// Audit harness fixture `kdf_pbkdf2_invalid_iterations` relies on this exact wording.
 						format!(
-							"PBKDF2 rounds {} must be >= profile minimum {}",
-							rounds,
-							profile.rounds
-						),
+						"PBKDF2 rounds {} must be >= profile minimum {}",
+						rounds,
+						profile.rounds
+					),
 					)));
 				}
 				if matches!(

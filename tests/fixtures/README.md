@@ -39,3 +39,11 @@ Each JSON file in this directory represents a single deterministic audit case.
 - `.gitkeep` placeholders preserve empty directories until fixtures are added.
 
 Keep fixtures small and deterministic. For large input coverage, store representative samples or instructions for regenerating data.
+
+## Digest Boundary Cases
+- Track fixtures covering empty input, large streaming inputs, and other edge conditions under `tests/fixtures/digest/`.
+- Large streaming fixtures should reference runtime-generated data (see `target/audit/large-stream/`).
+
+## Negative Policy Fixtures (MAC & KDF)
+- Document fixtures that intentionally fail policy checks (e.g., Poly1305 key length, PBKDF2 iteration floors, zero-length secrets).
+- Each negative fixture should cite the governing specification in `metadata.notes` and expect exit code `2`.

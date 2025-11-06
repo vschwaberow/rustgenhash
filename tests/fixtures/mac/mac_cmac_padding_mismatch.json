@@ -1,0 +1,26 @@
+{
+  "id": "mac_cmac_padding_mismatch",
+  "mode": "mac_string",
+  "algorithm": "cmac-aes128",
+  "key": {
+    "source": "tests/fixtures/keys/cmac_invalid.key"
+  },
+  "input": {
+    "type": "inline",
+    "value": "cmac-test"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "error": "Invalid CMAC key length: expected 16, 24, or 32 bytes but received 12",
+    "exit_code": 2,
+    "stderr": "Invalid CMAC key length: expected 16, 24, or 32 bytes but received 12"
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Invalid CMAC-AES128 key length should abort with deterministic guidance.",
+    "skip_reason": null
+  }
+}

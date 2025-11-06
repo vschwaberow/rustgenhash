@@ -1,0 +1,38 @@
+{
+  "id": "digest_file_large_stream",
+  "mode": "digest_file",
+  "algorithm": "SHA256",
+  "input": {
+    "path": "target/audit/large-stream/digest_file_large_stream.bin",
+    "generate_large_stream": {
+      "path": "target/audit/large-stream/digest_file_large_stream.bin",
+      "seed": 16045690984833335023,
+      "length_bytes": 1073741824,
+      "chunk_size": 1048576
+    }
+  },
+  "expected_output": {
+    "format": "hex",
+    "default_lines": [
+      "0deb2d122d12c7f011c9c85fa3721f148019ebf25834815fb8e942fd54e73bf1 target/audit/large-stream/digest_file_large_stream.bin"
+    ],
+    "hash_only_lines": [
+      "0deb2d122d12c7f011c9c85fa3721f148019ebf25834815fb8e942fd54e73bf1"
+    ],
+    "entries": [
+      {
+        "path": "target/audit/large-stream/digest_file_large_stream.bin",
+        "digest": "0deb2d122d12c7f011c9c85fa3721f148019ebf25834815fb8e942fd54e73bf1"
+      }
+    ],
+    "exit_code": 0,
+    "failure_count": 0,
+    "should_write_manifest": true,
+    "fatal_error": null
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "1 GiB stream generated at runtime to validate chunked digest processing (target runtime <=10 min).",
+    "skip_reason": null
+  }
+}

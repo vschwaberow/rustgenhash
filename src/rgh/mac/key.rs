@@ -80,6 +80,7 @@ pub fn validate_cmac_key_length(key: &[u8]) -> Result<(), MacError> {
 	} else {
 		Err(MacError::new(
 			MacErrorKind::InvalidKeyLength,
+			// NOTE: audit fixture `mac_cmac_padding_mismatch` asserts this error string.
 			format!(
 				"Invalid CMAC key length: expected 16, 24, or 32 bytes but received {}",
 				key.len()
@@ -97,6 +98,7 @@ pub fn validate_poly1305_key_length(
 	} else {
 		Err(MacError::new(
 			MacErrorKind::InvalidKeyLength,
+			// NOTE: audit fixture `mac_poly1305_mismatched_key` relies on this verbatim message.
 			format!(
 				"Poly1305 requires a 32-byte one-time key but received {} bytes",
 				key.len()

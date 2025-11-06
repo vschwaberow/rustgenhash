@@ -278,6 +278,17 @@ interactive flows) are marked with a skip reason and reported as `SKIP` in the
 summary. When the audit fails, review the emitted severity, reproduction notes,
 and the JSON payload to pinpoint the mismatch.
 
+### New Coverage (010-audit-fixture-depth)
+
+| Fixture ID | Focus | Expected Exit | Notes |
+|------------|-------|---------------|-------|
+| `digest_string_empty` | SHA-256 digest of empty input | `0` | Ensures default and `--hash-only` outputs remain identical. |
+| `digest_file_large_stream` | 1 GiB deterministic stream | `0` | Runtime target ≤10 min; data generated under `target/audit/large-stream/`. |
+| `mac_poly1305_mismatched_key` | Poly1305 key length violation | `2` | Requires error text “Poly1305 requires a 32-byte one-time key…”. |
+| `mac_cmac_padding_mismatch` | CMAC invalid key length | `2` | Fails fast with “Invalid CMAC key length…” guidance. |
+| `kdf_pbkdf2_invalid_iterations` | PBKDF2 preset under minimum rounds | `2` | Mirrors NIST SP 800-132 floor (310 000 iterations). |
+| `kdf_scrypt_zero_password` | Scrypt zero-length secret | `2` | Abort message “Password must not be empty”. |
+
 ### Release Readiness
 
 Release managers must complete `docs/qa/release-readiness.md` before tagging:

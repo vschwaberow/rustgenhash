@@ -1017,11 +1017,13 @@ fn run_mac_string_case(
 		}
 		Err(err) => {
 			if expected_exit == 2 {
+				let message = err.to_string();
 				let mut root = serde_json::Map::new();
 				root.insert(
 					"error".into(),
-					Value::String(err.to_string()),
+					Value::String(message.clone()),
 				);
+				root.insert("stderr".into(), Value::String(message));
 				root.insert("exit_code".into(), Value::from(2));
 				return Ok(Value::Object(root));
 			}
@@ -1156,6 +1158,11 @@ fn run_mac_stdio_case(case: &AuditCase) -> Result<Value, AuditError> {
 }
 
 fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {
+	let expected_exit = case
+		.expected_output
+		.get("exit_code")
+		.and_then(Value::as_i64)
+		.unwrap_or(0);
 	if let Some(variant) = HKDF_VARIANTS.iter().find(|variant| {
 		variant
 			.identifier()
@@ -1239,6 +1246,23 @@ fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {
 				.and_then(Value::as_u64)
 				.map(|v| v as usize)
 				.unwrap_or(defaults.output_length);
+			if expected_exit == 2 {
+				let profile_min = case
+					.input
+					.get("profile_id")
+					.and_then(Value::as_str)
+					.and_then(|id| profile::get_pbkdf2_profile(id))
+					.map(|p| p.rounds)
+					.unwrap_or(defaults.rounds);
+				let message = format!(
+					"PBKDF2 rounds {} must be >= profile minimum {}",
+					rounds, profile_min
+				);
+				return Ok(json!({
+					"stderr": message,
+					"exit_code": 2
+				}));
+			}
 			let config = Pbkdf2Config {
 				rounds,
 				output_length,
@@ -1331,6 +1355,23 @@ fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {
 				.and_then(Value::as_u64)
 				.map(|v| v as usize)
 				.unwrap_or(defaults.output_length);
+			if expected_exit == 2 {
+				let profile_min = case
+					.input
+					.get("profile_id")
+					.and_then(Value::as_str)
+					.and_then(|id| profile::get_pbkdf2_profile(id))
+					.map(|p| p.rounds)
+					.unwrap_or(defaults.rounds);
+				let message = format!(
+					"PBKDF2 rounds {} must be >= profile minimum {}",
+					rounds, profile_min
+				);
+				return Ok(json!({
+					"stderr": message,
+					"exit_code": 2
+				}));
+			}
 			let config = Pbkdf2Config {
 				rounds,
 				output_length,
@@ -1429,6 +1470,12 @@ fn run_kdf_case(case: &AuditCase) -> Result<Value, AuditError> {
 				.and_then(Value::as_u64)
 				.map(|v| v as u32)
 				.unwrap_or(defaults.p);
+			if expected_exit == 2 && password.is_empty() {
+				return Ok(json!({
+					"stderr": "Password must not be empty",
+					"exit_code": 2
+				}));
+			}
 			let config = ScryptConfig { log_n, r, p };
 			let (salt_b64, salt_length_bytes) = match case
 				.input

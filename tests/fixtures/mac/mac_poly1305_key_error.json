@@ -15,7 +15,8 @@
   },
   "expected_output": {
     "error": "Poly1305 requires a 32-byte one-time key but received 16 bytes",
-    "exit_code": 2
+    "exit_code": 2,
+    "stderr": "Poly1305 requires a 32-byte one-time key but received 16 bytes"
   },
   "metadata": {
     "severity": "high",
