@@ -22,8 +22,11 @@ use crate::rgh::hash::{
 	FileDigestOptions, PHash, Pbkdf2Config, ScryptConfig,
 };
 use crate::rgh::hhhash::generate_hhhash;
-use crate::rgh::kdf::commands as kdf_commands;
-use crate::rgh::kdf::hkdf::{self, HkdfAlgorithm};
+use crate::rgh::kdf::{
+	commands as kdf_commands,
+	hkdf::{self, HkdfAlgorithm, HkdfMode, HKDF_VARIANTS},
+	profile, SecretMaterial,
+};
 use crate::rgh::mac::commands::{run_mac, MacInput, MacOptions};
 use crate::rgh::mac::key::KeySource;
 use crate::rgh::mac::registry;
@@ -35,14 +38,18 @@ use crate::rgh::random::{RandomNumberGenerator, RngType};
 use crate::rgh::weak::{
 	all_metadata, emit_warning_banner, warning_for,
 };
+use clap::builder::PossibleValuesParser;
+use clap::parser::ValueSource;
 use clap::{crate_name, Arg, ArgAction, ArgGroup};
 use clap_complete::{generate, Generator, Shell};
 use colored::*;
 use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
+use pbkdf2::password_hash::SaltString as Pbkdf2SaltString;
+use scrypt::password_hash::SaltString as ScryptSaltString;
 use std::error::Error;
 use std::fs;
 use std::io::{self, BufRead, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -699,11 +706,22 @@ fn interactive_mac_menu() -> Result<(), Box<dyn Error>> {
 }
 
 fn interactive_hkdf() -> Result<(), Box<dyn Error>> {
-	println!(
-		"{}",
-		"Input keying material will be captured without echo."
-			.yellow()
-	);
+	let variant_labels: Vec<String> = HKDF_VARIANTS
+		.iter()
+		.map(|variant| {
+			let mode_label = match variant.mode {
+				HkdfMode::ExtractAndExpand => "extract+expand",
+				HkdfMode::ExpandOnly => "expand-only",
+			};
+			format!("{} ({mode_label})", variant.display_name())
+		})
+		.collect();
+	let variant_index = Select::new()
+		.with_prompt("Select HKDF variant")
+		.items(&variant_labels)
+		.default(0)
+		.interact()?;
+	let variant = HKDF_VARIANTS[variant_index];
 	let proceed = Confirm::new()
 		.with_prompt("Continue with HKDF derivation?")
 		.default(false)
@@ -712,13 +730,48 @@ fn interactive_hkdf() -> Result<(), Box<dyn Error>> {
 		println!("{}", "HKDF flow cancelled before entry.".cyan());
 		return Ok(());
 	}
-	let ikm = Password::new()
-		.with_prompt("Enter input keying material (IKM)")
-		.allow_empty_password(false)
-		.interact()?;
+	let ikm = if variant.requires_ikm() {
+		println!(
+			"{}",
+			"Input keying material will be captured without echo."
+				.yellow()
+		);
+		let ikm_text = Password::new()
+			.with_prompt("Enter input keying material (IKM)")
+			.allow_empty_password(false)
+			.interact()?;
+		Some(SecretMaterial::from_bytes(ikm_text.into_bytes()))
+	} else {
+		None
+	};
+	let prk = if variant.requires_prk() {
+		println!(
+			"Expand-only mode selected: provide a PRK generated in a trusted environment.",
+		);
+		let prk_hex: String = Input::new()
+			.with_prompt("Enter PRK (hex)")
+			.allow_empty(false)
+			.interact_text()?;
+		let prk_bytes =
+			hex::decode(prk_hex.trim()).map_err(|err| {
+				io::Error::new(
+					io::ErrorKind::InvalidInput,
+					format!("PRK must be hex: {}", err),
+				)
+			})?;
+		if prk_bytes.is_empty() {
+			return Err(Box::new(io::Error::new(
+				io::ErrorKind::InvalidInput,
+				"PRK must not be empty",
+			)));
+		}
+		Some(SecretMaterial::from_bytes(prk_bytes))
+	} else {
+		None
+	};
 	let length: usize = Input::new()
 		.with_prompt("Derived length (bytes)")
-		.default(32)
+		.default(variant.output_size())
 		.interact_text()?;
 	if length == 0 {
 		return Err(Box::new(io::Error::new(
@@ -726,15 +779,6 @@ fn interactive_hkdf() -> Result<(), Box<dyn Error>> {
 			"Derived length must be greater than zero",
 		)));
 	}
-	let digest_options =
-		vec!["sha256", "sha512", "sha3-256", "sha3-512"];
-	let digest_choice = Select::new()
-		.with_prompt("Select HKDF digest")
-		.items(&digest_options)
-		.default(0)
-		.interact()?;
-	let digest_label = digest_options[digest_choice];
-	let algorithm = HkdfAlgorithm::from_str(digest_label)?;
 	let salt_text: String = Input::new()
 		.with_prompt("Salt (hex, leave blank for empty)")
 		.allow_empty(true)
@@ -747,7 +791,7 @@ fn interactive_hkdf() -> Result<(), Box<dyn Error>> {
 	};
 	let salt_bytes =
 		hkdf::parse_optional_hex("salt", salt_value.as_ref())?;
-	if salt_value.is_none() {
+	if salt_value.is_none() && variant.requires_ikm() {
 		eprintln!("info: default salt = empty string");
 	}
 	let info_text: String = Input::new()
@@ -778,8 +822,9 @@ fn interactive_hkdf() -> Result<(), Box<dyn Error>> {
 		return Ok(());
 	}
 	let options = kdf_commands::HkdfCliOptions {
-		algorithm,
-		ikm: ikm.into_bytes(),
+		variant,
+		ikm,
+		prk,
 		salt: salt_bytes,
 		info: info_bytes,
 		length,
@@ -822,19 +867,21 @@ fn interactive_kdf_menu() -> Result<(), Box<dyn Error>> {
 			1 => {
 				let password =
 					prompt_password("Enter password for Scrypt")?;
-				let config = get_scrypt_config_interactive()?;
+				let (config, preset) =
+					get_scrypt_config_interactive()?;
 				let hash_only = Confirm::new()
 					.with_prompt("Emit only the derived key output?")
 					.default(false)
 					.interact()?;
 				kdf_commands::derive_scrypt(
-					&password, &config, hash_only,
+					&password, &config, preset, None, hash_only,
 				)?;
 			}
 			2 => {
 				let password =
 					prompt_password("Enter password for PBKDF2")?;
-				let config = get_pbkdf2_config_interactive()?;
+				let (config, preset) =
+					get_pbkdf2_config_interactive()?;
 				let variants = vec!["sha256", "sha512"];
 				let variant_idx = Select::new()
 					.with_prompt("Select PBKDF2 digest variant")
@@ -846,7 +893,8 @@ fn interactive_kdf_menu() -> Result<(), Box<dyn Error>> {
 					.default(false)
 					.interact()?;
 				kdf_commands::derive_pbkdf2(
-					&password, scheme, &config, hash_only,
+					&password, scheme, &config, preset, None,
+					hash_only,
 				)?;
 			}
 			3 => {
@@ -1235,22 +1283,59 @@ fn get_argon2_config_interactive(
 	})
 }
 
-fn get_scrypt_config_interactive(
-) -> Result<ScryptConfig, Box<dyn Error>> {
+fn get_scrypt_config_interactive() -> Result<
+	(ScryptConfig, Option<&'static profile::ScryptProfile>),
+	Box<dyn Error>,
+> {
+	let mut options = vec!["Custom parameters".to_string()];
+	options.extend(profile::SCRYPT_PROFILES.iter().map(|preset| {
+		format!("{} — {}", preset.id, preset.description)
+	}));
+	let selection = Select::new()
+		.with_prompt("Select scrypt preset (or Custom)")
+		.items(&options)
+		.default(0)
+		.interact()?;
+	let preset: Option<&'static profile::ScryptProfile> =
+		if selection == 0 {
+			None
+		} else {
+			Some(&profile::SCRYPT_PROFILES[selection - 1])
+		};
+	if let Some(profile) = preset {
+		println!(
+		"Using preset `{}` (log_n={}, r={}, p={}, salt_len={} bytes). Values you enter must meet or exceed these minimums.",
+		profile.id,
+		profile.log_n,
+		profile.r,
+		profile.p,
+		profile.salt_len,
+	);
+	}
+	let default_log_n = preset.map_or(15, |p| p.log_n);
+	let default_r = preset.map_or(8, |p| p.r);
+	let default_p = preset.map_or(1, |p| p.p);
 	let log_n: u8 = Input::new()
 		.with_prompt("Scrypt log_n (2^n)")
-		.default(15)
+		.default(default_log_n)
 		.interact_text()?;
 	let r: u32 = Input::new()
 		.with_prompt("Scrypt r")
-		.default(8)
+		.default(default_r)
 		.interact_text()?;
 	let p: u32 = Input::new()
 		.with_prompt("Scrypt p")
-		.default(1)
+		.default(default_p)
 		.interact_text()?;
-
-	Ok(ScryptConfig { log_n, r, p })
+	if let Some(profile) = preset {
+		if log_n < profile.log_n || r < profile.r || p < profile.p {
+			return Err(Box::new(io::Error::new(
+				io::ErrorKind::InvalidInput,
+				"Supplied parameters must meet or exceed profile minimums",
+			)));
+		}
+	}
+	Ok((ScryptConfig { log_n, r, p }, preset))
 }
 
 fn get_bcrypt_config_interactive(
@@ -1263,21 +1348,61 @@ fn get_bcrypt_config_interactive(
 	Ok(BcryptConfig { cost })
 }
 
-fn get_pbkdf2_config_interactive(
-) -> Result<Pbkdf2Config, Box<dyn Error>> {
+fn get_pbkdf2_config_interactive() -> Result<
+	(Pbkdf2Config, Option<&'static profile::Pbkdf2Profile>),
+	Box<dyn Error>,
+> {
+	let mut options = vec!["Custom parameters".to_string()];
+	options.extend(profile::PBKDF2_PROFILES.iter().map(|preset| {
+		format!("{} — {}", preset.id, preset.description)
+	}));
+	let selection = Select::new()
+		.with_prompt("Select PBKDF2 profile (or Custom)")
+		.items(&options)
+		.default(0)
+		.interact()?;
+	let preset: Option<&'static profile::Pbkdf2Profile> =
+		if selection == 0 {
+			None
+		} else {
+			Some(&profile::PBKDF2_PROFILES[selection - 1])
+		};
+	if let Some(profile) = preset {
+		println!(
+		"Using preset `{}` (rounds {}, salt_len {} bytes, output_len {} bytes). Overrides must be ≥ the preset values.",
+		profile.id,
+		profile.rounds,
+		profile.salt_len,
+		profile.output_len,
+	);
+	}
+	let default_rounds = preset.map_or(100_000, |p| p.rounds);
+	let default_length = preset.map_or(32, |p| p.output_len);
 	let rounds: u32 = Input::new()
 		.with_prompt("PBKDF2 rounds")
-		.default(100_000)
+		.default(default_rounds)
 		.interact_text()?;
 	let output_length: usize = Input::new()
 		.with_prompt("PBKDF2 output length (bytes)")
-		.default(32)
+		.default(default_length)
 		.interact_text()?;
-
-	Ok(Pbkdf2Config {
-		rounds,
-		output_length,
-	})
+	if let Some(profile) = preset {
+		if rounds < profile.rounds
+			|| output_length < profile.output_len
+		{
+			return Err(Box::new(io::Error::new(
+				io::ErrorKind::InvalidInput,
+				"Supplied parameters must meet or exceed profile minimums",
+			)));
+		}
+	}
+	Ok((
+		Pbkdf2Config {
+			rounds,
+			output_length,
+		},
+		preset,
+	))
 }
 
 fn get_balloon_config_interactive(
@@ -1629,36 +1754,51 @@ fn build_cli() -> clap::Command {
 									.default_value("4"),
 							),
 					)
-					.subcommand(
-						clap::command!("scrypt")
-							.about("Derive a key using Scrypt")
-					.arg(
-						Arg::new("password")
-							.long("password")
-							.help("Password to derive (omit to prompt)")
-							.required(false)
-							.conflicts_with("password-stdin"),
-					)
-					.arg(
-						Arg::new("password-stdin")
-							.long("password-stdin")
-							.help("Read password from stdin (newline trimmed)")
-							.action(ArgAction::SetTrue)
-							.conflicts_with("password"),
-					)
-							.arg(
-								Arg::new("hash-only")
-									.long("hash-only")
-									.help("Emit only derived key output")
-									.action(ArgAction::SetTrue),
-							)
-							.arg(
-								Arg::new("log-n")
-									.long("log-n")
-									.value_parser(clap::value_parser!(u8))
-									.help("Scrypt log2(N)")
-									.default_value("15"),
-							)
+		.subcommand(
+			clap::command!("scrypt")
+				.about("Derive a key using Scrypt")
+		.arg(
+			Arg::new("password")
+				.long("password")
+				.help("Password to derive (omit to prompt)")
+				.required(false)
+				.conflicts_with("password-stdin"),
+		)
+		.arg(
+			Arg::new("password-stdin")
+				.long("password-stdin")
+				.help("Read password from stdin (newline trimmed)")
+				.action(ArgAction::SetTrue)
+				.conflicts_with("password"),
+		)
+				.arg(
+					Arg::new("hash-only")
+						.long("hash-only")
+						.help("Emit only derived key output")
+						.action(ArgAction::SetTrue),
+				)
+		.arg(
+			Arg::new("profile")
+				.long("profile")
+				.value_name("ID")
+				.value_parser(PossibleValuesParser::new(
+					profile::scrypt_profile_ids()
+				))
+				.help("Compliance profile preset (e.g., owasp-2024)"),
+		)
+		.arg(
+			Arg::new("salt")
+				.long("salt")
+				.value_name("HEX")
+				.help("Hex-encoded salt to override generated value"),
+		)
+				.arg(
+					Arg::new("log-n")
+						.long("log-n")
+						.value_parser(clap::value_parser!(u8))
+						.help("Scrypt log2(N)")
+						.default_value("15"),
+				)
 							.arg(
 								Arg::new("r")
 									.long("r")
@@ -1674,36 +1814,51 @@ fn build_cli() -> clap::Command {
 									.default_value("1"),
 							),
 					)
-					.subcommand(
-						clap::command!("pbkdf2")
-							.about("Derive a key using PBKDF2")
-					.arg(
-						Arg::new("password")
-							.long("password")
-							.help("Password to derive (omit to prompt)")
-							.required(false)
-							.conflicts_with("password-stdin"),
-					)
-					.arg(
-						Arg::new("password-stdin")
-							.long("password-stdin")
-							.help("Read password from stdin (newline trimmed)")
-							.action(ArgAction::SetTrue)
-							.conflicts_with("password"),
-					)
-							.arg(
-								Arg::new("hash-only")
-									.long("hash-only")
-									.help("Emit only derived key output")
-									.action(ArgAction::SetTrue),
-							)
-							.arg(
-								Arg::new("rounds")
-									.long("rounds")
-									.value_parser(clap::value_parser!(u32))
-									.help("PBKDF2 rounds")
-									.default_value("100000"),
-							)
+		.subcommand(
+			clap::command!("pbkdf2")
+				.about("Derive a key using PBKDF2")
+		.arg(
+			Arg::new("password")
+				.long("password")
+				.help("Password to derive (omit to prompt)")
+				.required(false)
+				.conflicts_with("password-stdin"),
+		)
+		.arg(
+			Arg::new("password-stdin")
+				.long("password-stdin")
+				.help("Read password from stdin (newline trimmed)")
+				.action(ArgAction::SetTrue)
+				.conflicts_with("password"),
+		)
+				.arg(
+					Arg::new("hash-only")
+						.long("hash-only")
+						.help("Emit only derived key output")
+						.action(ArgAction::SetTrue),
+				)
+		.arg(
+			Arg::new("profile")
+				.long("profile")
+				.value_name("ID")
+				.value_parser(PossibleValuesParser::new(
+					profile::pbkdf2_profile_ids()
+				))
+				.help("Compliance profile preset (e.g., nist-sp800-132-2023)"),
+		)
+		.arg(
+			Arg::new("salt")
+				.long("salt")
+				.value_name("HEX")
+				.help("Hex-encoded salt to override generated value"),
+		)
+				.arg(
+					Arg::new("rounds")
+						.long("rounds")
+						.value_parser(clap::value_parser!(u32))
+						.help("PBKDF2 rounds")
+						.default_value("100000"),
+				)
 							.arg(
 								Arg::new("length")
 									.long("length")
@@ -1752,48 +1907,75 @@ fn build_cli() -> clap::Command {
 		.subcommand(
 			clap::command!("hkdf")
 				.about("Derive key material using HKDF (RFC 5869)")
-		.arg(
-			Arg::new("ikm-stdin")
-				.long("ikm-stdin")
-				.help("Read input keying material from stdin")
-				.action(ArgAction::SetTrue)
-				.required(true),
-		)
-		.arg(
-			Arg::new("salt")
-				.long("salt")
-				.value_name("HEX")
-				.help("Optional hex-encoded salt (defaults to empty)"),
-		)
-		.arg(
-			Arg::new("info")
-				.long("info")
-				.value_name("HEX")
-				.help("Optional hex-encoded context info"),
-		)
-		.arg(
-			Arg::new("len")
-				.long("len")
-				.value_parser(clap::value_parser!(usize))
-				.help("Desired derived length in bytes")
-				.required(true),
-		)
-		.arg(
-			Arg::new("hash")
-				.long("hash")
-				.value_parser(["sha256", "sha512", "sha3-256", "sha3-512"])
-				.help("Digest variant for HKDF expand step")
-				.default_value("sha256"),
-		)
-		.arg(
-			Arg::new("hash-only")
-				.long("hash-only")
-				.help("Emit only the derived key hex output")
-				.action(ArgAction::SetTrue),
-		)
-			.after_help(
-				"Salt and info accept hex-encoded strings; omitting --salt defaults to empty salt (stderr warns).",
-			),
+	.arg(
+		Arg::new("ikm")
+			.long("ikm")
+			.value_name("HEX")
+			.help("Hex-encoded input keying material (omit when using --ikm-stdin)")
+			.conflicts_with("ikm-stdin"),
+	)
+	.arg(
+		Arg::new("ikm-stdin")
+			.long("ikm-stdin")
+			.help("Read input keying material from stdin")
+			.action(ArgAction::SetTrue),
+	)
+	.arg(
+		Arg::new("expand-only")
+			.long("expand-only")
+			.help("Skip extract phase and expand using supplied PRK")
+			.action(ArgAction::SetTrue),
+	)
+	.arg(
+		Arg::new("prk")
+			.long("prk")
+			.value_name("PATH")
+			.help("Read PRK bytes from file for expand-only mode")
+			.requires("expand-only")
+			.conflicts_with("prk-stdin"),
+	)
+	.arg(
+		Arg::new("prk-stdin")
+			.long("prk-stdin")
+			.help("Read PRK bytes from stdin for expand-only mode")
+			.action(ArgAction::SetTrue)
+			.requires("expand-only"),
+	)
+	.arg(
+		Arg::new("salt")
+			.long("salt")
+			.value_name("HEX")
+			.help("Optional hex-encoded salt (defaults to empty; ignored for expand-only)"),
+	)
+	.arg(
+		Arg::new("info")
+			.long("info")
+			.value_name("HEX")
+			.help("Optional hex-encoded context info"),
+	)
+	.arg(
+		Arg::new("len")
+			.long("len")
+			.value_parser(clap::value_parser!(usize))
+			.help("Desired derived length in bytes")
+			.required(true),
+	)
+	.arg(
+		Arg::new("hash")
+			.long("hash")
+			.value_parser(["sha256", "sha512", "sha3-256", "sha3-512", "blake3"])
+			.help("Digest variant for HKDF")
+			.default_value("sha256"),
+	)
+	.arg(
+		Arg::new("hash-only")
+			.long("hash-only")
+			.help("Emit only the derived key hex output")
+			.action(ArgAction::SetTrue),
+	)
+		.after_help(
+			"Provide either --ikm <HEX> or --ikm-stdin for extract+expand flows. For expand-only use --expand-only with --prk <PATH> or --prk-stdin.",
+		),
 		)
 		.subcommand(
 			clap::command!("balloon")
@@ -2496,31 +2678,219 @@ fn handle_kdf_command(
 		Some(("scrypt", args)) => {
 			let password = resolve_kdf_password(args)?;
 			let hash_only = args.get_flag("hash-only");
-			let config = ScryptConfig {
-				log_n: *args
-					.get_one::<u8>("log-n")
-					.expect("log-n has default"),
-				r: *args.get_one::<u32>("r").expect("r has default"),
-				p: *args.get_one::<u32>("p").expect("p has default"),
+			let profile =
+				match args.get_one::<String>("profile") {
+					Some(id) => {
+						Some(
+							profile::get_scrypt_profile(id)
+								.ok_or_else(|| {
+									io::Error::new(
+							io::ErrorKind::InvalidInput,
+							format!("Unknown scrypt profile `{}`", id),
+						)
+								})?,
+						)
+					}
+					None => None,
+				};
+			let log_n_source = args.value_source("log-n");
+			let r_source = args.value_source("r");
+			let p_source = args.value_source("p");
+			let mut log_n = *args
+				.get_one::<u8>("log-n")
+				.expect("log-n has default");
+			let mut r =
+				*args.get_one::<u32>("r").expect("r has default");
+			let mut p =
+				*args.get_one::<u32>("p").expect("p has default");
+			if let Some(profile) = profile {
+				if matches!(
+					log_n_source,
+					Some(ValueSource::DefaultValue)
+				) {
+					log_n = profile.log_n;
+				} else if log_n < profile.log_n {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						format!(
+							"Scrypt log_n {} must be >= profile minimum {}",
+							log_n,
+							profile.log_n
+						),
+					)));
+				}
+				if matches!(r_source, Some(ValueSource::DefaultValue))
+				{
+					r = profile.r;
+				} else if r < profile.r {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						format!("Scrypt r {} must be >= profile minimum {}", r, profile.r)
+					)));
+				}
+				if matches!(p_source, Some(ValueSource::DefaultValue))
+				{
+					p = profile.p;
+				} else if p < profile.p {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						format!("Scrypt p {} must be >= profile minimum {}", p, profile.p)
+					)));
+				}
+			}
+			let config = ScryptConfig { log_n, r, p };
+			let salt_override = match args.get_one::<String>("salt") {
+				Some(hex_value) => {
+					let bytes =
+						hex::decode(hex_value).map_err(|err| {
+							io::Error::new(
+								io::ErrorKind::InvalidInput,
+								format!("salt must be hex: {}", err),
+							)
+						})?;
+					if bytes.is_empty() {
+						return Err(Box::new(io::Error::new(
+							io::ErrorKind::InvalidInput,
+							"Scrypt salt must not be empty",
+						)));
+					}
+					if let Some(profile) = profile {
+						if bytes.len() < profile.salt_len {
+							return Err(Box::new(io::Error::new(
+								io::ErrorKind::InvalidInput,
+								format!(
+								"Scrypt salt length {} must be >= profile minimum {} bytes",
+								bytes.len(),
+								profile.salt_len
+							),
+							)));
+						}
+					}
+					Some(
+						ScryptSaltString::b64_encode(&bytes)
+							.map_err(|err| {
+								io::Error::other(err.to_string())
+							})?,
+					)
+				}
+				None => None,
 			};
-			kdf_commands::derive_scrypt(&password, &config, hash_only)
+			kdf_commands::derive_scrypt(
+				&password,
+				&config,
+				profile,
+				salt_override,
+				hash_only,
+			)
 		}
 		Some(("pbkdf2", args)) => {
 			let password = resolve_kdf_password(args)?;
 			let hash_only = args.get_flag("hash-only");
+			let profile =
+				match args.get_one::<String>("profile") {
+					Some(id) => {
+						Some(
+							profile::get_pbkdf2_profile(id)
+								.ok_or_else(|| {
+									io::Error::new(
+							io::ErrorKind::InvalidInput,
+							format!("Unknown PBKDF2 profile `{}`", id),
+						)
+								})?,
+						)
+					}
+					None => None,
+				};
+			let rounds_source = args.value_source("rounds");
+			let length_source = args.value_source("length");
+			let mut rounds = *args
+				.get_one::<u32>("rounds")
+				.expect("rounds has default");
+			let mut output_length = *args
+				.get_one::<usize>("length")
+				.expect("length has default");
+			if let Some(profile) = profile {
+				if matches!(
+					rounds_source,
+					Some(ValueSource::DefaultValue)
+				) {
+					rounds = profile.rounds;
+				} else if rounds < profile.rounds {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						format!(
+							"PBKDF2 rounds {} must be >= profile minimum {}",
+							rounds,
+							profile.rounds
+						),
+					)));
+				}
+				if matches!(
+					length_source,
+					Some(ValueSource::DefaultValue)
+				) {
+					output_length = profile.output_len;
+				} else if output_length < profile.output_len {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						format!(
+							"PBKDF2 length {} must be >= profile minimum {}",
+							output_length,
+							profile.output_len
+						),
+					)));
+				}
+			}
 			let config = Pbkdf2Config {
-				rounds: *args
-					.get_one::<u32>("rounds")
-					.expect("rounds has default"),
-				output_length: *args
-					.get_one::<usize>("length")
-					.expect("length has default"),
+				rounds,
+				output_length,
 			};
 			let scheme = args
 				.get_one::<String>("algorithm")
 				.expect("algorithm has default");
+			let salt_override = match args.get_one::<String>("salt") {
+				Some(hex_value) => {
+					let bytes =
+						hex::decode(hex_value).map_err(|err| {
+							io::Error::new(
+								io::ErrorKind::InvalidInput,
+								format!("salt must be hex: {}", err),
+							)
+						})?;
+					if bytes.is_empty() {
+						return Err(Box::new(io::Error::new(
+							io::ErrorKind::InvalidInput,
+							"PBKDF2 salt must not be empty",
+						)));
+					}
+					if let Some(profile) = profile {
+						if bytes.len() < profile.salt_len {
+							return Err(Box::new(io::Error::new(
+								io::ErrorKind::InvalidInput,
+								format!(
+								"PBKDF2 salt length {} must be >= profile minimum {} bytes",
+								bytes.len(),
+								profile.salt_len
+							),
+							)));
+						}
+					}
+					Some(
+						Pbkdf2SaltString::b64_encode(&bytes)
+							.map_err(|err| {
+								io::Error::other(err.to_string())
+							})?,
+					)
+				}
+				None => None,
+			};
 			kdf_commands::derive_pbkdf2(
-				&password, scheme, &config, hash_only,
+				&password,
+				scheme,
+				&config,
+				profile,
+				salt_override,
+				hash_only,
 			)
 		}
 		Some(("bcrypt", args)) => {
@@ -2534,37 +2904,124 @@ fn handle_kdf_command(
 			kdf_commands::derive_bcrypt(&password, &config, hash_only)
 		}
 		Some(("hkdf", args)) => {
-			if !args.get_flag("ikm-stdin") {
+			let expand_only = args.get_flag("expand-only");
+			let ikm_stdin = args.get_flag("ikm-stdin");
+			let prk_stdin = args.get_flag("prk-stdin");
+			if ikm_stdin && prk_stdin {
 				return Err(Box::new(io::Error::new(
 					io::ErrorKind::InvalidInput,
-					"--ikm-stdin flag must be provided for HKDF",
+					"Cannot read IKM and PRK from stdin in the same invocation",
 				)));
 			}
-			let mut ikm = Vec::new();
-			io::stdin().read_to_end(&mut ikm)?;
-			if ikm.is_empty() {
-				return Err(Box::new(io::Error::new(
-					io::ErrorKind::InvalidInput,
-					"stdin keying material was empty",
-				)));
-			}
-			let salt_arg = args.get_one::<String>("salt");
-			let info_arg = args.get_one::<String>("info");
-			let salt = hkdf::parse_optional_hex("salt", salt_arg)?;
-			let info = hkdf::parse_optional_hex("info", info_arg)?;
-			let length = *args
-				.get_one::<usize>("len")
-				.expect("len is required");
 			let hash = args
 				.get_one::<String>("hash")
 				.expect("hash has default");
 			let algorithm = HkdfAlgorithm::from_str(hash)?;
-			if salt_arg.is_none() {
+			let variant = HKDF_VARIANTS
+				.iter()
+				.find(|variant| {
+					variant.algorithm == algorithm
+						&& variant.mode
+							== if expand_only {
+								HkdfMode::ExpandOnly
+							} else {
+								HkdfMode::ExtractAndExpand
+							}
+				})
+				.copied()
+				.ok_or_else(|| {
+					io::Error::new(
+						io::ErrorKind::InvalidInput,
+						"Unsupported HKDF variant",
+					)
+				})?;
+			let salt_arg = args.get_one::<String>("salt");
+			let info_arg = args.get_one::<String>("info");
+			let salt = hkdf::parse_optional_hex("salt", salt_arg)?;
+			let info = hkdf::parse_optional_hex("info", info_arg)?;
+			if salt_arg.is_none() && !expand_only {
 				eprintln!("info: default salt = empty string");
 			}
+			let mut stdin_consumed = false;
+			let ikm = if expand_only {
+				if ikm_stdin || args.contains_id("ikm") {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						"Expand-only mode must not include IKM input",
+					)));
+				}
+				None
+			} else {
+				let ikm_material = if let Some(hex) =
+					args.get_one::<String>("ikm")
+				{
+					let bytes = hex::decode(hex).map_err(|err| {
+						io::Error::new(
+							io::ErrorKind::InvalidInput,
+							format!("ikm must be hex: {}", err),
+						)
+					})?;
+					SecretMaterial::from_bytes(bytes)
+				} else if ikm_stdin {
+					stdin_consumed = true;
+					SecretMaterial::from_stdin()?
+				} else {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						"Provide --ikm <HEX> or --ikm-stdin for HKDF",
+					)));
+				};
+				if ikm_material.is_empty() {
+					return Err(Box::new(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						"input keying material must not be empty",
+					)));
+				}
+				Some(ikm_material)
+			};
+			let prk = if expand_only {
+				if let Some(path) = args.get_one::<String>("prk") {
+					let prk =
+						SecretMaterial::from_file(Path::new(path))?;
+					if prk.is_empty() {
+						return Err(Box::new(io::Error::new(
+							io::ErrorKind::InvalidInput,
+							"PRK file was empty",
+						)));
+					}
+					Some(prk)
+				} else if prk_stdin {
+					if stdin_consumed {
+						return Err(Box::new(io::Error::new(
+							io::ErrorKind::InvalidInput,
+							"stdin already consumed for IKM",
+						)));
+					}
+					let prk = SecretMaterial::from_stdin()?;
+					if prk.is_empty() {
+						return Err(Box::new(io::Error::new(
+							io::ErrorKind::InvalidInput,
+							"PRK from stdin was empty",
+						)));
+					}
+					Some(prk)
+				} else {
+					eprintln!(
+						"error: {}",
+						hkdf::EXPAND_ONLY_PRK_HINT
+					);
+					process::exit(2);
+				}
+			} else {
+				None
+			};
+			let length = *args
+				.get_one::<usize>("len")
+				.expect("len is required");
 			let options = kdf_commands::HkdfCliOptions {
-				algorithm,
+				variant,
 				ikm,
+				prk,
 				salt,
 				info,
 				length,

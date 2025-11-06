@@ -1,0 +1,37 @@
+{
+  "id": "kdf_hkdf_expand_only",
+  "mode": "kdf",
+  "algorithm": "hkdf-expand-sha512",
+  "input": {
+    "prk_hex": "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5",
+    "info_hex": "696e666f",
+    "len": 64,
+    "salt_hex": "",
+    "check_missing_prk_error": true
+  },
+  "expected_output": {
+    "success": {
+      "digest": "e25b0194a033358ea28be2190be364659eb49294bddae1c306da6c5a07f2e6a0d307baa23cb7e34168f714a09240d0efef5f821f5bbeb08b8dfbfa7dc395feff",
+      "metadata": {
+        "display_name": "HKDF-EXPAND-SHA512",
+        "label": "HKDF-EXPAND",
+        "variant": "hkdf-expand-sha512",
+        "mode": "expand-only",
+        "length": 64,
+        "ikm_length": 0,
+        "prk_length": 32,
+        "salt": "",
+        "info": "696e666f"
+      }
+    },
+    "error": {
+      "message": "error: Expand-only mode requires --prk <PATH> or --prk-stdin",
+      "exit_code": 2
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "HKDF expand-only must require explicit PRK input and enforce RFC 5869 limits.",
+    "skip_reason": null
+  }
+}

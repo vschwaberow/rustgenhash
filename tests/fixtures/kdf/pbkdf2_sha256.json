@@ -14,7 +14,8 @@
       "algorithm": "pbkdf2-sha256",
       "rounds": 100000,
       "output_length": 32,
-      "salt": "/E8IB0nINAoTniN7ZESBkA"
+      "salt": "/E8IB0nINAoTniN7ZESBkA",
+      "salt_length_bytes": 16
     }
   },
   "metadata": {

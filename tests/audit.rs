@@ -60,6 +60,10 @@ fn audit_fixtures_smoke() {
 		"mac_cmac_aes256_file",
 		"mac_poly1305_stdio",
 		"mac_poly1305_key_error",
+		"kdf_hkdf_blake3_basic",
+		"kdf_hkdf_expand_only",
+		"kdf_pbkdf2_profile_nist_sp800132",
+		"kdf_scrypt_profile_owasp",
 	];
 	for required in required_cases {
 		assert!(

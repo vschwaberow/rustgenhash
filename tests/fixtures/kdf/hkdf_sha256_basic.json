@@ -11,9 +11,13 @@
   "expected_output": {
     "digest": "33f4df5eeadc1255748856f1f3c81be1e8cfd58e55a7f61e5abb729c279e922b",
     "metadata": {
-      "hash": "hkdf-sha256",
-      "ikm_length": 11,
+      "display_name": "HKDF-SHA256",
+      "label": "HKDF-SHA256",
+      "variant": "hkdf-sha256",
+      "mode": "extract-expand",
       "length": 32,
+      "ikm_length": 11,
+      "prk_length": 32,
       "salt": "73616c74",
       "info": "617069"
     }

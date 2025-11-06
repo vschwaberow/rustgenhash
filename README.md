@@ -155,12 +155,12 @@ cat payloads.txt | rgh mac --alg blake3-keyed --key tests/fixtures/keys/blake3.k
 | Command | Parameters | Output |
 |---------|------------|--------|
 | `rgh kdf argon2` | `--mem-cost`, `--time-cost`, `--parallelism` | PHC string with Argon2id parameters + JSON metadata |
-| `rgh kdf scrypt` | `--log-n`, `--r`, `--p` | Encoded scrypt string + metadata |
-| `rgh kdf pbkdf2` | `--algorithm {sha256,sha512}`, `--rounds`, `--length` | `$pbkdf2-<digest>$...` plus metadata |
+| `rgh kdf scrypt` | `--log-n`, `--r`, `--p`, `--salt <HEX>`, `--profile <ID>` | Encoded scrypt string + metadata |
+| `rgh kdf pbkdf2` | `--algorithm {sha256,sha512}`, `--rounds`, `--length`, `--salt <HEX>`, `--profile <ID>` | `$pbkdf2-<digest>$...` plus metadata |
 | `rgh kdf bcrypt` | `--cost` | 64 byte hex digest + metadata |
 | `rgh kdf balloon` | `--time-cost`, `--memory-cost`, `--parallelism` | Balloon hash string + metadata |
 | `rgh kdf sha-crypt` | (rounds fixed to 10 000) | `$6$` SHA-crypt string + metadata |
-| `rgh kdf hkdf` | `--ikm-stdin`, `--salt <HEX>`, `--info <HEX>`, `--len <BYTES>`, `--hash {sha256,sha512,sha3-256,sha3-512}` | JSON with algorithm/hash metadata (`--hash-only` emits derived key hex) |
+| `rgh kdf hkdf` | `--ikm-stdin`, `--salt <HEX>`, `--info <HEX>`, `--len <BYTES>`, `--hash {sha256,sha512,sha3-256,sha3-512,blake3}`, `--expand-only`, `--prk`, `--prk-stdin` | JSON with algorithm/hash metadata (`--hash-only` emits derived key hex) |
 
 #### Supported Password Derivation Schemes
 
@@ -173,7 +173,7 @@ cat payloads.txt | rgh mac --alg blake3-keyed --key tests/fixtures/keys/blake3.k
 | Bcrypt | ⚠ Legacy | 72-byte password truncation; preserved for POSIX compatibility. |
 | SHA-crypt (`sha512`) | ⚠ Legacy | Provided for Unix compatibility; migrate to memory-hard schemes. |
 
-HKDF derives keyed material from input keying material (IKM) supplied via stdin. `--salt` and `--info` expect hex strings; omitting `--salt` defaults to an empty salt and prints `info: default salt = empty string` on stderr. Use `--hash` to choose the underlying digest (SHA-2 or SHA-3 families) and `--len` to request the desired output length.
+HKDF derives keyed material from input keying material (IKM) supplied via stdin. `--salt` and `--info` expect hex strings; omitting `--salt` in extract+expand mode defaults to an all-zero salt and prints `info: default salt = empty string` on stderr. Use `--hash` to choose the underlying digest (SHA-2, SHA-3, or `blake3`), `--len` to request the desired output length, and `--expand-only` together with `--prk <PATH>` or `--prk-stdin` when you need the RFC 5869 expand phase against an externally sourced PRK.
 
 Example:
 
@@ -183,8 +183,17 @@ rgh kdf argon2 --mem-cost 131072 --time-cost 4 --parallelism 2 --password-stdin 
 s3cret!
 EOF
 
-# Emit only the derived key for automation
-rgh kdf pbkdf2 --algorithm sha512 --rounds 200000 --length 48 --hash-only --password "correct horse battery"
+# HKDF with the BLAKE3 variant (hash-only output for pipelines)
+printf "ikm" | rgh kdf hkdf --hash blake3 --salt 73616c74 --info 696e666f --len 32 --ikm-stdin --hash-only
+
+# HKDF expand-only mode fed by a PRK file (stderr stays silent on success)
+rgh kdf hkdf --expand-only --prk tests/fixtures/keys/hkdf_prk.key --info 696e666f --len 64 --hash sha512 --hash-only
+
+# PBKDF2 compliance preset (NIST SP 800-132) with deterministic salt for audits
+printf "example-pass" | rgh kdf pbkdf2 --profile nist-sp800-132-2023 --salt 00112233445566778899aabbccddeeff --password-stdin
+
+# Scrypt compliance preset (OWASP 2024) sharing the same fixed salt
+printf "example-pass" | rgh kdf scrypt --profile owasp-2024 --salt 00112233445566778899aabbccddeeff --password-stdin --hash-only
 ```
 
 ### Other utilities

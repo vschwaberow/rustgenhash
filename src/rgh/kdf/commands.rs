@@ -11,7 +11,11 @@ use crate::rgh::hash::{
 	Argon2Config, BalloonConfig, BcryptConfig, PHash, Pbkdf2Config,
 	ScryptConfig,
 };
-use crate::rgh::kdf::hkdf::{self, HkdfAlgorithm, HkdfRequest};
+use crate::rgh::kdf::hkdf::{
+	self, HkdfError, HkdfInput, HkdfMode, HkdfRequest, HkdfVariant,
+};
+use crate::rgh::kdf::profile::{Pbkdf2Profile, ScryptProfile};
+use crate::rgh::kdf::SecretMaterial;
 use argon2::password_hash::{
 	rand_core::OsRng as ArgonOsRng, SaltString as ArgonSaltString,
 };
@@ -25,7 +29,7 @@ use pbkdf2::{
 	},
 	Params as Pbkdf2Params, Pbkdf2,
 };
-use rand_core::OsRng;
+use rand_core::{OsRng, RngCore};
 use scrypt::password_hash::SaltString as ScryptSaltString;
 use serde_json::json;
 use sha_crypt::Sha512Params;
@@ -91,19 +95,60 @@ pub fn derive_argon2(
 pub fn derive_scrypt(
 	password: &str,
 	config: &ScryptConfig,
+	profile: Option<&ScryptProfile>,
+	salt_override: Option<ScryptSaltString>,
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
 	let mut rng = OsRng;
-	let salt = ScryptSaltString::generate(&mut rng);
+	let salt = match salt_override {
+		Some(salt) => salt,
+		None => {
+			if let Some(profile) = profile {
+				let mut salt_bytes = vec![0u8; profile.salt_len];
+				rng.fill_bytes(&mut salt_bytes);
+				ScryptSaltString::b64_encode(&salt_bytes).map_err(
+					|err| io::Error::other(err.to_string()),
+				)?
+			} else {
+				ScryptSaltString::generate(&mut rng)
+			}
+		}
+	};
 	let digest = PHash::hash_scrypt_impl(password, config, &salt)
 		.map_err(|err| io::Error::other(err.to_string()))?;
-	let metadata = json!({
+	let n = 1u64 << config.log_n;
+	let memory_bytes = 128u64 * config.r as u64 * n;
+	let estimated_ops = n * config.p as u64;
+	let mut metadata = json!({
 		"log_n": config.log_n,
 		"r": config.r,
 		"p": config.p,
-		"salt": salt.as_str()
+		"salt": salt.as_str(),
+		"memory_bytes": memory_bytes,
+		"memory_kib": memory_bytes / 1024,
+		"estimated_operations": estimated_ops
 	});
+	let mut salt_buffer =
+		vec![0u8; profile.map_or(16usize, |p| p.salt_len).max(16)];
+	let salt_length_bytes = salt
+		.as_salt()
+		.b64_decode(&mut salt_buffer)
+		.map_err(|err| io::Error::other(err.to_string()))?
+		.len();
+	metadata["salt_length_bytes"] = json!(salt_length_bytes);
+	if let Some(profile) = profile {
+		metadata["profile"] = json!({
+			"id": profile.id,
+			"reference": profile.reference,
+			"description": profile.description,
+			"salt_length": profile.salt_len,
+			"output_length": profile.output_len,
+			"log_n": profile.log_n,
+			"r": profile.r,
+			"p": profile.p
+		});
+	}
 	println!(
 		"{}",
 		render_kdf_output("scrypt", &digest, metadata, hash_only)
@@ -116,12 +161,27 @@ pub fn derive_pbkdf2(
 	password: &str,
 	scheme: &str,
 	config: &Pbkdf2Config,
+	profile: Option<&Pbkdf2Profile>,
+	salt_override: Option<Pbkdf2SaltString>,
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
 	let normalized = normalize_pbkdf2_scheme(scheme)?;
 	let mut rng = OsRng;
-	let salt = Pbkdf2SaltString::generate(&mut rng);
+	let salt = match salt_override {
+		Some(salt) => salt,
+		None => {
+			if let Some(profile) = profile {
+				let mut salt_bytes = vec![0u8; profile.salt_len];
+				rng.fill_bytes(&mut salt_bytes);
+				Pbkdf2SaltString::b64_encode(&salt_bytes).map_err(
+					|err| io::Error::other(err.to_string()),
+				)?
+			} else {
+				Pbkdf2SaltString::generate(&mut rng)
+			}
+		}
+	};
 	let ident = Pbkdf2Ident::new(normalized)
 		.map_err(|err| io::Error::other(err.to_string()))?;
 	let params = Pbkdf2Params {
@@ -138,12 +198,30 @@ pub fn derive_pbkdf2(
 	)
 	.map_err(|err| io::Error::other(err.to_string()))?;
 	let digest = hash.to_string();
-	let metadata = json!({
+	let expected_salt_len = profile.map_or(16usize, |p| p.salt_len);
+	let mut salt_buffer = vec![0u8; expected_salt_len.max(16)];
+	let salt_length = salt
+		.as_salt()
+		.b64_decode(&mut salt_buffer)
+		.map_err(|err| io::Error::other(err.to_string()))?
+		.len();
+	let mut metadata = json!({
 		"rounds": config.rounds,
 		"output_length": config.output_length,
 		"algorithm": normalized,
-		"salt": salt.as_str()
+		"salt": salt.as_str(),
+		"salt_length_bytes": salt_length
 	});
+	if let Some(profile) = profile {
+		metadata["profile"] = json!({
+			"id": profile.id,
+			"reference": profile.reference,
+			"description": profile.description,
+			"salt_length": profile.salt_len,
+			"output_length": profile.output_len,
+			"rounds": profile.rounds
+		});
+	}
 	println!(
 		"{}",
 		render_kdf_output("pbkdf2", &digest, metadata, hash_only)
@@ -219,8 +297,9 @@ pub fn derive_sha_crypt(
 }
 
 pub struct HkdfCliOptions {
-	pub algorithm: HkdfAlgorithm,
-	pub ikm: Vec<u8>,
+	pub variant: HkdfVariant,
+	pub ikm: Option<SecretMaterial>,
+	pub prk: Option<SecretMaterial>,
 	pub salt: Vec<u8>,
 	pub info: Vec<u8>,
 	pub length: usize,
@@ -230,29 +309,55 @@ pub struct HkdfCliOptions {
 pub fn derive_hkdf(
 	options: HkdfCliOptions,
 ) -> Result<(), Box<dyn Error>> {
+	let input = match options.variant.mode {
+		HkdfMode::ExtractAndExpand => options
+			.ikm
+			.map(HkdfInput::Extract)
+			.ok_or(HkdfError::MissingIkm)?,
+		HkdfMode::ExpandOnly => options
+			.prk
+			.map(HkdfInput::Expand)
+			.ok_or(HkdfError::MissingPrk)?,
+	};
 	let request = HkdfRequest {
-		algorithm: options.algorithm,
-		ikm: options.ikm,
+		variant: options.variant,
+		input,
 		salt: options.salt,
 		info: options.info,
 		length: options.length,
 	};
-	let response = hkdf::derive(&request)?;
+	let response = hkdf::derive(request)?;
 	let digest_hex = hex::encode(response.derived_key);
+	let label = match response.variant.mode {
+		HkdfMode::ExtractAndExpand => response.variant.display_name(),
+		HkdfMode::ExpandOnly => "HKDF-EXPAND",
+	};
 	let metadata = json!({
+		"variant": response.variant.identifier(),
+		"display_name": response.variant.display_name(),
+		"label": label,
+		"mode": match response.variant.mode {
+			HkdfMode::ExtractAndExpand => "extract-expand",
+			HkdfMode::ExpandOnly => "expand-only",
+		},
 		"length": response.length,
 		"ikm_length": response.ikm_length,
+		"prk_length": response.prk_length,
 		"salt": hex::encode(response.salt),
 		"info": hex::encode(response.info),
-		"hash": response.algorithm,
 	});
+	let algorithm_tag: &str = if options.hash_only {
+		response.variant.identifier()
+	} else {
+		label
+	};
 	println!(
 		"{}",
 		render_kdf_output(
-			response.algorithm,
+			algorithm_tag,
 			&digest_hex,
 			metadata,
-			options.hash_only
+			options.hash_only,
 		)
 	);
 	Ok(())

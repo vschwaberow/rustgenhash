@@ -1,0 +1,30 @@
+{
+  "id": "kdf_hkdf_blake3_basic",
+  "mode": "kdf",
+  "algorithm": "hkdf-blake3",
+  "input": {
+    "ikm_hex": "696b6d",
+    "salt_hex": "73616c74",
+    "info_hex": "696e666f",
+    "len": 32
+  },
+  "expected_output": {
+    "digest": "75fc4de76f10493c7e6dfa25aac2a1ec108dd5b0517919fd79cfff8e50431b5b",
+    "metadata": {
+      "display_name": "HKDF-BLAKE3",
+      "label": "HKDF-BLAKE3",
+      "variant": "hkdf-blake3",
+      "mode": "extract-expand",
+      "length": 32,
+      "ikm_length": 3,
+      "prk_length": 32,
+      "salt": "73616c74",
+      "info": "696e666f"
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "HKDF-BLAKE3 using stdin IKM with NIST-style salt and info vectors.",
+    "skip_reason": null
+  }
+}

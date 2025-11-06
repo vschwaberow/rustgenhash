@@ -1,0 +1,42 @@
+{
+  "id": "kdf_scrypt_profile_owasp",
+  "mode": "kdf",
+  "algorithm": "SCRYPT",
+  "input": {
+    "password": "example-pass",
+    "salt": "ABEiM0RVZneImaq7zN3u/w",
+    "salt_hex": "00112233445566778899aabbccddeeff",
+    "log_n": 18,
+    "r": 8,
+    "p": 1,
+    "profile_id": "owasp-2024"
+  },
+  "expected_output": {
+    "digest": "$scrypt$ln=18,r=8,p=1$ABEiM0RVZneImaq7zN3u/w$6pLs1NaLzRiHour636Cve8khaCvpu5TOgLfqxOhgCGQ",
+    "metadata": {
+      "estimated_operations": 262144,
+      "log_n": 18,
+      "memory_bytes": 268435456,
+      "memory_kib": 262144,
+      "p": 1,
+      "profile": {
+        "description": "OWASP Password Storage Cheat Sheet (2024) recommendation",
+        "id": "owasp-2024",
+        "log_n": 18,
+        "output_length": 32,
+        "p": 1,
+        "r": 8,
+        "reference": "OWASP Password Storage Cheat Sheet",
+        "salt_length": 16
+      },
+      "r": 8,
+      "salt": "ABEiM0RVZneImaq7zN3u/w",
+      "salt_length_bytes": 16
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Ensures scrypt OWASP compliance preset emits deterministic output and profile metadata.",
+    "skip_reason": null
+  }
+}
