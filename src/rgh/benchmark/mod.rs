@@ -233,6 +233,12 @@ pub struct BenchmarkSummary {
 	pub scenario: BenchmarkScenario,
 	pub cases: Vec<BenchmarkResult>,
 	pub environment: Option<BenchmarkEnvironment>,
+	#[serde(default)]
+	pub runtime_planned_seconds: Option<f64>,
+	#[serde(default)]
+	pub runtime_planned_iterations: Option<u64>,
+	#[serde(default)]
+	pub runtime_actual_seconds: Option<f64>,
 }
 
 impl BenchmarkSummary {
@@ -247,6 +253,9 @@ impl BenchmarkSummary {
 			scenario,
 			cases,
 			environment: Some(BenchmarkEnvironment::detect()),
+			runtime_planned_seconds: None,
+			runtime_planned_iterations: None,
+			runtime_actual_seconds: None,
 		})
 	}
 
@@ -255,6 +264,17 @@ impl BenchmarkSummary {
 			case.validate()?;
 		}
 		Ok(())
+	}
+
+	pub fn set_runtime_metadata(
+		&mut self,
+		planned_seconds: Option<f64>,
+		planned_iterations: Option<u64>,
+		actual_seconds: Option<f64>,
+	) {
+		self.runtime_planned_seconds = planned_seconds;
+		self.runtime_planned_iterations = planned_iterations;
+		self.runtime_actual_seconds = actual_seconds;
 	}
 }
 
@@ -375,6 +395,63 @@ pub fn format_summary_banner(mode: BenchmarkMode) -> String {
 
 pub fn format_markdown_banner_line(line: &str) -> String {
 	format!("> {}", line)
+}
+
+fn format_seconds(value: f64) -> String {
+	format!("{value:.1}s")
+}
+
+fn runtime_planned_seconds(
+	summary: &BenchmarkSummary,
+) -> Option<f64> {
+	if let Some(seconds) = summary.runtime_planned_seconds {
+		Some(seconds)
+	} else if summary.runtime_planned_iterations.is_none()
+		&& summary.scenario.iterations.is_none()
+	{
+		Some(summary.scenario.duration_seconds as f64)
+	} else {
+		None
+	}
+}
+
+pub fn runtime_banner_line(summary: &BenchmarkSummary) -> String {
+	let planned_text =
+		if let Some(seconds) = summary.runtime_planned_seconds {
+			format!("Planned {}", format_seconds(seconds))
+		} else if let Some(iterations) = summary
+			.runtime_planned_iterations
+			.or(summary.scenario.iterations)
+		{
+			format!("Planned iterations {}", iterations)
+		} else {
+			"Planned unknown".to_string()
+		};
+
+	let actual_text =
+		if let Some(seconds) = summary.runtime_actual_seconds {
+			format!("Actual {}", format_seconds(seconds))
+		} else {
+			"Actual unknown".to_string()
+		};
+
+	let delta_text = if let (Some(actual), Some(planned)) = (
+		summary.runtime_actual_seconds,
+		runtime_planned_seconds(summary),
+	) {
+		let diff = actual - planned;
+		let sign = if diff >= 0.0 { "+" } else { "" };
+		Some(format!(" ({}{:.1}s)", sign, diff))
+	} else {
+		None
+	};
+
+	format!(
+		"{} · {}{}",
+		planned_text,
+		actual_text,
+		delta_text.unwrap_or_default()
+	)
 }
 
 pub const SUMMARY_TABLE_COLUMNS: &[BenchmarkColumnFormat] = &[
@@ -689,6 +766,12 @@ pub fn render_console_summary(
 			let _ = writeln!(out, "    Tool: rgh {}", version);
 		}
 	}
+	if summary.runtime_planned_seconds.is_some()
+		|| summary.runtime_planned_iterations.is_some()
+		|| summary.runtime_actual_seconds.is_some()
+	{
+		let _ = writeln!(out, "{}", runtime_banner_line(summary));
+	}
 	let _ = writeln!(out);
 	let _ = writeln!(
 		out,
@@ -771,6 +854,12 @@ pub fn render_markdown_summary(summary: &BenchmarkSummary) -> String {
 				env_bits.join(" · ")
 			));
 		}
+	}
+	if summary.runtime_planned_seconds.is_some()
+		|| summary.runtime_planned_iterations.is_some()
+		|| summary.runtime_actual_seconds.is_some()
+	{
+		lines.push(format!("> {}", runtime_banner_line(summary)));
 	}
 	lines.push(String::new());
 	lines.push("| Algorithm | Profile | Ops/sec (kops) | Median ms | P95 ms | Samples | Status | Notes |".to_string());

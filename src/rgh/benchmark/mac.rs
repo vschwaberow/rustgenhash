@@ -4,10 +4,10 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
 use super::{
-	format_benchmark_banner, format_metric, BenchmarkBannerContext,
-	BenchmarkError, BenchmarkResult, BenchmarkScenario,
-	BenchmarkSummary, MetricKind, SharedBenchmarkArgs,
-	DEFAULT_MAC_MESSAGE_BYTES,
+	format_benchmark_banner, format_metric, runtime_banner_line,
+	BenchmarkBannerContext, BenchmarkError, BenchmarkResult,
+	BenchmarkScenario, BenchmarkSummary, MetricKind,
+	SharedBenchmarkArgs, DEFAULT_MAC_MESSAGE_BYTES,
 };
 use crate::rgh::mac::commands::legacy_warning_message;
 use crate::rgh::mac::executor::consume_bytes;
@@ -29,6 +29,7 @@ pub fn run_mac_benchmarks(
 	mut scenario: BenchmarkScenario,
 	shared: &SharedBenchmarkArgs,
 ) -> Result<BenchmarkSummary, BenchmarkError> {
+	let wall_start = Instant::now();
 	let payload_bytes =
 		shared.message_bytes.unwrap_or(DEFAULT_MAC_MESSAGE_BYTES);
 	let payload = build_payload(payload_bytes);
@@ -56,7 +57,20 @@ pub fn run_mac_benchmarks(
 	scenario.algorithms =
 		cases.iter().map(|case| case.algorithm.clone()).collect();
 
-	BenchmarkSummary::new(scenario, cases)
+	let planned_seconds = if scenario.iterations.is_none() {
+		Some(scenario.duration_seconds as f64)
+	} else {
+		None
+	};
+	let planned_iterations = scenario.iterations;
+	let mut summary = BenchmarkSummary::new(scenario, cases)?;
+	let actual_seconds = Some(wall_start.elapsed().as_secs_f64());
+	summary.set_runtime_metadata(
+		planned_seconds,
+		planned_iterations,
+		actual_seconds,
+	);
+	Ok(summary)
 }
 
 pub fn print_mac_report(
@@ -68,6 +82,7 @@ pub fn print_mac_report(
 			.with_payload_bytes(Some(payload_bytes));
 	println!();
 	println!("{}", format_benchmark_banner(&context));
+	println!("{}", runtime_banner_line(summary));
 	println!(
 		"{:<16} {:>10} {:>18} {:>14} {:>14} {:>8}  Notes",
 		"Algorithm",

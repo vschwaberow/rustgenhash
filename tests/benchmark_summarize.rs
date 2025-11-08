@@ -50,7 +50,10 @@ fn write_summary_fixture(path: &Path) {
 			"os": "linux",
 			"cpu": "amd64",
 			"tool_version": "0.11.0"
-		}
+		},
+		"runtime_planned_seconds": 5.0,
+		"runtime_planned_iterations": 40,
+		"runtime_actual_seconds": 5.3
 	});
 	fs::write(path, serde_json::to_string_pretty(&payload).unwrap())
 		.expect("write summary fixture");
@@ -78,6 +81,7 @@ fn markdown_summary_table_emits_expected_rows() {
 		String::from_utf8(assert.get_output().stdout.clone())
 			.expect("stdout utf8");
 	assert!(stdout.contains("> === Benchmark Summary: MAC ==="));
+	assert!(stdout.contains("> Planned 5.0s · Actual 5.3s"));
 	assert!(stdout.contains("Ops/sec (kops)"));
 	assert!(stdout.contains("kops/s"));
 	assert!(stdout.contains(" ms"));
@@ -111,6 +115,7 @@ fn console_summary_emits_banner_before_metadata() {
 		stdout.contains("Benchmark summary from"),
 		"metadata block should remain after the banner"
 	);
+	assert!(stdout.contains("Planned 5.0s · Actual 5.3s"));
 	assert!(stdout.contains("Ops/sec (kops)"));
 	assert!(stdout.contains("kops/s"));
 	assert!(stdout.contains(" ms"));

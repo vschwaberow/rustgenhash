@@ -40,6 +40,8 @@ fn mac_benchmark_prints_table_and_writes_json() {
 			.expect("stdout utf8");
 	assert!(stdout.contains("=== MAC Benchmarks (duration"));
 	assert!(stdout.contains("payload 256 bytes"));
+	assert!(stdout.contains("Planned"));
+	assert!(stdout.contains("Actual"));
 	assert!(stdout.contains("Ops/sec (kops)"));
 	assert!(stdout.contains("kops/s"));
 	assert!(stdout.contains(" ms"));
@@ -53,6 +55,7 @@ fn mac_benchmark_prints_table_and_writes_json() {
 	let payload: Value =
 		serde_json::from_str(&json_str).expect("json payload");
 	assert_eq!(payload["scenario"]["mode"], "mac");
+	assert!(payload["runtime_actual_seconds"].as_f64().is_some());
 	let cases = payload["cases"].as_array().expect("cases array");
 	assert_eq!(cases.len(), 2);
 	let mut algorithms = cases
@@ -96,6 +99,10 @@ fn mac_benchmark_prints_table_and_writes_json() {
 	assert!(
 		!json_stdout.contains("=== MAC Benchmarks"),
 		"json flag must suppress banner"
+	);
+	assert!(
+		!json_stdout.contains("Planned"),
+		"json flag must suppress runtime banner"
 	);
 	assert!(
 		!json_stdout.contains("kops/s"),

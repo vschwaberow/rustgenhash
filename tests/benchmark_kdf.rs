@@ -48,6 +48,7 @@ fn kdf_benchmark_emits_json_with_profiles() {
 	let payload: Value =
 		serde_json::from_str(&json_str).expect("json payload");
 	assert_eq!(payload["scenario"]["mode"], "kdf");
+	assert!(payload["runtime_actual_seconds"].as_f64().is_some());
 	let cases = payload["cases"].as_array().expect("cases array");
 	assert_eq!(cases.len(), 2);
 	for case in cases {
@@ -78,6 +79,8 @@ fn kdf_benchmark_emits_json_with_profiles() {
 		console_stdout.contains("=== KDF Benchmarks (duration 3s")
 	);
 	assert!(console_stdout.contains("iterations auto"));
+	assert!(console_stdout.contains("Planned"));
+	assert!(console_stdout.contains("Actual"));
 	assert!(console_stdout.contains("Ops/sec (kops)"));
 	assert!(console_stdout.contains("kops/s"));
 	assert!(console_stdout.contains(" ms"));
@@ -92,6 +95,10 @@ fn kdf_benchmark_emits_json_with_profiles() {
 	assert!(
 		!json_stdout.contains("kops/s"),
 		"json flag must keep throughput numeric"
+	);
+	assert!(
+		!json_stdout.contains("Planned"),
+		"json flag must suppress runtime banner"
 	);
 	assert!(
 		!json_stdout.contains(" ms"),

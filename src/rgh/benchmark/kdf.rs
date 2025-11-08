@@ -4,10 +4,10 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
 use super::{
-	format_benchmark_banner, format_metric, BenchmarkBannerContext,
-	BenchmarkError, BenchmarkResult, BenchmarkScenario,
-	BenchmarkSummary, MetricKind, SharedBenchmarkArgs,
-	KDF_SAMPLE_TARGET,
+	format_benchmark_banner, format_metric, runtime_banner_line,
+	BenchmarkBannerContext, BenchmarkError, BenchmarkResult,
+	BenchmarkScenario, BenchmarkSummary, MetricKind,
+	SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
 };
 use crate::rgh::hash::{PHash, Pbkdf2Config, ScryptConfig};
 use crate::rgh::kdf::hkdf::{
@@ -147,6 +147,7 @@ pub fn run_kdf_benchmarks(
 	mut scenario: BenchmarkScenario,
 	shared: &SharedBenchmarkArgs,
 ) -> Result<BenchmarkSummary, BenchmarkError> {
+	let wall_start = Instant::now();
 	let mut cases = Vec::with_capacity(scenario.algorithms.len());
 	let mut canonical_algorithms =
 		Vec::with_capacity(scenario.algorithms.len());
@@ -197,7 +198,20 @@ pub fn run_kdf_benchmarks(
 
 	scenario.algorithms = canonical_algorithms;
 	scenario.profiles = normalized_profiles;
-	BenchmarkSummary::new(scenario, cases)
+	let planned_seconds = if scenario.iterations.is_none() {
+		Some(scenario.duration_seconds as f64)
+	} else {
+		None
+	};
+	let planned_iterations = scenario.iterations;
+	let mut summary = BenchmarkSummary::new(scenario, cases)?;
+	let actual_seconds = Some(wall_start.elapsed().as_secs_f64());
+	summary.set_runtime_metadata(
+		planned_seconds,
+		planned_iterations,
+		actual_seconds,
+	);
+	Ok(summary)
 }
 
 pub fn print_kdf_report(summary: &BenchmarkSummary) {
@@ -205,6 +219,7 @@ pub fn print_kdf_report(summary: &BenchmarkSummary) {
 		BenchmarkBannerContext::from_scenario(&summary.scenario);
 	println!();
 	println!("{}", format_benchmark_banner(&context));
+	println!("{}", runtime_banner_line(summary));
 	println!(
 		"{:<18} {:>10} {:>18} {:>14} {:>8}  Notes",
 		"Algorithm",

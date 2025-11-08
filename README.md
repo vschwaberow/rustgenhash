@@ -223,7 +223,7 @@ rgh benchmark summarize --input target/benchmark/mac-comparison.json --format ma
 
 Markdown output emitted by the summarizer already contains the compliance badges (`✅ PASS` / `⚠ WARN`), ops/sec or median latency columns (depending on the mode), and a note column that merges CLI warnings (e.g., Poly1305 key reuse or sample-count reminders) so you can paste the block into README files or QA dossiers without further editing.
 
-Console benchmark runs insert a blank line plus a banner such as `=== MAC Benchmarks (duration 5s, iterations auto, payload 1024 bytes) ===` or `=== KDF Benchmarks (duration 3s, iterations auto) ===` before each table and now label every numeric column with explicit units (`Ops/sec (kops)` and `0.245 ms`-style latencies). Pass `--json` to keep stdout machine-readable—the manifests still carry raw floats. The summarizer mirrors both the banner and the unitized columns for console and Markdown formats (Markdown begins with `> === Benchmark Summary: MAC ===` so evidence paste remains script-safe).
+Console benchmark runs insert a blank line plus a banner such as `=== MAC Benchmarks (duration 5s, iterations auto, payload 1024 bytes) ===` or `=== KDF Benchmarks (duration 3s, iterations auto) ===` before each table, label every numeric column with explicit units, **and** show the runtime banner `Planned Xs · Actual Ys (±Δs)` directly beneath the header so performance drift is obvious. Pass `--json` to keep stdout machine-readable—the manifests still carry raw floats. The summarizer mirrors both the runtime line and the main banner for console and Markdown formats (Markdown begins with `> === Benchmark Summary: MAC ===` plus the same runtime text so evidence paste remains script-safe).
 
 ### Other utilities
 
