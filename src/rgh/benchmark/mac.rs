@@ -3,6 +3,9 @@
 // File: benchmark/mac.rs
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
+use super::warnings::{
+	section_for_cases, WarningRenderStyle, WarningSource,
+};
 use super::{
 	format_benchmark_banner, format_metric, runtime_banner_line,
 	BenchmarkBannerContext, BenchmarkError, BenchmarkResult,
@@ -122,8 +125,18 @@ pub fn print_mac_report(
 			status,
 			case.notes.as_deref().unwrap_or("-"),
 		);
-		for warning in &case.warnings {
-			println!("    warning: {}", warning);
+	}
+	let warnings_section = section_for_cases(
+		&summary.cases,
+		WarningRenderStyle::Console,
+		"MAC Benchmark Run",
+		WarningSource::Mac,
+	);
+	if !warnings_section.is_empty() {
+		println!();
+		println!("{}", warnings_section.heading());
+		for line in warnings_section.render_lines() {
+			println!("{}", line);
 		}
 	}
 }

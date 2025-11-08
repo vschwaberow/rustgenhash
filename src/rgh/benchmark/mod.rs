@@ -20,6 +20,9 @@ use zeroize::Zeroizing;
 pub mod digest;
 pub mod kdf;
 pub mod mac;
+pub mod warnings;
+
+use self::warnings::{section_for_summary, WarningRenderStyle};
 
 pub use digest::{
 	digest_benchmark_presets, kdf_benchmark_presets,
@@ -806,8 +809,14 @@ pub fn render_console_summary(
 			compliance_badge(case),
 			case.notes.as_deref().unwrap_or("-"),
 		);
-		for warning in &case.warnings {
-			let _ = writeln!(out, "    warning: {}", warning);
+	}
+	let warnings_section =
+		section_for_summary(summary, WarningRenderStyle::Console);
+	if !warnings_section.is_empty() {
+		let _ = writeln!(out);
+		let _ = writeln!(out, "{}", warnings_section.heading());
+		for line in warnings_section.render_lines() {
+			let _ = writeln!(out, "{}", line);
 		}
 	}
 	out
@@ -868,17 +877,8 @@ pub fn render_markdown_summary(summary: &BenchmarkSummary) -> String {
 		let profile = case.profile.as_deref().unwrap_or("—");
 		let mut note =
 			case.notes.clone().unwrap_or_else(|| "—".into());
-		if !case.warnings.is_empty() {
-			if note == "—" {
-				note.clear();
-			}
-			if !note.is_empty() {
-				note.push(' ');
-			}
-			note.push_str(&case.warnings.join(" / "));
-		}
-		if note.is_empty() {
-			note.push('—');
+		if note.trim().is_empty() {
+			note = "—".into();
 		}
 		let sanitized_note =
 			note.replace('|', "\\|").replace('\n', "<br>");
@@ -905,6 +905,12 @@ pub fn render_markdown_summary(summary: &BenchmarkSummary) -> String {
 		));
 	}
 	lines.push(String::new());
+	let warnings_section =
+		section_for_summary(summary, WarningRenderStyle::Markdown);
+	if !warnings_section.is_empty() {
+		lines.push(warnings_section.heading().to_string());
+		lines.extend(warnings_section.render_lines());
+	}
 	lines.join("\n")
 }
 

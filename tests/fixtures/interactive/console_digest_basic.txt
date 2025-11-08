@@ -1,0 +1,3 @@
+rgh-console# digest string --algorithm blake3 "alpha"
+644a9bc57c6063e2ba4028fa73ed585170ae7db8ac7723d32be49c021a0225f5 alpha
+rgh-console# exit

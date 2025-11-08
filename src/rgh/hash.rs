@@ -15,6 +15,7 @@ use crate::rgh::output::{
 	DigestSource, OutputError, OutputFormatProfile,
 	SerializationResult,
 };
+use crate::rgh::weak;
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
 	Argon2,
@@ -91,6 +92,31 @@ pub fn algorithm_uses_asm(algorithm: &str) -> bool {
 	ASM_ACCEL_DIGESTS
 		.iter()
 		.any(|candidate| candidate.eq_ignore_ascii_case(&needle))
+}
+
+#[derive(Clone, Debug)]
+pub struct WeakAlgorithmWarning {
+	pub severity_icon: &'static str,
+	pub headline: String,
+	pub body: String,
+	pub references: &'static [&'static str],
+}
+
+impl From<weak::WarningMessage> for WeakAlgorithmWarning {
+	fn from(value: weak::WarningMessage) -> Self {
+		Self {
+			severity_icon: value.severity_icon,
+			headline: value.headline,
+			body: value.body,
+			references: value.references,
+		}
+	}
+}
+
+pub fn weak_algorithm_warning(
+	algorithm: &str,
+) -> Option<WeakAlgorithmWarning> {
+	weak::warning_for(algorithm).map(WeakAlgorithmWarning::from)
 }
 
 pub(crate) fn assemble_output(

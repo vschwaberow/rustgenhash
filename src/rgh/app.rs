@@ -12,6 +12,7 @@ use crate::rgh::benchmark::{
 	BenchmarkMode, HkdfInputMaterial, SharedBenchmarkArgs,
 	DEFAULT_MAC_MESSAGE_BYTES,
 };
+use crate::rgh::console::{self, ConsoleOptions};
 use crate::rgh::digest::commands as digest_commands;
 use crate::rgh::file::{
 	DirectoryHashPlan, ErrorHandlingProfile, ErrorStrategy,
@@ -2534,6 +2535,23 @@ fn build_cli() -> clap::Command {
 				.about("Enter interactive mode")
 			)
 			.subcommand(
+				clap::command!("console")
+					.about("Network appliance-style console shell for chaining rustgenhash commands")
+					.arg(
+						Arg::new("script")
+							.long("script")
+							.value_name("FILE")
+							.help("Run console commands from a script file (non-interactive mode)"),
+					)
+					.arg(
+						Arg::new("ignore-errors")
+							.long("ignore-errors")
+							.action(ArgAction::SetTrue)
+							.help("Continue executing script commands after failures"),
+					)
+					.after_help("Examples:\\n  rgh console\\n  rgh console --script playbook.rgh\\n  rgh console --script playbook.rgh --ignore-errors")
+			)
+			.subcommand(
 				clap::command!("header")
 					.about("Generate a HHHash of HTTP header")
 					.arg(
@@ -2586,7 +2604,8 @@ fn mac_benchmark_subcommand() -> clap::Command {
 			"Example: rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac.json\n",
 			"\n",
 			"Console output now begins with a banner line (e.g. === MAC Benchmarks (...) ===), shows the runtime banner (Planned vs Actual), and labels columns with fixed units (Ops/sec in kops/s, latency in ms). ",
-			"Use --json when you need banner-free, machine-readable output for scripts."
+			"A dedicated `Warnings` section lists weak/legacy algorithms once per run; inline warning rows have been removed. ",
+			"Use --json when you need banner-free, warning-free machine-readable output for scripts."
 		),
 	)
 }
@@ -2652,7 +2671,7 @@ fn kdf_benchmark_subcommand() -> clap::Command {
 			.help("HKDF output length in bytes (defaults to variant length)"),
 	)
 	.after_help(
-		"Console output begins with a banner line (e.g. === KDF Benchmarks (...) ===), shows the runtime banner (Planned vs Actual), and reports throughput/latency with explicit units (kops/s, ms). Use --json to suppress banners and unitized text when piping results.",
+		"Console output begins with a banner line (e.g. === KDF Benchmarks (...) ===), shows the runtime banner (Planned vs Actual), reports throughput/latency with explicit units (kops/s, ms), and concludes with a single `Warnings` block whenever profile guidance or sample-count warnings fire. Use --json to suppress banners, warnings, and unitized text when piping results.",
 	)
 }
 
@@ -2675,6 +2694,9 @@ fn summarize_benchmark_subcommand() -> clap::Command {
 				.value_parser(["console", "markdown"])
 				.default_value("console")
 				.help("Output format: console (default) or markdown"),
+		)
+		.after_help(
+			"Console + Markdown summaries mirror the runtime banner and append a grouped `Warnings` section after the table (one bullet per algorithm) so evidence stays readable; use the original JSON when you need raw manifests."
 		)
 }
 
@@ -3573,6 +3595,28 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 		}
 		Some(("interactive", _)) => {
 			run_interactive_mode()?;
+		}
+		Some(("console", args)) => {
+			let ignore_errors = args.get_flag("ignore-errors");
+			let mut options = if let Some(path) =
+				args.get_one::<String>("script").map(PathBuf::from)
+			{
+				ConsoleOptions::from_script(path, ignore_errors)
+			} else {
+				ConsoleOptions::interactive()
+			};
+			options.ignore_errors = ignore_errors;
+			match console::run_console(options) {
+				Ok(code) => {
+					if code != 0 {
+						process::exit(code);
+					}
+				}
+				Err(err) => {
+					eprintln!("error: {}", err);
+					process::exit(err.exit_code());
+				}
+			}
 		}
 		Some(("string", s)) => {
 			emit_legacy_warning(

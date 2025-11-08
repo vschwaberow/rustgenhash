@@ -23,7 +23,7 @@ fn mac_benchmark_prints_table_and_writes_json() {
 			"--alg",
 			"poly1305",
 			"--alg",
-			"hmac-sha256",
+			"hmac-sha1",
 			"--iterations",
 			"40",
 			"--message-bytes",
@@ -47,8 +47,14 @@ fn mac_benchmark_prints_table_and_writes_json() {
 	assert!(stdout.contains(" ms"));
 	assert!(stdout.contains("Algorithm"));
 	assert!(stdout.contains("poly1305"));
-	assert!(stdout.contains("hmac-sha256"));
+	assert!(stdout.contains("hmac-sha1"));
 	assert!(stdout.contains(output_path.to_str().unwrap()));
+	assert!(stdout.contains("\nWarnings"));
+	assert!(stdout.contains("- hmac-sha1:"));
+	assert!(
+		!stdout.contains("    warning:"),
+		"warnings must move out of table"
+	);
 
 	let json_str = fs::read_to_string(output_path)
 		.expect("benchmark json written");
@@ -65,7 +71,7 @@ fn mac_benchmark_prints_table_and_writes_json() {
 	algorithms.sort();
 	assert_eq!(
 		algorithms,
-		vec!["hmac-sha256".to_string(), "poly1305".to_string()]
+		vec!["hmac-sha1".to_string(), "poly1305".to_string()]
 	);
 	for case in cases {
 		let ops = case["avg_ops_per_sec"].as_f64().unwrap();

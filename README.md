@@ -225,6 +225,26 @@ Markdown output emitted by the summarizer already contains the compliance badges
 
 Console benchmark runs insert a blank line plus a banner such as `=== MAC Benchmarks (duration 5s, iterations auto, payload 1024 bytes) ===` or `=== KDF Benchmarks (duration 3s, iterations auto) ===` before each table, label every numeric column with explicit units, **and** show the runtime banner `Planned Xs · Actual Ys (±Δs)` directly beneath the header so performance drift is obvious. Pass `--json` to keep stdout machine-readable—the manifests still carry raw floats. The summarizer mirrors both the runtime line and the main banner for console and Markdown formats (Markdown begins with `> === Benchmark Summary: MAC ===` plus the same runtime text so evidence paste remains script-safe).
 
+MAC and KDF console runs now keep throughput tables to one row per algorithm while legacy/compliance warnings are consolidated below the table under a `Warnings` heading (one bullet per algorithm, citing NIST SP 800-131A rev.2 / BSI TR-02102-1). `rgh benchmark summarize --format console|markdown` reproduces the same grouped section so audit evidence stays consistent, and `--json` output remains banner- and warning-free for automation.
+
+### Console Command Mode
+
+`rgh console` provides a network-appliance-style prompt for chaining rustgenhash commands without repeatedly prefixing `rgh`. The shell supports history, tab-safe prompts, and a built-in variable store:
+
+```
+$ rgh console
+rgh-console# set $alpha = digest string --algorithm blake3 "alpha"
+644a9bc57c6063e2ba4028fa73ed585170ae7db8ac7723d32be49c021a0225f5 alpha
+rgh-console# show vars
+$alpha = 644a****225f
+rgh-console# compare-hash --expected $alpha fixtures/alpha.txt
+Match confirmed.
+```
+
+- Variables behave like `$name` tokens; `set $name = <command>` runs the command, captures the last line of stdout, redacts it for `show vars`, and stores the full value for reuse.
+- `clear var $name`, `show history`, and `abort` commands mirror familiar network CLI muscle memory; `exit`/`quit` leave the shell.
+- Non-interactive mode executes files of console commands: `rgh console --script playbook.rgh [--ignore-errors]`. Scripts echo `rgh-console(script)# ...` before each command, stop on the first failure (unless `--ignore-errors`), and propagate the failing exit code; undefined variables produce exit code `65` with `error: undefined variable $name` on stderr.
+
 ### Other utilities
 
 Scheme for analyzing a hash:

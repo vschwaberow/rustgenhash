@@ -42,7 +42,7 @@ fn write_summary_fixture(path: &Path) {
 				"p95_latency_ms": 0.73,
 				"compliance": false,
 				"warnings": ["Only 12 samples collected (< 30 target)"] ,
-				"notes": "warning: increase duration"
+		"notes": "warning: increase duration"
 			}
 		],
 		"environment": {
@@ -90,6 +90,11 @@ fn markdown_summary_table_emits_expected_rows() {
 	assert!(stdout.contains("hmac-sha256"));
 	assert!(stdout.contains("✅ PASS"));
 	assert!(stdout.contains("⚠ WARN"));
+	assert!(stdout.contains("### Warnings"));
+	assert!(stdout.contains(
+		"- hmac-sha256: Only 12 samples collected (< 30 target)"
+	));
+	assert!(!stdout.contains("/ Only 12 samples collected"));
 }
 
 #[test]
@@ -119,4 +124,9 @@ fn console_summary_emits_banner_before_metadata() {
 	assert!(stdout.contains("Ops/sec (kops)"));
 	assert!(stdout.contains("kops/s"));
 	assert!(stdout.contains(" ms"));
+	assert!(stdout.contains("\nWarnings"));
+	assert!(stdout.contains(
+		"- hmac-sha256: Only 12 samples collected (< 30 target)"
+	));
+	assert!(!stdout.contains("    warning:"));
 }

@@ -12,6 +12,7 @@ pub mod rgh {
 	pub mod app;
 	pub mod audit;
 	pub mod benchmark;
+	pub mod console;
 	pub mod digest;
 	pub mod file;
 	pub mod hash;
