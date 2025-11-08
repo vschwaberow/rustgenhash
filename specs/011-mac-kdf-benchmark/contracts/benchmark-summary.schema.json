@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustgenhash.dev/schemas/benchmark-summary.schema.json",
+  "title": "BenchmarkSummary",
+  "$comment": "This schema describes the JSON payloads emitted by `rgh benchmark --json/--output` and consumed by `rgh benchmark summarize --input <file>`.",
+  "type": "object",
+  "required": ["scenario", "cases"],
+  "properties": {
+    "scenario": {
+      "type": "object",
+      "description": "Execution context recorded at the start of `rgh benchmark` (mode, algorithms, duration, profile mappings).",
+      "required": ["mode", "algorithms", "duration_seconds"],
+      "properties": {
+        "mode": {"enum": ["mac", "kdf"]},
+        "algorithms": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        },
+        "duration_seconds": {"type": "integer", "minimum": 1, "maximum": 900},
+        "iterations": {"type": "integer", "minimum": 1},
+        "profiles": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "output_path": {"type": "string"},
+        "stdin_required": {"type": "boolean"},
+        "created_at": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "cases": {
+      "type": "array",
+      "description": "Per-algorithm benchmark measurements sorted by the CLI (MAC → ops/sec, KDF → latency).",
+      "items": {
+        "type": "object",
+        "required": [
+          "algorithm",
+          "samples_collected",
+          "avg_ops_per_sec",
+          "median_latency_ms",
+          "p95_latency_ms",
+          "compliance",
+          "warnings"
+        ],
+        "properties": {
+          "algorithm": {"type": "string"},
+          "profile": {"type": "string"},
+          "samples_collected": {"type": "integer", "minimum": 1},
+          "avg_ops_per_sec": {"type": "number", "exclusiveMinimum": 0},
+          "median_latency_ms": {"type": "number", "exclusiveMinimum": 0},
+          "p95_latency_ms": {"type": "number", "exclusiveMinimum": 0},
+          "compliance": {"type": "boolean"},
+          "warnings": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "notes": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "hostname": {"type": "string"},
+        "os": {"type": "string"},
+        "cpu": {"type": "string"},
+        "tool_version": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

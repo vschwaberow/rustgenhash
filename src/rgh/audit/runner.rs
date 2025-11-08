@@ -18,17 +18,17 @@ use super::{
 };
 use crate::rgh::analyze::{compare_hashes, HashAnalyzer};
 use crate::rgh::app::Algorithm;
-use crate::rgh::benchmark::run_benchmarks_to_writer;
+use crate::rgh::benchmark::run_digest_benchmarks;
 use crate::rgh::file::{
 	DirectoryHashPlan, EntryStatus, ErrorHandlingProfile,
 	ErrorStrategy, ProgressConfig, ProgressMode, SymlinkPolicy,
 	ThreadStrategy, WalkOrder,
 };
 use crate::rgh::hash::{
-	digest_bytes_to_record, digest_with_options_collect,
-	serialize_digest_output, Argon2Config, BalloonConfig,
-	BcryptConfig, FileDigestOptions, PHash, Pbkdf2Config,
-	ScryptConfig,
+	asm_accelerated_digests, digest_bytes_to_record,
+	digest_with_options_collect, serialize_digest_output,
+	Argon2Config, BalloonConfig, BcryptConfig, FileDigestOptions,
+	PHash, Pbkdf2Config, ScryptConfig,
 };
 use crate::rgh::kdf::{
 	hkdf::{
@@ -1792,33 +1792,17 @@ fn run_benchmark_case(case: &AuditCase) -> Result<Value, AuditError> {
 			))
 		})?;
 
-	let mut buffer = Vec::new();
 	let algorithms = [algorithm];
-	run_benchmarks_to_writer(&algorithms, iterations, &mut buffer)
-		.map_err(|err| {
+	run_digest_benchmarks(&algorithms, iterations).map_err(
+		|err| {
 			AuditError::Invalid(format!(
 				"Benchmark execution failed for fixture `{}`: {}",
 				case.id, err
 			))
-		})?;
+		},
+	)?;
 
-	let stdout = String::from_utf8(buffer).map_err(|err| {
-		AuditError::Invalid(format!(
-			"Benchmark output not valid UTF-8 for fixture `{}`: {}",
-			case.id, err
-		))
-	})?;
-
-	let asm_enabled = stdout
-		.lines()
-		.find_map(|line| line.strip_prefix("asm_enabled: "))
-		.map(|value| value.trim().eq_ignore_ascii_case("true"))
-		.ok_or_else(|| {
-			AuditError::Invalid(format!(
-				"Benchmark output missing asm_enabled metadata for fixture `{}`",
-				case.id
-			))
-		})?;
+	let asm_enabled = !asm_accelerated_digests().is_empty();
 
 	Ok(json!({ "asm_enabled": asm_enabled }))
 }

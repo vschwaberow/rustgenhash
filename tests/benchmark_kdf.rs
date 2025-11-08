@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+
+use assert_cmd::cargo::cargo_bin_cmd;
+use serde_json::Value;
+use std::fs;
+use std::path::Path;
+
+#[test]
+fn kdf_benchmark_emits_json_with_profiles() {
+	let output_path =
+		Path::new("target/benchmark/kdf-integration.json");
+	if let Some(parent) = output_path.parent() {
+		fs::create_dir_all(parent).expect("create benchmark dir");
+	}
+	let _ = fs::remove_file(output_path);
+
+	let mut cmd = cargo_bin_cmd!("rgh");
+	let assert = cmd
+		.args([
+			"benchmark",
+			"kdf",
+			"--alg",
+			"pbkdf2",
+			"--alg",
+			"scrypt",
+			"--profile",
+			"pbkdf2=nist-sp800-132-2023",
+			"--profile",
+			"scrypt=owasp-2024",
+			"--iterations",
+			"5",
+			"--json",
+			"--output",
+			output_path.to_str().unwrap(),
+			"--yes",
+		])
+		.assert()
+		.success();
+
+	let stdout =
+		String::from_utf8(assert.get_output().stdout.clone())
+			.expect("stdout utf8");
+	assert!(stdout.contains(output_path.to_str().unwrap()));
+
+	let json_str = fs::read_to_string(output_path)
+		.expect("kdf benchmark json written");
+	let payload: Value =
+		serde_json::from_str(&json_str).expect("json payload");
+	assert_eq!(payload["scenario"]["mode"], "kdf");
+	let cases = payload["cases"].as_array().expect("cases array");
+	assert_eq!(cases.len(), 2);
+	for case in cases {
+		assert!(case["median_latency_ms"].as_f64().unwrap() > 0.0);
+		assert!(case["samples_collected"].as_u64().unwrap() >= 1);
+		assert!(case["profile"].is_string());
+	}
+}

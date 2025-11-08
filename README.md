@@ -196,6 +196,33 @@ printf "example-pass" | rgh kdf pbkdf2 --profile nist-sp800-132-2023 --salt 0011
 printf "example-pass" | rgh kdf scrypt --profile owasp-2024 --salt 00112233445566778899aabbccddeeff --password-stdin --hash-only
 ```
 
+### Benchmark commands
+
+Use `rgh benchmark` to measure throughput/latency for MAC and KDF algorithms and to summarize the JSON manifests emitted by `--output`. The MAC runner reuses the verified implementations described above (HMAC, KMAC, CMAC, Poly1305, BLAKE3) with the 1 KiB payload guidance from [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) so you can compare algorithms on equal footing. The KDF runner executes PBKDF2 (NIST SP 800-132 presets), scrypt (OWASP 2024), and HKDF (RFC 5869, including expand-only mode) while flagging compliance issues when median latency exceeds the policy threshold or fewer than 30 samples are collected.
+
+| Command | Key flags | Output |
+|---------|-----------|--------|
+| `rgh benchmark mac --alg <ID> [--alg ...]` | `--duration <window>` or `--iterations <count>`, `--message-bytes <size>`, `--json`, `--output <FILE>`, `--list-algorithms`, `--yes` | Console table (ops/sec + percentiles) and optional JSON (`target/benchmark/*.json`) |
+| `rgh benchmark kdf --alg <pbkdf2|scrypt|hkdf>` | `--profile <alg=id>`, `--salt <HEX>`, `--info <HEX>`, `--ikm/--ikm-stdin`, `--prk/--prk-stdin`, `--length`, shared flags above | Console/KDF table plus compliance warnings (sample count, latency, policy ref) |
+| `rgh benchmark summarize --input <FILE> [--format markdown]` | `--format {console,markdown}` | Re-renders any benchmark JSON as a human-readable block or Markdown table for README/docs |
+
+Examples:
+
+```bash
+# Compare Poly1305 vs HMAC-SHA256 for five seconds
+rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac-comparison.json --yes
+
+# Validate PBKDF2 + scrypt compliance presets (NIST / OWASP) with JSON export
+rgh benchmark kdf --alg pbkdf2 --alg scrypt \
+  --profile pbkdf2=nist-sp800-132-2023 --profile scrypt=owasp-2024 \
+  --duration 3s --json --output target/benchmark/kdf-policy.json --yes
+
+# Convert a benchmark artifact into Markdown for docs/qa/release-readiness.md
+rgh benchmark summarize --input target/benchmark/mac-comparison.json --format markdown
+```
+
+Markdown output emitted by the summarizer already contains the compliance badges (`✅ PASS` / `⚠ WARN`), ops/sec or median latency columns (depending on the mode), and a note column that merges CLI warnings (e.g., Poly1305 key reuse or sample-count reminders) so you can paste the block into README files or QA dossiers without further editing.
+
 ### Other utilities
 
 Scheme for analyzing a hash:

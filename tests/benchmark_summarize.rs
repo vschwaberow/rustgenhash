@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+
+use assert_cmd::cargo::cargo_bin_cmd;
+use serde_json::json;
+use std::fs;
+use std::path::Path;
+
+fn write_summary_fixture(path: &Path) {
+	if let Some(parent) = path.parent() {
+		fs::create_dir_all(parent).expect("create benchmark dir");
+	}
+	let payload = json!({
+		"scenario": {
+			"mode": "mac",
+			"algorithms": ["poly1305", "hmac-sha256"],
+			"duration_seconds": 5,
+			"iterations": 40,
+			"profiles": {},
+			"output_path": "target/benchmark/mac-fixture.json",
+			"stdin_required": false,
+			"created_at": "2025-11-10T12:00:00Z"
+		},
+		"cases": [
+			{
+				"algorithm": "poly1305",
+				"profile": null,
+				"samples_collected": 35,
+				"avg_ops_per_sec": 4123.77,
+				"median_latency_ms": 0.24,
+				"p95_latency_ms": 0.31,
+				"compliance": true,
+				"warnings": [],
+				"notes": "payload 1KiB"
+			},
+			{
+				"algorithm": "hmac-sha256",
+				"profile": null,
+				"samples_collected": 12,
+				"avg_ops_per_sec": 1987.44,
+				"median_latency_ms": 0.58,
+				"p95_latency_ms": 0.73,
+				"compliance": false,
+				"warnings": ["Only 12 samples collected (< 30 target)"] ,
+				"notes": "warning: increase duration"
+			}
+		],
+		"environment": {
+			"hostname": "ci",
+			"os": "linux",
+			"cpu": "amd64",
+			"tool_version": "0.11.0"
+		}
+	});
+	fs::write(path, serde_json::to_string_pretty(&payload).unwrap())
+		.expect("write summary fixture");
+}
+
+#[test]
+fn markdown_summary_table_emits_expected_rows() {
+	let output_path =
+		Path::new("target/benchmark/summary-fixture.json");
+	write_summary_fixture(output_path);
+
+	let assert = cargo_bin_cmd!("rgh")
+		.args([
+			"benchmark",
+			"summarize",
+			"--input",
+			output_path.to_str().unwrap(),
+			"--format",
+			"markdown",
+		])
+		.assert()
+		.success();
+
+	let stdout =
+		String::from_utf8(assert.get_output().stdout.clone())
+			.expect("stdout utf8");
+	assert!(stdout.contains("| Algorithm |"));
+	assert!(stdout.contains("poly1305"));
+	assert!(stdout.contains("hmac-sha256"));
+	assert!(stdout.contains("✅ PASS"));
+	assert!(stdout.contains("⚠ WARN"));
+}

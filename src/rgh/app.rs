@@ -7,7 +7,10 @@
 use crate::rgh::analyze::compare_hashes;
 use crate::rgh::analyze::HashAnalyzer;
 use crate::rgh::benchmark::{
-	digest_benchmark_presets, kdf_benchmark_presets, run_benchmarks,
+	self, digest_benchmark_presets, kdf_benchmark_presets,
+	render_digest_report, run_digest_benchmarks, BenchmarkError,
+	BenchmarkMode, HkdfInputMaterial, SharedBenchmarkArgs,
+	DEFAULT_MAC_MESSAGE_BYTES,
 };
 use crate::rgh::digest::commands as digest_commands;
 use crate::rgh::file::{
@@ -38,7 +41,7 @@ use crate::rgh::random::{RandomNumberGenerator, RngType};
 use crate::rgh::weak::{
 	all_metadata, emit_warning_banner, warning_for,
 };
-use clap::builder::PossibleValuesParser;
+use clap::builder::{PossibleValuesParser, ValueParser};
 use clap::parser::ValueSource;
 use clap::{crate_name, Arg, ArgAction, ArgGroup};
 use clap_complete::{generate, Generator, Shell};
@@ -46,6 +49,7 @@ use colored::*;
 use dialoguer::{Confirm, Input, MultiSelect, Password, Select};
 use pbkdf2::password_hash::SaltString as Pbkdf2SaltString;
 use scrypt::password_hash::SaltString as ScryptSaltString;
+use std::collections::{BTreeMap, VecDeque};
 use std::error::Error;
 use std::fs;
 use std::io::{self, BufRead, Read};
@@ -107,6 +111,192 @@ fn mac_expected_key_length(identifier: &str) -> Option<usize> {
 
 fn is_poly1305(identifier: &str) -> bool {
 	identifier.eq_ignore_ascii_case("poly1305")
+}
+
+fn parse_duration_arg(raw: &str) -> Result<Duration, String> {
+	let trimmed = raw.trim();
+	if trimmed.is_empty() {
+		return Err("duration cannot be empty".into());
+	}
+	let lower = trimmed.to_ascii_lowercase();
+	let (value_str, unit) = if lower.ends_with("ms") {
+		(lower.trim_end_matches("ms"), "ms")
+	} else if lower.ends_with('s') {
+		(lower.trim_end_matches('s'), "s")
+	} else if lower.ends_with('m') {
+		(lower.trim_end_matches('m'), "m")
+	} else if lower.ends_with('h') {
+		(lower.trim_end_matches('h'), "h")
+	} else {
+		(lower.as_str(), "s")
+	};
+	let value = value_str
+		.parse::<u64>()
+		.map_err(|_| format!("invalid duration `{}`", raw))?;
+	if value == 0 {
+		return Err("duration must be greater than zero".into());
+	}
+	let duration = match unit {
+		"ms" => Duration::from_millis(value),
+		"s" => Duration::from_secs(value),
+		"m" => Duration::from_secs(value.saturating_mul(60)),
+		"h" => Duration::from_secs(value.saturating_mul(3600)),
+		_ => Duration::from_secs(value),
+	};
+	Ok(duration)
+}
+
+fn parse_hex_field(
+	field: &str,
+	value: Option<&String>,
+) -> Result<Option<Vec<u8>>, BenchmarkError> {
+	match value {
+		Some(raw) => {
+			let normalized = raw.trim();
+			if normalized.is_empty() {
+				return Err(BenchmarkError::validation(format!(
+					"{} must not be empty",
+					field
+				)));
+			}
+			let bytes = hex::decode(normalized).map_err(|err| {
+				BenchmarkError::validation(format!(
+					"{} must be hex: {}",
+					field, err
+				))
+			})?;
+			Ok(Some(bytes))
+		}
+		None => Ok(None),
+	}
+}
+
+fn parse_sensitive_hex_field(
+	field: &str,
+	value: Option<&String>,
+) -> Result<Option<Zeroizing<Vec<u8>>>, BenchmarkError> {
+	Ok(parse_hex_field(field, value)?.map(Zeroizing::new))
+}
+
+fn read_stdin_sensitive(
+	label: &str,
+) -> Result<Zeroizing<Vec<u8>>, BenchmarkError> {
+	let mut buffer = Vec::new();
+	io::stdin()
+		.read_to_end(&mut buffer)
+		.map_err(BenchmarkError::Io)?;
+	if buffer.is_empty() {
+		return Err(BenchmarkError::validation(format!(
+			"{} from stdin was empty",
+			label
+		)));
+	}
+	Ok(Zeroizing::new(buffer))
+}
+
+fn collect_profile_overrides(
+	matches: &clap::ArgMatches,
+	canonical_algs: &[String],
+) -> Result<BTreeMap<String, String>, BenchmarkError> {
+	let mut overrides = BTreeMap::new();
+	let mut defaults = VecDeque::new();
+	if let Some(values) = matches.get_many::<String>("profile") {
+		for raw in values {
+			if let Some((alg, profile)) = raw.split_once('=') {
+				let canonical =
+					benchmark::kdf::canonical_algorithm_id(alg)?;
+				let trimmed = profile.trim();
+				if trimmed.is_empty() {
+					return Err(BenchmarkError::validation(format!(
+						"profile assignment for {} must not be empty",
+						canonical
+					)));
+				}
+				if overrides
+					.insert(canonical.clone(), trimmed.to_string())
+					.is_some()
+				{
+					return Err(BenchmarkError::validation(format!(
+						"duplicate --profile for {}",
+						canonical
+					)));
+				}
+			} else {
+				defaults.push_back(raw.trim().to_string());
+			}
+		}
+	}
+	for alg in canonical_algs {
+		if !benchmark::kdf::algorithm_requires_profile(alg)? {
+			continue;
+		}
+		if overrides.contains_key(alg) {
+			continue;
+		}
+		let value = defaults.pop_front().ok_or_else(|| {
+			BenchmarkError::validation(format!(
+				"missing --profile assignment for {}",
+				alg
+			))
+		})?;
+		overrides.insert(alg.clone(), value);
+	}
+	if let Some(extra) = defaults.pop_front() {
+		return Err(BenchmarkError::validation(format!(
+			"unused --profile value `{}`",
+			extra
+		)));
+	}
+	Ok(overrides)
+}
+
+fn parse_hkdf_inputs(
+	matches: &clap::ArgMatches,
+) -> Result<Option<HkdfInputMaterial>, BenchmarkError> {
+	let salt =
+		parse_hex_field("salt", matches.get_one::<String>("salt"))?;
+	let info =
+		parse_hex_field("info", matches.get_one::<String>("info"))?;
+	let mut ikm = parse_sensitive_hex_field(
+		"ikm",
+		matches.get_one::<String>("ikm"),
+	)?;
+	let mut prk = parse_sensitive_hex_field(
+		"prk",
+		matches.get_one::<String>("prk"),
+	)?;
+	if matches.get_flag("ikm-stdin") {
+		if ikm.is_some() {
+			return Err(BenchmarkError::validation(
+				"Provide either --ikm HEX or --ikm-stdin",
+			));
+		}
+		ikm = Some(read_stdin_sensitive("HKDF IKM")?);
+	}
+	if matches.get_flag("prk-stdin") {
+		if prk.is_some() {
+			return Err(BenchmarkError::validation(
+				"Provide either --prk HEX or --prk-stdin",
+			));
+		}
+		prk = Some(read_stdin_sensitive("HKDF PRK")?);
+	}
+	let length = matches.get_one::<usize>("length").copied();
+	if salt.is_none()
+		&& info.is_none()
+		&& ikm.is_none()
+		&& prk.is_none()
+		&& length.is_none()
+	{
+		return Ok(None);
+	}
+	Ok(Some(HkdfInputMaterial {
+		salt,
+		info,
+		ikm,
+		prk,
+		length,
+	}))
 }
 
 fn digest_algorithm_help_text() -> &'static str {
@@ -1151,7 +1341,10 @@ fn interactive_run_benchmarks() -> Result<(), Box<dyn Error>> {
 		.map(|i| Algorithm::iter().nth(i).unwrap())
 		.collect();
 
-	run_benchmarks(&selected_algorithms, iterations);
+	let summary =
+		run_digest_benchmarks(&selected_algorithms, iterations)
+			.map_err(|err| Box::new(err) as Box<dyn Error>)?;
+	render_digest_report(&summary);
 
 	Ok(())
 }
@@ -2349,16 +2542,15 @@ fn build_cli() -> clap::Command {
 							.required(true),
 					),
 			)
-					.subcommand(
+			.subcommand(
 				clap::command!("benchmark")
-					.about("Run benchmarks for hash functions")
+					.about("Run benchmarks for digest, MAC, and KDF algorithms")
 					.arg(
 						Arg::new("algorithms")
 							.short('a')
 							.long("algorithms")
 							.value_parser(clap::value_parser!(Algorithm))
-			 //               .multiple_values(true)
-							.help("Specify algorithms to benchmark (default: all)")
+							.help("Specify digest algorithms to benchmark (default: all)")
 					)
 					.arg(
 						Arg::new("iterations")
@@ -2368,7 +2560,296 @@ fn build_cli() -> clap::Command {
 							.default_value("100")
 							.help("Number of iterations for each benchmark")
 					)
+					.subcommand(mac_benchmark_subcommand())
+					.subcommand(kdf_benchmark_subcommand())
+					.subcommand(summarize_benchmark_subcommand())
 	)
+}
+
+fn mac_benchmark_subcommand() -> clap::Command {
+	benchmark_family_subcommand(
+		"mac",
+		"Benchmark MAC algorithms (Poly1305, HMAC, CMAC, etc.)",
+	)
+	.arg(
+		Arg::new("message-bytes")
+			.long("message-bytes")
+			.value_name("BYTES")
+			.value_parser(clap::value_parser!(usize))
+			.default_value("1024")
+			.help(
+				"Payload size per sample (default 1024 bytes, range 64-1048576)",
+			),
+	)
+	.after_help(
+		"Example: rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac.json",
+	)
+}
+
+fn kdf_benchmark_subcommand() -> clap::Command {
+	benchmark_family_subcommand(
+		"kdf",
+		"Benchmark password-based KDF algorithms (PBKDF2, scrypt, HKDF)",
+	)
+	.arg(
+		Arg::new("profile")
+			.long("profile")
+			.value_name("PROFILE")
+			.action(ArgAction::Append)
+			.help(
+				"Profile assignment (e.g. --profile pbkdf2=nist-sp800-132-2023)",
+			),
+	)
+	.arg(
+		Arg::new("salt")
+			.long("salt")
+			.value_name("HEX")
+			.help("Hex-encoded HKDF salt (required when benchmarking HKDF)"),
+	)
+	.arg(
+		Arg::new("info")
+			.long("info")
+			.value_name("HEX")
+			.help("Hex-encoded HKDF info/context (required for HKDF)"),
+	)
+	.arg(
+		Arg::new("ikm")
+			.long("ikm")
+			.value_name("HEX")
+			.help("Hex-encoded HKDF input keying material"),
+	)
+	.arg(
+		Arg::new("ikm-stdin")
+			.long("ikm-stdin")
+			.action(ArgAction::SetTrue)
+			.conflicts_with("ikm")
+			.help("Read HKDF IKM bytes from stdin"),
+	)
+	.arg(
+		Arg::new("prk")
+			.long("prk")
+			.value_name("HEX")
+			.help("Hex-encoded HKDF PRK for expand-only variants"),
+	)
+	.arg(
+		Arg::new("prk-stdin")
+			.long("prk-stdin")
+			.action(ArgAction::SetTrue)
+			.conflicts_with("prk")
+			.conflicts_with("ikm-stdin")
+			.help("Read HKDF PRK bytes from stdin"),
+	)
+	.arg(
+		Arg::new("length")
+			.long("length")
+			.value_name("BYTES")
+			.value_parser(clap::value_parser!(usize))
+			.help("HKDF output length in bytes (defaults to variant length)"),
+	)
+}
+
+fn summarize_benchmark_subcommand() -> clap::Command {
+	clap::command!("summarize")
+		.about("Summarize benchmark JSON output")
+		.arg(
+			Arg::new("input")
+				.short('i')
+				.long("input")
+				.value_name("PATH")
+				.required(true)
+				.help("Path to a benchmark summary JSON file produced by --output"),
+		)
+		.arg(
+			Arg::new("format")
+				.short('f')
+				.long("format")
+				.value_name("FORMAT")
+				.value_parser(["console", "markdown"])
+				.default_value("console")
+				.help("Output format: console (default) or markdown"),
+		)
+}
+
+fn benchmark_family_subcommand(
+	name: &'static str,
+	about: &'static str,
+) -> clap::Command {
+	let command = clap::Command::new(name).about(about).arg(
+		Arg::new("alg")
+			.long("alg")
+			.short('a')
+			.value_name("ALGORITHM")
+			.action(ArgAction::Append)
+			.help(
+				"Algorithm identifier (repeat for multiple entries, e.g. --alg poly1305)",
+			),
+	);
+	attach_shared_benchmark_args(command)
+}
+
+fn attach_shared_benchmark_args(
+	command: clap::Command,
+) -> clap::Command {
+	command
+		.arg(
+			Arg::new("duration")
+				.long("duration")
+				.value_name("DURATION")
+				.value_parser(ValueParser::new(parse_duration_arg))
+				.conflicts_with("iterations")
+				.help("Time window per algorithm (e.g. 5s, 2m)"),
+		)
+		.arg(
+			Arg::new("iterations")
+				.long("iterations")
+				.value_name("COUNT")
+				.value_parser(clap::value_parser!(u64).range(1..))
+				.help("Override iteration count for each algorithm"),
+		)
+		.arg(
+			Arg::new("json")
+				.long("json")
+				.action(ArgAction::SetTrue)
+				.help("Emit JSON summary to stdout"),
+		)
+		.arg(
+			Arg::new("output")
+				.long("output")
+				.value_name("PATH")
+				.value_parser(clap::value_parser!(PathBuf))
+				.help("Write JSON summary to file"),
+		)
+		.arg(
+			Arg::new("list-algorithms")
+				.long("list-algorithms")
+				.action(ArgAction::SetTrue)
+				.help(
+					"List supported algorithms for the selected mode and exit",
+				),
+		)
+		.arg(
+			Arg::new("yes")
+				.long("yes")
+				.action(ArgAction::SetTrue)
+				.help("Skip runtime confirmation prompt"),
+		)
+}
+
+fn run_benchmark_family(
+	mode: BenchmarkMode,
+	matches: &clap::ArgMatches,
+) -> Result<(), Box<dyn Error>> {
+	if matches.get_flag("list-algorithms") {
+		benchmark::print_supported_algorithms(mode);
+		return Ok(());
+	}
+
+	let algorithms: Vec<String> = matches
+		.get_many::<String>("alg")
+		.map(|values| values.cloned().collect())
+		.unwrap_or_default();
+
+	let mut shared = SharedBenchmarkArgs {
+		duration: matches.get_one::<Duration>("duration").copied(),
+		iterations: matches.get_one::<u64>("iterations").copied(),
+		json: matches.get_flag("json"),
+		output_path: matches.get_one::<PathBuf>("output").cloned(),
+		auto_confirm: matches.get_flag("yes"),
+		message_bytes: None,
+		profile_overrides: BTreeMap::new(),
+		hkdf_inputs: None,
+	};
+
+	if let BenchmarkMode::Mac = mode {
+		let payload = matches
+			.get_one::<usize>("message-bytes")
+			.copied()
+			.unwrap_or(DEFAULT_MAC_MESSAGE_BYTES);
+		shared.message_bytes = Some(payload);
+	} else if let BenchmarkMode::Kdf = mode {
+		let canonical_algs = algorithms
+			.iter()
+			.map(|alg| benchmark::kdf::canonical_algorithm_id(alg))
+			.collect::<Result<Vec<_>, _>>()
+			.map_err(|err| Box::new(err) as Box<dyn Error>)?;
+		shared.profile_overrides =
+			collect_profile_overrides(matches, &canonical_algs)
+				.map_err(|err| Box::new(err) as Box<dyn Error>)?;
+		shared.hkdf_inputs = parse_hkdf_inputs(matches)
+			.map_err(|err| Box::new(err) as Box<dyn Error>)?;
+	}
+
+	match benchmark::execute_named_mode(mode, algorithms, &shared) {
+		Ok(summary) => {
+			match mode {
+				BenchmarkMode::Mac => {
+					if !shared.json {
+						let payload = shared
+							.message_bytes
+							.unwrap_or(DEFAULT_MAC_MESSAGE_BYTES);
+						benchmark::mac::print_mac_report(
+							&summary, payload,
+						);
+					}
+				}
+				BenchmarkMode::Kdf => {
+					if !shared.json {
+						benchmark::kdf::print_kdf_report(&summary);
+					}
+				}
+				BenchmarkMode::Digest => {
+					if !shared.json {
+						println!(
+							"Completed {} benchmark with {} case(s)",
+							mode,
+							summary.cases.len()
+						);
+					}
+				}
+			}
+			let emit_stdout_json =
+				shared.json && shared.output_path.is_none();
+			benchmark::write_summary_outputs(
+				&summary,
+				emit_stdout_json,
+				shared.output_path.as_deref(),
+			)?;
+		}
+		Err(BenchmarkError::UserAborted) => {}
+		Err(err) => return Err(Box::new(err)),
+	}
+
+	Ok(())
+}
+
+fn run_benchmark_summary(
+	matches: &clap::ArgMatches,
+) -> Result<(), Box<dyn Error>> {
+	let input = matches
+		.get_one::<String>("input")
+		.expect("input is required");
+	let path = PathBuf::from(input);
+	let summary = benchmark::load_summary_from_path(&path)
+		.map_err(|err| Box::new(err) as Box<dyn Error>)?;
+	let format = matches
+		.get_one::<String>("format")
+		.map(|value| value.as_str())
+		.unwrap_or("console");
+	match format {
+		"markdown" => {
+			println!(
+				"{}",
+				benchmark::render_markdown_summary(&summary)
+			);
+		}
+		_ => {
+			println!(
+				"{}",
+				benchmark::render_console_summary(&summary, &path),
+			);
+		}
+	}
+	Ok(())
 }
 
 fn handle_mac_command(
@@ -3334,18 +3815,31 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 			let hash = generate_hhhash(url)?;
 			println!("{}", hash);
 		}
-		Some(("benchmark", sub_m)) => {
-			let algorithms: Vec<Algorithm> = sub_m
-				.get_many("algorithms")
-				.map(|v| v.cloned().collect())
-				.unwrap_or_else(|| {
-					let mut presets = digest_benchmark_presets();
-					presets.extend(kdf_benchmark_presets());
-					presets
-				});
-			let iterations =
-				*sub_m.get_one::<u32>("iterations").unwrap();
-			run_benchmarks(&algorithms, iterations);
+		Some(("benchmark", matches)) => {
+			if let Some(("summarize", args)) = matches.subcommand() {
+				run_benchmark_summary(args)?;
+			} else if let Some(("mac", args)) = matches.subcommand() {
+				run_benchmark_family(BenchmarkMode::Mac, args)?;
+			} else if let Some(("kdf", args)) = matches.subcommand() {
+				run_benchmark_family(BenchmarkMode::Kdf, args)?;
+			} else {
+				let algorithms: Vec<Algorithm> = matches
+					.get_many("algorithms")
+					.map(|v| v.cloned().collect())
+					.unwrap_or_else(|| {
+						let mut presets = digest_benchmark_presets();
+						presets.extend(kdf_benchmark_presets());
+						presets
+					});
+				let iterations =
+					*matches.get_one::<u32>("iterations").unwrap();
+				let summary =
+					run_digest_benchmarks(&algorithms, iterations)
+						.map_err(|err| {
+							Box::new(err) as Box<dyn Error>
+						})?;
+				render_digest_report(&summary);
+			}
 		}
 		_ => {}
 	}
