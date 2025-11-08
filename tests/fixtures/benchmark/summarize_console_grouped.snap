@@ -1,0 +1,14 @@
+=== Benchmark Summary: MAC ===
+
+Benchmark summary from target/benchmark/mac.json
+  Mode: mac · Duration: 5s · Iterations: auto
+  Algorithms: poly1305, hmac-sha1
+Planned 5s · Actual 5.4s (+0.4s)
+
+Algorithm           Samples   Ops/sec (kops)   Median ms   P95 ms   Status  Notes
+--------------------------------------------------------------------------------------------------------------
+poly1305                 64           4.20 kops/s      0.25 ms   0.30 ms   ✅ PASS  payload 1KiB
+hmac-sha1                32           0.48 kops/s      6.90 ms   8.10 ms   ⚠ WARN  legacy throughput sample
+
+Warnings
+- hmac-sha1: ⚠ Legacy per NIST SP 800-131A rev.2 §3; Prefer SHA-2/3; Only 32 samples collected (< 30 target)

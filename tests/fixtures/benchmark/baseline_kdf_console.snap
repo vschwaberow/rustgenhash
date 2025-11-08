@@ -1,0 +1,6 @@
+=== KDF Benchmarks (duration 3s, profile nist-sp800-132-2023) ===
+Profile          Iter/s         Notes
+pbkdf2-nist      1.2 kops       warning
+⚠ pbkdf2-nist profile enforces legacy salt length; see NIST SP 800-132 §5.2 for mitigation guidance.
+
+JSON manifest: target/benchmark/kdf-integration.json

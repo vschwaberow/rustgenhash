@@ -1,0 +1,7 @@
+=== MAC Benchmarks (duration 5s, payload 1024 bytes) ===
+Algorithm         Samples   Ops/sec (kops)   Median ms   P95 ms   Status  Notes
+poly1305               512           4.10 kops/s      0.24 ms   0.31 ms   PASS    payload 1024 bytes
+hmac-sha1              410           0.45 kops/s      7.10 ms   8.90 ms   WARN    legacy throughput sample
+
+Warnings
+- hmac-sha1: ⚠ Legacy per NIST SP 800-131A rev.2 §3; Prefer SHA-2/3; Only 410 samples collected (< 512 target)

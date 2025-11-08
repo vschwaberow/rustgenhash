@@ -1,0 +1,7 @@
+=== KDF Benchmarks (duration 3s, iterations auto) ===
+Algorithm           Samples   Ops/sec (kops)   Median ms / P95 ms   Status  Notes
+--------------------------------------------------------------------------------
+pbkdf2-sha256           24           0.50 kops/s      6.00 ms/8.10 ms   WARN    profile nist-sp800-132-2023
+
+Warnings
+- pbkdf2-sha256: Only 24 samples collected (< 30 target); Median latency 6.00 ms exceeds 1.5 ms guidance
