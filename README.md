@@ -244,6 +244,9 @@ Match confirmed.
 - Variables behave like `$name` tokens; `set $name = <command>` runs the command, captures the last line of stdout, redacts it for `show vars`, and stores the full value for reuse.
 - `clear var $name`, `show history`, and `abort` commands mirror familiar network CLI muscle memory; `exit`/`quit` leave the shell.
 - Non-interactive mode executes files of console commands: `rgh console --script playbook.rgh [--ignore-errors]`. Scripts echo `rgh-console(script)# ...` before each command, stop on the first failure (unless `--ignore-errors`), and propagate the failing exit code; undefined variables produce exit code `65` with `error: undefined variable $name` on stderr.
+- Interactive TAB completion is enabled for commands, subcommands, and flags. Press `Tab` once to auto-complete unambiguous prefixes or twice to print a deterministic listing when multiple matches exist.
+- The `complete <prefix>` builtin mirrors the TAB engine for scripts/CI runs and exits with `0` on success or `66` when no suggestions exist, keeping transcripts diffable.
+- Contextual help stays inside the console: `help digest string`, `help kdf hkdf`, `help benchmark mac`, etc., reuse the same clap/README text you see via `rgh <cmd> --help` without emitting color (respects `NO_COLOR`).
 
 ### Other utilities
 

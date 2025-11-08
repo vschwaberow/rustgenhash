@@ -2,7 +2,9 @@
 // Project: rustgenhash
 
 pub mod builtins;
+pub mod completion;
 pub mod dispatcher;
+pub mod help;
 pub mod interpolation;
 pub mod parser;
 pub mod script;

@@ -135,3 +135,115 @@ fn script_error_matches_fixture_and_exit_code() {
 			"error: undefined variable $missing\n",
 		));
 }
+
+#[test]
+fn console_completion_digest_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/complete_digest.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_completion_digest.txt",
+	)
+	.expect("read digest completion fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	Command::new(binary)
+		.args(["console", "--script", script_path.to_str().unwrap()])
+		.assert()
+		.success()
+		.stdout(predicate::eq(expected))
+		.stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn console_completion_k_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/complete_k.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_completion_k.txt",
+	)
+	.expect("read k completion fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	Command::new(binary)
+		.args(["console", "--script", script_path.to_str().unwrap()])
+		.assert()
+		.success()
+		.stdout(predicate::eq(expected))
+		.stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn console_completion_script_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/complete_script.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_completion_script.txt",
+	)
+	.expect("read completion script fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	Command::new(binary)
+		.args(["console", "--script", script_path.to_str().unwrap()])
+		.assert()
+		.success()
+		.stdout(predicate::eq(expected))
+		.stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn console_help_digest_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/help_digest.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_help_digest.txt",
+	)
+	.expect("read help digest fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	Command::new(binary)
+		.args(["console", "--script", script_path.to_str().unwrap()])
+		.assert()
+		.success()
+		.stdout(predicate::eq(expected))
+		.stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn console_help_unknown_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/help_unknown.rgh",
+	);
+	let expected_out = fs::read_to_string(
+		"tests/fixtures/interactive/console_help_unknown.txt",
+	)
+	.expect("read help unknown stdout");
+	let expected_err = fs::read_to_string(
+		"tests/fixtures/interactive/console_help_unknown.stderr.txt",
+	)
+	.expect("read help unknown stderr");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	Command::new(binary)
+		.args(["console", "--script", script_path.to_str().unwrap()])
+		.assert()
+		.code(64)
+		.stdout(predicate::eq(expected_out))
+		.stderr(predicate::eq(expected_err));
+}
+
+#[test]
+fn console_help_script_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/help_script.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_help_script.txt",
+	)
+	.expect("read help script fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	Command::new(binary)
+		.args(["console", "--script", script_path.to_str().unwrap()])
+		.assert()
+		.success()
+		.stdout(predicate::eq(expected))
+		.stderr(predicate::str::is_empty());
+}

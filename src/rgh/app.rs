@@ -1664,7 +1664,7 @@ fn run_interactive_mode() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
-fn build_cli() -> clap::Command {
+pub(crate) fn build_cli() -> clap::Command {
 	clap::Command::new(clap::crate_name!())
 			.color(clap::ColorChoice::Never)
 			.help_template(HELP_TEMPLATE)
@@ -2582,6 +2582,36 @@ fn build_cli() -> clap::Command {
 					.subcommand(kdf_benchmark_subcommand())
 					.subcommand(summarize_benchmark_subcommand())
 	)
+}
+
+/// Render the help text for a given command path (e.g., `["digest", "string"]`).
+/// Returns `None` if the path does not exist in the CLI tree.
+pub(crate) fn render_help_for_path(
+	path: &[String],
+) -> Option<String> {
+	let mut current = build_cli();
+	if path.is_empty() {
+		return Some(render_help_text(current));
+	}
+	for segment in path {
+		let Some(next) = current
+			.get_subcommands()
+			.find(|sub| sub.get_name().eq_ignore_ascii_case(segment))
+			.cloned()
+		else {
+			return None;
+		};
+		current = next;
+	}
+	Some(render_help_text(current))
+}
+
+fn render_help_text(mut command: clap::Command) -> String {
+	let mut buffer = Vec::new();
+	if command.write_long_help(&mut buffer).is_err() {
+		let _ = command.write_help(&mut buffer);
+	}
+	String::from_utf8_lossy(&buffer).into_owned()
 }
 
 fn mac_benchmark_subcommand() -> clap::Command {

@@ -1,0 +1,65 @@
+rgh-console(script)# help digest
+Digest data using classic hash algorithms
+
+Usage: digest <COMMAND>
+
+Commands:
+  string  Hash a provided string
+  file    Hash the contents of a file or directory
+  stdio   Hash newline-delimited stdin input
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help
+          Print help
+
+  -V, --version
+          Print version
+
+rgh-console(script)# help kdf hkdf
+Derive key material using HKDF (RFC 5869)
+
+Usage: hkdf [OPTIONS] --len <len>
+
+Options:
+      --ikm <HEX>
+          Hex-encoded input keying material (omit when using --ikm-stdin)
+
+      --ikm-stdin
+          Read input keying material from stdin
+
+      --expand-only
+          Skip extract phase and expand using supplied PRK
+
+      --prk <PATH>
+          Read PRK bytes from file for expand-only mode
+
+      --prk-stdin
+          Read PRK bytes from stdin for expand-only mode
+
+      --salt <HEX>
+          Optional hex-encoded salt (defaults to empty; ignored for expand-only)
+
+      --info <HEX>
+          Optional hex-encoded context info
+
+      --len <len>
+          Desired derived length in bytes
+
+      --hash <hash>
+          Digest variant for HKDF
+          
+          [default: sha256]
+          [possible values: sha256, sha512, sha3-256, sha3-512, blake3]
+
+      --hash-only
+          Emit only the derived key hex output
+
+  -h, --help
+          Print help
+
+  -V, --version
+          Print version
+
+Provide either --ikm <HEX> or --ikm-stdin for extract+expand flows. For expand-only use --expand-only with --prk <PATH> or --prk-stdin.
+

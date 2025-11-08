@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::builtins::{handle_builtin, BuiltinAction};
+use super::completion::{CompletionContext, CompletionEngine};
 use super::dispatcher;
 use super::dispatcher::DispatchOutput;
+use super::help::HelpResolver;
 use super::interpolation;
 use super::parser::parse_command;
 use super::script;
 use super::variables::{ConsoleValueType, ConsoleVariableStore};
 use super::{ConsoleError, ConsoleOptions};
+use colored::control;
+use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
+use rustyline::highlight::Highlighter;
+use rustyline::hint::Hinter;
 use rustyline::history::DefaultHistory;
-use rustyline::Editor;
+use rustyline::validate::{
+	ValidationContext, ValidationResult, Validator,
+};
+use rustyline::{CompletionType, Config, Context, Editor, Helper};
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,15 +46,22 @@ pub struct ConsoleSession {
 	variables: ConsoleVariableStore,
 	history: Vec<CommandEntry>,
 	prompt_label: String,
+	completion: CompletionEngine,
+	help: HelpResolver,
 }
 
 impl ConsoleSession {
 	pub fn new(options: ConsoleOptions) -> Self {
+		if matches!(options.tty_mode, ConsoleMode::Script) {
+			control::set_override(false);
+		}
 		Self {
 			options,
 			variables: ConsoleVariableStore::default(),
 			history: Vec::new(),
 			prompt_label: "rgh-console".into(),
+			completion: CompletionEngine::default(),
+			help: HelpResolver::default(),
 		}
 	}
 
@@ -57,8 +73,17 @@ impl ConsoleSession {
 	}
 
 	fn run_interactive(&mut self) -> Result<i32, ConsoleError> {
-		let mut editor = Editor::<(), DefaultHistory>::new()
+		let config = Config::builder()
+			.completion_type(CompletionType::List)
+			.build();
+		let mut editor =
+			Editor::<ConsoleHelper, DefaultHistory>::with_config(
+				config,
+			)
 			.map_err(|err| ConsoleError::Message(err.to_string()))?;
+		editor.set_helper(Some(ConsoleHelper::new(
+			self.completion.clone(),
+		)));
 		let prompt = format!("{}# ", self.prompt_label);
 		loop {
 			match editor.readline(&prompt) {
@@ -116,9 +141,19 @@ impl ConsoleSession {
 			trimmed,
 			&mut self.variables,
 			&self.history,
+			&self.completion,
+			&self.help,
+			self.options.tty_mode,
 		) {
 			BuiltinAction::Exit(code) => return Ok(Flow::Exit(code)),
 			BuiltinAction::Continue => return Ok(Flow::Continue),
+			BuiltinAction::CommandResult(code) => {
+				self.record_history(trimmed, code);
+				if code != 0 && self.should_abort_on_failure() {
+					return Ok(Flow::Exit(code));
+				}
+				return Ok(Flow::Continue);
+			}
 			BuiltinAction::NotHandled => {}
 		}
 
@@ -276,4 +311,61 @@ fn is_sensitive_value(
 	let trimmed = value.trim();
 	trimmed.len() >= 16
 		&& trimmed.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+struct ConsoleHelper {
+	engine: CompletionEngine,
+}
+
+impl ConsoleHelper {
+	fn new(engine: CompletionEngine) -> Self {
+		Self { engine }
+	}
+}
+
+impl Helper for ConsoleHelper {}
+
+impl Completer for ConsoleHelper {
+	type Candidate = Pair;
+
+	fn complete(
+		&self,
+		line: &str,
+		pos: usize,
+		_: &Context<'_>,
+	) -> Result<(usize, Vec<Pair>), ReadlineError> {
+		let ctx = CompletionContext::new(line, pos, false);
+		let result = self.engine.suggest(&ctx);
+		let start = ctx.insertion_start();
+		let pairs = result
+			.suggestions
+			.iter()
+			.map(|suggestion| suggestion.as_pair())
+			.collect();
+		Ok((start, pairs))
+	}
+}
+
+impl Hinter for ConsoleHelper {
+	type Hint = String;
+
+	fn hint(
+		&self,
+		_: &str,
+		_: usize,
+		_: &Context<'_>,
+	) -> Option<Self::Hint> {
+		None
+	}
+}
+
+impl Highlighter for ConsoleHelper {}
+
+impl Validator for ConsoleHelper {
+	fn validate(
+		&self,
+		_: &mut ValidationContext<'_>,
+	) -> Result<ValidationResult, ReadlineError> {
+		Ok(ValidationResult::Valid(None))
+	}
 }
