@@ -2594,13 +2594,10 @@ pub(crate) fn render_help_for_path(
 		return Some(render_help_text(current));
 	}
 	for segment in path {
-		let Some(next) = current
+		let next = current
 			.get_subcommands()
 			.find(|sub| sub.get_name().eq_ignore_ascii_case(segment))
-			.cloned()
-		else {
-			return None;
-		};
+			.cloned()?;
 		current = next;
 	}
 	Some(render_help_text(current))

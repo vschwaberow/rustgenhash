@@ -115,9 +115,9 @@ mod tests {
 
 	#[test]
 	fn resolves_known_topic() {
-		let resolver = HelpResolver::default();
+		let resolver = HelpResolver;
 		let doc = resolver
-			.resolve(&vec!["digest".into(), "string".into()])
+			.resolve(&["digest".into(), "string".into()])
 			.expect("topic");
 		assert_eq!(doc.path, vec!["digest", "string"]);
 		assert!(!doc.body.trim().is_empty());
@@ -125,9 +125,9 @@ mod tests {
 
 	#[test]
 	fn alias_maps_to_known_topic() {
-		let resolver = HelpResolver::default();
+		let resolver = HelpResolver;
 		let doc = resolver
-			.resolve(&vec!["Benchmark".into(), "Mac".into()])
+			.resolve(&["Benchmark".into(), "Mac".into()])
 			.expect("topic");
 		assert_eq!(doc.path, vec!["benchmark", "mac"]);
 	}

@@ -61,7 +61,7 @@ impl ConsoleSession {
 			history: Vec::new(),
 			prompt_label: "rgh-console".into(),
 			completion: CompletionEngine::default(),
-			help: HelpResolver::default(),
+			help: HelpResolver,
 		}
 	}
 
