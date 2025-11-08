@@ -78,6 +78,9 @@ fn markdown_summary_table_emits_expected_rows() {
 		String::from_utf8(assert.get_output().stdout.clone())
 			.expect("stdout utf8");
 	assert!(stdout.contains("> === Benchmark Summary: MAC ==="));
+	assert!(stdout.contains("Ops/sec (kops)"));
+	assert!(stdout.contains("kops/s"));
+	assert!(stdout.contains(" ms"));
 	assert!(stdout.contains("| Algorithm |"));
 	assert!(stdout.contains("poly1305"));
 	assert!(stdout.contains("hmac-sha256"));
@@ -108,4 +111,7 @@ fn console_summary_emits_banner_before_metadata() {
 		stdout.contains("Benchmark summary from"),
 		"metadata block should remain after the banner"
 	);
+	assert!(stdout.contains("Ops/sec (kops)"));
+	assert!(stdout.contains("kops/s"));
+	assert!(stdout.contains(" ms"));
 }

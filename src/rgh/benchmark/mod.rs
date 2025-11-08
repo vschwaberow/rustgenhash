@@ -377,8 +377,109 @@ pub fn format_markdown_banner_line(line: &str) -> String {
 	format!("> {}", line)
 }
 
+pub const SUMMARY_TABLE_COLUMNS: &[BenchmarkColumnFormat] = &[
+	BenchmarkColumnFormat::new(
+		"Algorithm",
+		ColumnAlignment::Left,
+		None,
+	),
+	BenchmarkColumnFormat::new(
+		"Samples",
+		ColumnAlignment::Right,
+		None,
+	),
+	BenchmarkColumnFormat::new(
+		"Ops/sec (kops)",
+		ColumnAlignment::Right,
+		Some(MetricKind::Throughput),
+	),
+	BenchmarkColumnFormat::new(
+		"Median ms",
+		ColumnAlignment::Right,
+		Some(MetricKind::Latency),
+	),
+	BenchmarkColumnFormat::new(
+		"P95 ms",
+		ColumnAlignment::Right,
+		Some(MetricKind::Latency),
+	),
+	BenchmarkColumnFormat::new(
+		"Status",
+		ColumnAlignment::Right,
+		None,
+	),
+];
+
 pub fn default_duration() -> Duration {
 	Duration::from_secs(DEFAULT_DURATION_SECONDS)
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MetricKind {
+	Throughput,
+	Latency,
+}
+
+impl MetricKind {
+	pub fn scale_factor(self) -> f64 {
+		match self {
+			Self::Throughput => 1e-3, // ops/sec -> kops/s
+			Self::Latency => 1.0,
+		}
+	}
+
+	pub fn precision(self) -> usize {
+		match self {
+			Self::Throughput => 2,
+			Self::Latency => 3,
+		}
+	}
+
+	pub fn unit_suffix(self) -> &'static str {
+		match self {
+			Self::Throughput => " kops/s",
+			Self::Latency => " ms",
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ColumnAlignment {
+	Left,
+	Right,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct BenchmarkColumnFormat {
+	pub title: &'static str,
+	pub alignment: ColumnAlignment,
+	pub metric: Option<MetricKind>,
+}
+
+impl BenchmarkColumnFormat {
+	pub const fn new(
+		title: &'static str,
+		alignment: ColumnAlignment,
+		metric: Option<MetricKind>,
+	) -> Self {
+		Self {
+			title,
+			alignment,
+			metric,
+		}
+	}
+}
+
+pub fn format_metric(value: f64, kind: MetricKind) -> String {
+	let scaled = value * kind.scale_factor();
+	let precision = kind.precision();
+	let suffix = kind.unit_suffix();
+	format!(
+		"{scaled:.prec$}{suffix}",
+		scaled = scaled,
+		prec = precision,
+		suffix = suffix,
+	)
 }
 
 pub fn list_supported_algorithms(mode: BenchmarkMode) -> Vec<String> {
@@ -591,24 +692,34 @@ pub fn render_console_summary(
 	let _ = writeln!(out);
 	let _ = writeln!(
 		out,
-		"{:<18} {:>8} {:>12} {:>12} {:>12} {:>8}  Notes",
+		"{:<18} {:>8} {:>18} {:>14} {:>14} {:>8}  Notes",
 		"Algorithm",
 		"Samples",
-		"Ops/sec",
+		"Ops/sec (kops)",
 		"Median ms",
 		"P95 ms",
 		"Status",
 	);
-	let _ = writeln!(out, "{}", "-".repeat(90));
+	let _ = writeln!(out, "{}", "-".repeat(110));
 	for case in sorted_cases(summary) {
+		let throughput = format_metric(
+			case.avg_ops_per_sec,
+			MetricKind::Throughput,
+		);
+		let median = format_metric(
+			case.median_latency_ms,
+			MetricKind::Latency,
+		);
+		let p95 =
+			format_metric(case.p95_latency_ms, MetricKind::Latency);
 		let _ = writeln!(
 			out,
-			"{:<18} {:>8} {:>12.2} {:>12.3} {:>12.3} {:>8}  {}",
+			"{:<18} {:>8} {:>18} {:>14} {:>14} {:>8}  {}",
 			case.algorithm,
 			case.samples_collected,
-			case.avg_ops_per_sec,
-			case.median_latency_ms,
-			case.p95_latency_ms,
+			throughput,
+			median,
+			p95,
 			compliance_badge(case),
 			case.notes.as_deref().unwrap_or("-"),
 		);
@@ -662,8 +773,8 @@ pub fn render_markdown_summary(summary: &BenchmarkSummary) -> String {
 		}
 	}
 	lines.push(String::new());
-	lines.push("| Algorithm | Profile | Ops/sec | Median ms | Samples | Status | Notes |".to_string());
-	lines.push("|-----------|---------|---------|-----------|---------|--------|-------|".to_string());
+	lines.push("| Algorithm | Profile | Ops/sec (kops) | Median ms | P95 ms | Samples | Status | Notes |".to_string());
+	lines.push("|-----------|---------|----------------|-----------|--------|---------|--------|-------|".to_string());
 	for case in sorted_cases(summary) {
 		let profile = case.profile.as_deref().unwrap_or("—");
 		let mut note =
@@ -682,12 +793,23 @@ pub fn render_markdown_summary(summary: &BenchmarkSummary) -> String {
 		}
 		let sanitized_note =
 			note.replace('|', "\\|").replace('\n', "<br>");
+		let throughput = format_metric(
+			case.avg_ops_per_sec,
+			MetricKind::Throughput,
+		);
+		let median = format_metric(
+			case.median_latency_ms,
+			MetricKind::Latency,
+		);
+		let p95 =
+			format_metric(case.p95_latency_ms, MetricKind::Latency);
 		lines.push(format!(
-			"| {} | {} | {:.2} | {:.3} | {} | {} | {} |",
+			"| {} | {} | {} | {} | {} | {} | {} | {} |",
 			case.algorithm,
 			profile,
-			case.avg_ops_per_sec,
-			case.median_latency_ms,
+			throughput,
+			median,
+			p95,
 			case.samples_collected,
 			compliance_badge(case),
 			sanitized_note

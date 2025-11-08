@@ -4,9 +4,10 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
 use super::{
-	format_benchmark_banner, BenchmarkBannerContext, BenchmarkError,
-	BenchmarkResult, BenchmarkScenario, BenchmarkSummary,
-	SharedBenchmarkArgs, DEFAULT_MAC_MESSAGE_BYTES,
+	format_benchmark_banner, format_metric, BenchmarkBannerContext,
+	BenchmarkError, BenchmarkResult, BenchmarkScenario,
+	BenchmarkSummary, MetricKind, SharedBenchmarkArgs,
+	DEFAULT_MAC_MESSAGE_BYTES,
 };
 use crate::rgh::mac::commands::legacy_warning_message;
 use crate::rgh::mac::executor::consume_bytes;
@@ -68,15 +69,15 @@ pub fn print_mac_report(
 	println!();
 	println!("{}", format_benchmark_banner(&context));
 	println!(
-		"{:<16} {:>10} {:>14} {:>12} {:>12} {:>8}  Notes",
+		"{:<16} {:>10} {:>18} {:>14} {:>14} {:>8}  Notes",
 		"Algorithm",
 		"Samples",
-		"Ops/sec",
+		"Ops/sec (kops)",
 		"Median ms",
 		"P95 ms",
 		"Status"
 	);
-	println!("{}", "-".repeat(96));
+	println!("{}", "-".repeat(104));
 	let mut rows: Vec<&BenchmarkResult> =
 		summary.cases.iter().collect();
 	rows.sort_by(|a, b| {
@@ -86,13 +87,23 @@ pub fn print_mac_report(
 	});
 	for case in rows {
 		let status = if case.compliance { "PASS" } else { "WARN" };
+		let throughput = format_metric(
+			case.avg_ops_per_sec,
+			MetricKind::Throughput,
+		);
+		let median = format_metric(
+			case.median_latency_ms,
+			MetricKind::Latency,
+		);
+		let p95 =
+			format_metric(case.p95_latency_ms, MetricKind::Latency);
 		println!(
-			"{:<16} {:>10} {:>14.2} {:>12.3} {:>12.3} {:>8}  {}",
+			"{:<16} {:>10} {:>18} {:>14} {:>14} {:>8}  {}",
 			case.algorithm,
 			case.samples_collected,
-			case.avg_ops_per_sec,
-			case.median_latency_ms,
-			case.p95_latency_ms,
+			throughput,
+			median,
+			p95,
 			status,
 			case.notes.as_deref().unwrap_or("-"),
 		);

@@ -40,6 +40,9 @@ fn mac_benchmark_prints_table_and_writes_json() {
 			.expect("stdout utf8");
 	assert!(stdout.contains("=== MAC Benchmarks (duration"));
 	assert!(stdout.contains("payload 256 bytes"));
+	assert!(stdout.contains("Ops/sec (kops)"));
+	assert!(stdout.contains("kops/s"));
+	assert!(stdout.contains(" ms"));
 	assert!(stdout.contains("Algorithm"));
 	assert!(stdout.contains("poly1305"));
 	assert!(stdout.contains("hmac-sha256"));
@@ -93,5 +96,13 @@ fn mac_benchmark_prints_table_and_writes_json() {
 	assert!(
 		!json_stdout.contains("=== MAC Benchmarks"),
 		"json flag must suppress banner"
+	);
+	assert!(
+		!json_stdout.contains("kops/s"),
+		"json flag must keep throughput numeric"
+	);
+	assert!(
+		!json_stdout.contains(" ms"),
+		"json flag must keep latency numeric"
 	);
 }

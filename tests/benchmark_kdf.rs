@@ -78,6 +78,9 @@ fn kdf_benchmark_emits_json_with_profiles() {
 		console_stdout.contains("=== KDF Benchmarks (duration 3s")
 	);
 	assert!(console_stdout.contains("iterations auto"));
+	assert!(console_stdout.contains("Ops/sec (kops)"));
+	assert!(console_stdout.contains("kops/s"));
+	assert!(console_stdout.contains(" ms"));
 
 	let json_stdout =
 		String::from_utf8(assert.get_output().stdout.clone())
@@ -85,5 +88,13 @@ fn kdf_benchmark_emits_json_with_profiles() {
 	assert!(
 		!json_stdout.contains("=== KDF Benchmarks"),
 		"json flag must suppress banner"
+	);
+	assert!(
+		!json_stdout.contains("kops/s"),
+		"json flag must keep throughput numeric"
+	);
+	assert!(
+		!json_stdout.contains(" ms"),
+		"json flag must keep latency numeric"
 	);
 }

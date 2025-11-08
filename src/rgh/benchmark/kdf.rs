@@ -4,9 +4,10 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
 use super::{
-	format_benchmark_banner, BenchmarkBannerContext, BenchmarkError,
-	BenchmarkResult, BenchmarkScenario, BenchmarkSummary,
-	SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
+	format_benchmark_banner, format_metric, BenchmarkBannerContext,
+	BenchmarkError, BenchmarkResult, BenchmarkScenario,
+	BenchmarkSummary, MetricKind, SharedBenchmarkArgs,
+	KDF_SAMPLE_TARGET,
 };
 use crate::rgh::hash::{PHash, Pbkdf2Config, ScryptConfig};
 use crate::rgh::kdf::hkdf::{
@@ -205,10 +206,14 @@ pub fn print_kdf_report(summary: &BenchmarkSummary) {
 	println!();
 	println!("{}", format_benchmark_banner(&context));
 	println!(
-		"{:<18} {:>10} {:>12} {:>12} {:>8}  Notes",
-		"Algorithm", "Samples", "Median ms", "P95 ms", "Status",
+		"{:<18} {:>10} {:>18} {:>14} {:>8}  Notes",
+		"Algorithm",
+		"Samples",
+		"Ops/sec (kops)",
+		"Median ms / P95 ms",
+		"Status",
 	);
-	println!("{}", "-".repeat(98));
+	println!("{}", "-".repeat(106));
 	let mut rows: Vec<&BenchmarkResult> =
 		summary.cases.iter().collect();
 	rows.sort_by(|a, b| {
@@ -218,12 +223,22 @@ pub fn print_kdf_report(summary: &BenchmarkSummary) {
 	});
 	for case in rows {
 		let status = if case.compliance { "PASS" } else { "WARN" };
+		let throughput = format_metric(
+			case.avg_ops_per_sec,
+			MetricKind::Throughput,
+		);
+		let median = format_metric(
+			case.median_latency_ms,
+			MetricKind::Latency,
+		);
+		let p95 =
+			format_metric(case.p95_latency_ms, MetricKind::Latency);
 		println!(
-			"{:<18} {:>10} {:>12.3} {:>12.3} {:>8}  {}",
+			"{:<18} {:>10} {:>18} {:>14} {:>8}  {}",
 			case.algorithm,
 			case.samples_collected,
-			case.median_latency_ms,
-			case.p95_latency_ms,
+			throughput,
+			format!("{}/{}", median, p95),
 			status,
 			case.notes.as_deref().unwrap_or("-"),
 		);

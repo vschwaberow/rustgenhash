@@ -2581,13 +2581,13 @@ fn mac_benchmark_subcommand() -> clap::Command {
 				"Payload size per sample (default 1024 bytes, range 64-1048576)",
 			),
 	)
-	.after_help(
-		concat!(
-			"Example: rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac.json\n",
-			"\n",
-			"Console output now begins with a banner line (e.g. === MAC Benchmarks (...) ===) before the table. ",
-			"Use --json when you need banner-free output for scripts."
-		),
+		.after_help(
+			concat!(
+				"Example: rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac.json\n",
+				"\n",
+				"Console output now begins with a banner line (e.g. === MAC Benchmarks (...) ===) before the table and labels columns with fixed units (Ops/sec in kops/s, latency in ms). ",
+				"Use --json when you need banner-free output for scripts."
+			),
 	)
 }
 
@@ -2652,7 +2652,7 @@ fn kdf_benchmark_subcommand() -> clap::Command {
 			.help("HKDF output length in bytes (defaults to variant length)"),
 	)
 	.after_help(
-		"Console output begins with a banner line (e.g. === KDF Benchmarks (...) ===). Use --json to suppress banners when piping results.",
+		"Console output begins with a banner line (e.g. === KDF Benchmarks (...) ===) and reports throughput/latency with explicit units (kops/s, ms). Use --json to suppress banners and unitized text when piping results.",
 	)
 }
 
