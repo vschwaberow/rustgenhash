@@ -202,9 +202,9 @@ Use `rgh benchmark` to measure throughput/latency for MAC and KDF algorithms and
 
 | Command | Key flags | Output |
 |---------|-----------|--------|
-| `rgh benchmark mac --alg <ID> [--alg ...]` | `--duration <window>` or `--iterations <count>`, `--message-bytes <size>`, `--json`, `--output <FILE>`, `--list-algorithms`, `--yes` | Console table (ops/sec + percentiles) and optional JSON (`target/benchmark/*.json`) |
-| `rgh benchmark kdf --alg <pbkdf2|scrypt|hkdf>` | `--profile <alg=id>`, `--salt <HEX>`, `--info <HEX>`, `--ikm/--ikm-stdin`, `--prk/--prk-stdin`, `--length`, shared flags above | Console/KDF table plus compliance warnings (sample count, latency, policy ref) |
-| `rgh benchmark summarize --input <FILE> [--format markdown]` | `--format {console,markdown}` | Re-renders any benchmark JSON as a human-readable block or Markdown table for README/docs |
+| `rgh benchmark mac --alg <ID> [--alg ...]` | `--duration <window>` or `--iterations <count>`, `--message-bytes <size>`, `--json`, `--output <FILE>`, `--list-algorithms`, `--yes` | Console table (ops/sec + percentiles) preceded by a banner (`=== MAC Benchmarks (...) ===`) plus optional JSON (`target/benchmark/*.json`) |
+| `rgh benchmark kdf --alg <pbkdf2|scrypt|hkdf>` | `--profile <alg=id>`, `--salt <HEX>`, `--info <HEX>`, `--ikm/--ikm-stdin`, `--prk/--prk-stdin`, `--length`, shared flags above | Bannered console/KDF table with compliance warnings (sample count, latency, policy ref); JSON remains unchanged |
+| `rgh benchmark summarize --input <FILE> [--format markdown]` | `--format {console,markdown}` | Re-renders any benchmark JSON as a console block with `=== Benchmark Summary: <MODE> ===` or as Markdown that starts with `> === Benchmark Summary: <MODE> ===` |
 
 Examples:
 
@@ -222,6 +222,8 @@ rgh benchmark summarize --input target/benchmark/mac-comparison.json --format ma
 ```
 
 Markdown output emitted by the summarizer already contains the compliance badges (`✅ PASS` / `⚠ WARN`), ops/sec or median latency columns (depending on the mode), and a note column that merges CLI warnings (e.g., Poly1305 key reuse or sample-count reminders) so you can paste the block into README files or QA dossiers without further editing.
+
+Console benchmark runs now insert a blank line plus a banner such as `=== MAC Benchmarks (duration 5s, iterations auto, payload 1024 bytes) ===` or `=== KDF Benchmarks (duration 3s, iterations auto) ===` before each table so long transcripts stay scannable. Pass `--json` to keep stdout machine-readable, and note that the summarizer echoes the banner in both console and Markdown formats (the Markdown variant quotes it as `> === Benchmark Summary: MAC ===`).
 
 ### Other utilities
 

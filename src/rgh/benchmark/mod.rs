@@ -297,6 +297,86 @@ impl SharedBenchmarkArgs {
 	}
 }
 
+#[derive(Debug, Clone)]
+pub struct BenchmarkBannerContext {
+	pub mode: BenchmarkMode,
+	pub duration_seconds: u64,
+	pub iterations: Option<u64>,
+	pub payload_bytes: Option<usize>,
+}
+
+impl BenchmarkBannerContext {
+	pub fn from_scenario(scenario: &BenchmarkScenario) -> Self {
+		Self {
+			mode: scenario.mode,
+			duration_seconds: scenario.duration_seconds,
+			iterations: scenario.iterations,
+			payload_bytes: None,
+		}
+	}
+
+	pub fn with_payload_bytes(
+		mut self,
+		payload_bytes: Option<usize>,
+	) -> Self {
+		self.payload_bytes = payload_bytes;
+		self
+	}
+
+	pub fn metadata_fragments(&self) -> Vec<String> {
+		let mut fragments =
+			vec![format!("duration {}s", self.duration_seconds)];
+		let iterations = self
+			.iterations
+			.map(|value| format!("iterations {}", value))
+			.unwrap_or_else(|| "iterations auto".to_string());
+		fragments.push(iterations);
+		if let Some(bytes) = self.payload_bytes {
+			fragments.push(format!("payload {} bytes", bytes));
+		}
+		fragments
+	}
+
+	pub fn formatted_context(&self) -> String {
+		self.metadata_fragments().join(", ")
+	}
+}
+
+pub fn benchmark_mode_label(mode: BenchmarkMode) -> &'static str {
+	match mode {
+		BenchmarkMode::Digest => "Digest",
+		BenchmarkMode::Mac => "MAC",
+		BenchmarkMode::Kdf => "KDF",
+	}
+}
+
+pub fn format_benchmark_banner(
+	context: &BenchmarkBannerContext,
+) -> String {
+	let label = match context.mode {
+		BenchmarkMode::Digest => "Digest Benchmarks",
+		BenchmarkMode::Mac => "MAC Benchmarks",
+		BenchmarkMode::Kdf => "KDF Benchmarks",
+	};
+	let context_line = context.formatted_context();
+	if context_line.is_empty() {
+		format!("=== {} ===", label)
+	} else {
+		format!("=== {} ({}) ===", label, context_line)
+	}
+}
+
+pub fn format_summary_banner(mode: BenchmarkMode) -> String {
+	format!(
+		"=== Benchmark Summary: {} ===",
+		benchmark_mode_label(mode)
+	)
+}
+
+pub fn format_markdown_banner_line(line: &str) -> String {
+	format!("> {}", line)
+}
+
 pub fn default_duration() -> Duration {
 	Duration::from_secs(DEFAULT_DURATION_SECONDS)
 }
@@ -360,7 +440,9 @@ pub fn confirm_runtime(
 		.with_prompt(prompt)
 		.default(true)
 		.interact()
-		.map_err(|err| BenchmarkError::Io(io::Error::other(err.to_string())))?;
+		.map_err(|err| {
+			BenchmarkError::Io(io::Error::other(err.to_string()))
+		})?;
 	if confirmed {
 		Ok(())
 	} else {
@@ -459,6 +541,9 @@ pub fn render_console_summary(
 	source_path: &Path,
 ) -> String {
 	let mut out = String::new();
+	let banner = format_summary_banner(summary.scenario.mode);
+	let _ = writeln!(out, "{}", banner);
+	let _ = writeln!(out);
 	let algorithms = if summary.scenario.algorithms.is_empty() {
 		"(not recorded)".to_string()
 	} else {
@@ -536,6 +621,10 @@ pub fn render_console_summary(
 
 pub fn render_markdown_summary(summary: &BenchmarkSummary) -> String {
 	let mut lines = Vec::new();
+	let banner = format_markdown_banner_line(&format_summary_banner(
+		summary.scenario.mode,
+	));
+	lines.push(banner);
 	let iterations = summary
 		.scenario
 		.iterations

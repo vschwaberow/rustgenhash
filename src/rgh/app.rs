@@ -2582,7 +2582,12 @@ fn mac_benchmark_subcommand() -> clap::Command {
 			),
 	)
 	.after_help(
-		"Example: rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac.json",
+		concat!(
+			"Example: rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac.json\n",
+			"\n",
+			"Console output now begins with a banner line (e.g. === MAC Benchmarks (...) ===) before the table. ",
+			"Use --json when you need banner-free output for scripts."
+		),
 	)
 }
 
@@ -2645,6 +2650,9 @@ fn kdf_benchmark_subcommand() -> clap::Command {
 			.value_name("BYTES")
 			.value_parser(clap::value_parser!(usize))
 			.help("HKDF output length in bytes (defaults to variant length)"),
+	)
+	.after_help(
+		"Console output begins with a banner line (e.g. === KDF Benchmarks (...) ===). Use --json to suppress banners when piping results.",
 	)
 }
 

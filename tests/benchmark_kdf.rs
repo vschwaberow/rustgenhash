@@ -55,4 +55,35 @@ fn kdf_benchmark_emits_json_with_profiles() {
 		assert!(case["samples_collected"].as_u64().unwrap() >= 1);
 		assert!(case["profile"].is_string());
 	}
+
+	let mut console_cmd = cargo_bin_cmd!("rgh");
+	let console_assert = console_cmd
+		.args([
+			"benchmark",
+			"kdf",
+			"--alg",
+			"pbkdf2",
+			"--profile",
+			"pbkdf2=nist-sp800-132-2023",
+			"--duration",
+			"3s",
+			"--yes",
+		])
+		.assert()
+		.success();
+	let console_stdout =
+		String::from_utf8(console_assert.get_output().stdout.clone())
+			.expect("stdout utf8");
+	assert!(
+		console_stdout.contains("=== KDF Benchmarks (duration 3s")
+	);
+	assert!(console_stdout.contains("iterations auto"));
+
+	let json_stdout =
+		String::from_utf8(assert.get_output().stdout.clone())
+			.expect("stdout utf8");
+	assert!(
+		!json_stdout.contains("=== KDF Benchmarks"),
+		"json flag must suppress banner"
+	);
 }

@@ -4,8 +4,9 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
 use super::{
-	BenchmarkError, BenchmarkResult, BenchmarkScenario,
-	BenchmarkSummary, SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
+	format_benchmark_banner, BenchmarkBannerContext, BenchmarkError,
+	BenchmarkResult, BenchmarkScenario, BenchmarkSummary,
+	SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
 };
 use crate::rgh::hash::{PHash, Pbkdf2Config, ScryptConfig};
 use crate::rgh::kdf::hkdf::{
@@ -199,17 +200,13 @@ pub fn run_kdf_benchmarks(
 }
 
 pub fn print_kdf_report(summary: &BenchmarkSummary) {
-	println!(
-		"KDF Benchmark Results (duration: {}s)",
-		summary.scenario.duration_seconds
-	);
+	let context =
+		BenchmarkBannerContext::from_scenario(&summary.scenario);
+	println!();
+	println!("{}", format_benchmark_banner(&context));
 	println!(
 		"{:<18} {:>10} {:>12} {:>12} {:>8}  Notes",
-		"Algorithm",
-		"Samples",
-		"Median ms",
-		"P95 ms",
-		"Status",
+		"Algorithm", "Samples", "Median ms", "P95 ms", "Status",
 	);
 	println!("{}", "-".repeat(98));
 	let mut rows: Vec<&BenchmarkResult> =

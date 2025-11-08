@@ -4,8 +4,9 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 
 use super::{
-	BenchmarkError, BenchmarkResult, BenchmarkScenario,
-	BenchmarkSummary, SharedBenchmarkArgs, DEFAULT_MAC_MESSAGE_BYTES,
+	format_benchmark_banner, BenchmarkBannerContext, BenchmarkError,
+	BenchmarkResult, BenchmarkScenario, BenchmarkSummary,
+	SharedBenchmarkArgs, DEFAULT_MAC_MESSAGE_BYTES,
 };
 use crate::rgh::mac::commands::legacy_warning_message;
 use crate::rgh::mac::executor::consume_bytes;
@@ -61,20 +62,11 @@ pub fn print_mac_report(
 	summary: &BenchmarkSummary,
 	payload_bytes: usize,
 ) {
-	let run_window = summary
-		.scenario
-		.iterations
-		.map(|count| format!("iterations: {}", count))
-		.unwrap_or_else(|| {
-			format!(
-				"duration: {}s",
-				summary.scenario.duration_seconds
-			)
-		});
-	println!(
-		"MAC Benchmark Results (payload: {} bytes, {})",
-		payload_bytes, run_window
-	);
+	let context =
+		BenchmarkBannerContext::from_scenario(&summary.scenario)
+			.with_payload_bytes(Some(payload_bytes));
+	println!();
+	println!("{}", format_benchmark_banner(&context));
 	println!(
 		"{:<16} {:>10} {:>14} {:>12} {:>12} {:>8}  Notes",
 		"Algorithm",

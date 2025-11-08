@@ -77,9 +77,35 @@ fn markdown_summary_table_emits_expected_rows() {
 	let stdout =
 		String::from_utf8(assert.get_output().stdout.clone())
 			.expect("stdout utf8");
+	assert!(stdout.contains("> === Benchmark Summary: MAC ==="));
 	assert!(stdout.contains("| Algorithm |"));
 	assert!(stdout.contains("poly1305"));
 	assert!(stdout.contains("hmac-sha256"));
 	assert!(stdout.contains("✅ PASS"));
 	assert!(stdout.contains("⚠ WARN"));
+}
+
+#[test]
+fn console_summary_emits_banner_before_metadata() {
+	let output_path =
+		Path::new("target/benchmark/summary-console.json");
+	write_summary_fixture(output_path);
+
+	let assert = cargo_bin_cmd!("rgh")
+		.args([
+			"benchmark",
+			"summarize",
+			"--input",
+			output_path.to_str().unwrap(),
+		])
+		.assert()
+		.success();
+	let stdout =
+		String::from_utf8(assert.get_output().stdout.clone())
+			.expect("stdout utf8");
+	assert!(stdout.contains("=== Benchmark Summary: MAC ==="));
+	assert!(
+		stdout.contains("Benchmark summary from"),
+		"metadata block should remain after the banner"
+	);
 }
