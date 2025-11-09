@@ -11,7 +11,9 @@ use super::color::{
 use super::completion::{CompletionContext, CompletionEngine};
 use super::dispatcher;
 use super::dispatcher::DispatchOutput;
+use super::export::{self, ExportFormat};
 use super::help::HelpResolver;
+use super::history::{self, ConsoleHistoryConfig, HistoryRetention};
 use super::interpolation;
 use super::parser::parse_command;
 use super::script;
@@ -27,6 +29,7 @@ use rustyline::validate::{
 	ValidationContext, ValidationResult, Validator,
 };
 use rustyline::{CompletionType, Config, Context, Editor, Helper};
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,6 +59,9 @@ pub struct ConsoleSession {
 	completion: CompletionEngine,
 	help: HelpResolver,
 	color: ColorState,
+	history_path: Option<PathBuf>,
+	history_retention: HistoryRetention,
+	history_dirty: bool,
 }
 
 impl ConsoleSession {
@@ -67,8 +73,13 @@ impl ConsoleSession {
 		if let Some(force) = options.force_color_override {
 			color = ColorState::new(force, capability);
 		}
+		let (history_path, history_retention) =
+			Self::resolve_history_prefs(
+				options.tty_mode,
+				&options.history,
+			);
 		control::set_override(color.should_emit());
-		let session = Self {
+		let mut session = Self {
 			options,
 			variables: ConsoleVariableStore::default(),
 			history: Vec::new(),
@@ -76,7 +87,11 @@ impl ConsoleSession {
 			completion: CompletionEngine::default(),
 			help: HelpResolver,
 			color,
+			history_path,
+			history_retention,
+			history_dirty: false,
 		};
+		session.load_history_from_disk();
 
 		if let Some(message) = session.color.capability.legacy_notice
 		{
@@ -191,6 +206,32 @@ impl ConsoleSession {
 				self.apply_color_request(mode);
 				return Ok(Flow::Continue);
 			}
+			BuiltinAction::HistorySave(path) => {
+				self.handle_manual_history_save(&path);
+				return Ok(Flow::Continue);
+			}
+			BuiltinAction::HistoryLoad(path) => {
+				self.handle_manual_history_load(&path);
+				return Ok(Flow::Continue);
+			}
+			BuiltinAction::HistoryClear => {
+				self.handle_manual_history_clear();
+				return Ok(Flow::Continue);
+			}
+			BuiltinAction::ExportVars {
+				path,
+				format,
+				include_secrets,
+				auto_confirm,
+			} => {
+				self.handle_export_vars_command(
+					path,
+					format,
+					include_secrets,
+					auto_confirm,
+				);
+				return Ok(Flow::Continue);
+			}
 			BuiltinAction::NotHandled => {}
 		}
 
@@ -284,13 +325,22 @@ impl ConsoleSession {
 	}
 
 	fn record_history(&mut self, command: &str, exit_code: i32) {
+		let stored_command = match self.history_retention {
+			HistoryRetention::Sanitized => {
+				history::sanitize_command(command)
+			}
+			_ => command.to_string(),
+		};
 		self.history.push(CommandEntry {
-			command: command.to_string(),
+			command: stored_command,
 			exit_code,
 			timestamp: SystemTime::now(),
 		});
 		if self.history.len() > 1000 {
 			self.history.remove(0);
+		}
+		if self.history_active() {
+			self.history_dirty = true;
 		}
 	}
 
@@ -349,6 +399,199 @@ impl ConsoleSession {
 		}
 
 		self.apply_color_mode(requested);
+	}
+
+	fn manual_history_allowed(&self) -> bool {
+		matches!(self.options.tty_mode, ConsoleMode::Interactive)
+			|| self.options.history.force_script_history
+	}
+
+	fn handle_manual_history_save(&mut self, path: &PathBuf) {
+		if !self.manual_history_allowed() {
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"history commands unavailable in script mode",
+			);
+			return;
+		}
+		if self.history.is_empty() {
+			self.emit_console_stdout(
+				ConsoleLineRole::Info,
+				"(history empty; nothing to save)",
+			);
+			return;
+		}
+		let retention = if self.history_retention.is_enabled() {
+			self.history_retention
+		} else {
+			HistoryRetention::Sanitized
+		};
+		let records: Vec<history::HistoryRecord> = self
+			.history
+			.iter()
+			.map(|entry| history::HistoryRecord {
+				timestamp: entry.timestamp,
+				command: if matches!(
+					retention,
+					HistoryRetention::Sanitized
+				) {
+					history::sanitize_command(&entry.command)
+				} else {
+					entry.command.clone()
+				},
+				exit_code: entry.exit_code,
+			})
+			.collect();
+		match history::save_snapshot(path, retention, &records) {
+			Ok(_) => self.emit_console_stdout(
+				ConsoleLineRole::Success,
+				&format!(
+					"saved history to {} ({}, entries={})",
+					path.display(),
+					retention,
+					self.history.len()
+				),
+			),
+			Err(err) => self.emit_console_stderr(
+				ConsoleLineRole::Warning,
+				&format!(
+					"failed to save history ({}): {}",
+					path.display(),
+					err
+				),
+			),
+		}
+	}
+
+	fn handle_manual_history_load(&mut self, path: &PathBuf) {
+		if !self.manual_history_allowed() {
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"history commands unavailable in script mode",
+			);
+			return;
+		}
+		match history::load_snapshot(path) {
+			Ok(snapshot) => {
+				if matches!(
+					snapshot.retention,
+					HistoryRetention::Verbatim
+				) && !matches!(
+					self.history_retention,
+					HistoryRetention::Verbatim
+				) {
+					self.emit_console_stdout(
+						ConsoleLineRole::Warning,
+						"loaded verbatim history; commands may include secrets",
+					);
+				}
+				self.history.clear();
+				for entry in snapshot.entries {
+					self.history.push(CommandEntry {
+						command: entry.command,
+						exit_code: entry.exit_code,
+						timestamp: entry.timestamp,
+					});
+				}
+				while self.history.len() > 1000 {
+					self.history.remove(0);
+				}
+				self.history_dirty =
+					self.history_active() && !self.history.is_empty();
+				self.emit_console_stdout(
+					ConsoleLineRole::Success,
+					&format!(
+						"loaded {} history entries from {}",
+						self.history.len(),
+						path.display()
+					),
+				);
+			}
+			Err(err) => {
+				self.emit_console_stderr(
+					ConsoleLineRole::Warning,
+					&format!(
+						"failed to load history ({}): {}",
+						path.display(),
+						err
+					),
+				);
+			}
+		}
+	}
+
+	fn handle_manual_history_clear(&mut self) {
+		if !self.manual_history_allowed() {
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"history commands unavailable in script mode",
+			);
+			return;
+		}
+		self.history.clear();
+		self.history_dirty = false;
+		self.emit_console_stdout(
+			ConsoleLineRole::Info,
+			"history cleared",
+		);
+	}
+
+	fn handle_export_vars_command(
+		&mut self,
+		path: PathBuf,
+		format: ExportFormat,
+		include_secrets: bool,
+		auto_confirm: bool,
+	) {
+		let vars = self.variables.list();
+		if vars.is_empty() {
+			self.emit_console_stdout(
+				ConsoleLineRole::Info,
+				"(no variables defined; nothing to export)",
+			);
+			return;
+		}
+		if include_secrets && !auto_confirm {
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"export vars --include-secrets requires --yes to confirm disk writes",
+			);
+			return;
+		}
+		let includes = include_secrets;
+		match export::write_manifest(&path, &vars, format, includes) {
+			Ok(_) => {
+				let detail = if includes {
+					"includes secrets"
+				} else {
+					"masked"
+				};
+				let fmt = match format {
+					ExportFormat::Json => "json",
+					ExportFormat::Yaml => "yaml",
+				};
+				self.emit_console_stdout(
+					ConsoleLineRole::Success,
+					&format!(
+						"wrote {} variables to {} ({}, {})",
+						vars.len(),
+						path.display(),
+						fmt,
+						detail
+					),
+				);
+			}
+			Err(err) => {
+				self.emit_console_stderr(
+					ConsoleLineRole::Warning,
+					&format!(
+						"failed to export vars ({}): {}",
+						path.display(),
+						err
+					),
+				);
+			}
+		}
 	}
 
 	fn apply_color_mode(&mut self, requested: ColorMode) {
@@ -419,6 +662,109 @@ impl ConsoleSession {
 		);
 		let styled = self.color.format(role, message);
 		eprintln!("{}", styled);
+	}
+
+	fn history_active(&self) -> bool {
+		self.history_path.is_some()
+			&& self.history_retention.is_enabled()
+	}
+
+	fn load_history_from_disk(&mut self) {
+		if !self.history_active() {
+			return;
+		}
+		let Some(path) = self.history_path.clone() else {
+			return;
+		};
+		match history::load_snapshot(&path) {
+			Ok(snapshot) => {
+				for entry in snapshot.entries {
+					self.history.push(CommandEntry {
+						command: entry.command,
+						exit_code: entry.exit_code,
+						timestamp: entry.timestamp,
+					});
+				}
+				self.history_dirty = false;
+			}
+			Err(err) => {
+				self.emit_console_stderr(
+					ConsoleLineRole::Warning,
+					&format!(
+						"failed to load console history ({}): {}",
+						path.display(),
+						err
+					),
+				);
+			}
+		}
+	}
+
+	fn flush_history(&mut self) {
+		if !self.history_active() || !self.history_dirty {
+			return;
+		}
+		let Some(path) = self.history_path.clone() else {
+			return;
+		};
+		let retention = self.history_retention;
+		let records: Vec<history::HistoryRecord> = self
+			.history
+			.iter()
+			.map(|entry| history::HistoryRecord {
+				timestamp: entry.timestamp,
+				command: if matches!(
+					retention,
+					HistoryRetention::Sanitized
+				) {
+					history::sanitize_command(&entry.command)
+				} else {
+					entry.command.clone()
+				},
+				exit_code: entry.exit_code,
+			})
+			.collect();
+		if let Err(err) =
+			history::save_snapshot(&path, retention, &records)
+		{
+			self.emit_console_stderr(
+				ConsoleLineRole::Warning,
+				&format!(
+					"failed to save console history ({}): {}",
+					path.display(),
+					err
+				),
+			);
+		} else {
+			self.history_dirty = false;
+		}
+	}
+
+	fn resolve_history_prefs(
+		mode: ConsoleMode,
+		config: &ConsoleHistoryConfig,
+	) -> (Option<PathBuf>, HistoryRetention) {
+		let allowed = !matches!(mode, ConsoleMode::Script)
+			|| config.force_script_history;
+		if !allowed {
+			return (None, HistoryRetention::Off);
+		}
+		let retention = config.retention;
+		let path = if retention.is_enabled() {
+			config.file_path.clone()
+		} else {
+			None
+		};
+		if path.is_none() {
+			return (None, HistoryRetention::Off);
+		}
+		(path, retention)
+	}
+}
+
+impl Drop for ConsoleSession {
+	fn drop(&mut self) {
+		self.flush_history();
 	}
 }
 

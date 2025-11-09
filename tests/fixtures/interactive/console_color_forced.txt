@@ -24,6 +24,17 @@ Options:
           [default: auto]
           [possible values: auto, always, never]
 
+      --history-file <FILE>
+          Persist console history to FILE (defaults to platform config path when retention is enabled)
+
+      --history-retention <MODE>
+          History retention policy (sanitized is default for interactive sessions, off for scripts)
+          
+          [possible values: off, sanitized, verbatim]
+
+      --force-script-history
+          Allow scripts to write history even though it is disabled by default (requires explicit retention)
+
   -h, --help
           Print help
 

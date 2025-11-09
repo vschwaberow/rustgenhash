@@ -10,7 +10,10 @@ use rustgenhash::rgh::console::{
 	parse_command, run_console, ConsoleError, ConsoleMode,
 	ConsoleOptions, ConsoleValueType, ConsoleVariableStore,
 };
+use serde_json::Value as JsonValue;
+use serde_yaml::Value as YamlValue;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 use tempfile::NamedTempFile;
@@ -390,4 +393,234 @@ fn console_color_disabled_fixture_matches() {
 		"disabled fixture must remain monochrome",
 	);
 	assert!(stdout.contains("NO_COLOR is set"));
+}
+
+#[test]
+fn console_history_persist_fixture_matches() {
+	let history_dir = tempfile::tempdir().expect("tempdir");
+	let history_file = history_dir.path().join("history.json");
+	let history_str = history_file.to_str().expect("history path");
+	let seed_script = Path::new(
+		"tests/fixtures/interactive/scripts/console_history_seed.rgh",
+	);
+	let expected_seed = fs::read_to_string(
+		"tests/fixtures/interactive/console_history_seed.txt",
+	)
+	.expect("read history seed fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(&binary)
+		.args([
+			"console",
+			"--color",
+			"never",
+			"--history-file",
+			history_str,
+			"--history-retention",
+			"sanitized",
+			"--force-script-history",
+			"--script",
+			seed_script.to_str().unwrap(),
+		])
+		.output()
+		.expect("run console history seed script");
+	assert!(output.status.success());
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	assert_eq!(stdout, expected_seed);
+
+	let show_script = Path::new(
+		"tests/fixtures/interactive/scripts/console_history_show.rgh",
+	);
+	let expected_show = fs::read_to_string(
+		"tests/fixtures/interactive/console_history_show.txt",
+	)
+	.expect("read history show fixture");
+	let output2 = Command::new(&binary)
+		.args([
+			"console",
+			"--color",
+			"never",
+			"--history-file",
+			history_str,
+			"--history-retention",
+			"sanitized",
+			"--force-script-history",
+			"--script",
+			show_script.to_str().unwrap(),
+		])
+		.output()
+		.expect("run console history show script");
+	assert!(output2.status.success());
+	let stdout2 =
+		String::from_utf8(output2.stdout).expect("stdout utf8");
+	assert_eq!(stdout2, expected_show);
+}
+
+#[test]
+fn console_history_manual_builtins_work() {
+	let history_dir = tempfile::tempdir().expect("history tempdir");
+	let history_file = history_dir.path().join("manual.json");
+	let script_source = format!(
+		"digest string --algorithm blake3 \"beta\"\n\
+history save \"{path}\"\n\
+history clear\n\
+history load \"{path}\"\n\
+show history\n\
+exit\n",
+		path = history_file.display()
+	);
+	let mut script_file =
+		NamedTempFile::new().expect("script temp file");
+	script_file
+		.write_all(script_source.as_bytes())
+		.expect("write script");
+
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(&binary)
+		.args([
+			"console",
+			"--color",
+			"never",
+			"--force-script-history",
+			"--script",
+			script_file.path().to_str().unwrap(),
+		])
+		.output()
+		.expect("run console manual history script");
+	assert!(
+		output.status.success(),
+		"stdout: {}\nstderr: {}",
+		String::from_utf8_lossy(&output.stdout),
+		String::from_utf8_lossy(&output.stderr)
+	);
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	assert!(
+		stdout.contains("saved history to"),
+		"expected save confirmation"
+	);
+	assert!(
+		stdout.contains("history cleared"),
+		"expected clear confirmation"
+	);
+	assert!(
+		stdout.contains("loaded 1 history entries"),
+		"expected load confirmation"
+	);
+	assert!(
+		stdout
+			.contains("digest string --algorithm blake3 \"******\""),
+		"history show should redact sensitive argument"
+	);
+	assert!(
+		history_file.exists(),
+		"manual history file should be created"
+	);
+}
+
+#[test]
+fn console_vars_export_json_masked_manifest_matches() {
+	let manifest = NamedTempFile::new().expect("manifest temp file");
+	let script_source = format!(
+		"set $alpha = digest string --algorithm blake3 \"alpha\"\n\
+export vars \"{path}\"\n\
+exit\n",
+		path = manifest.path().display()
+	);
+	let mut script_file =
+		NamedTempFile::new().expect("script temp file");
+	script_file
+		.write_all(script_source.as_bytes())
+		.expect("write script");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(&binary)
+		.args([
+			"console",
+			"--color",
+			"never",
+			"--script",
+			script_file.path().to_str().unwrap(),
+		])
+		.output()
+		.expect("run console export vars script");
+	assert!(output.status.success());
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	assert!(
+		stdout.contains("wrote 1 variables"),
+		"expected success message"
+	);
+	let data =
+		fs::read_to_string(manifest.path()).expect("read manifest");
+	let manifest_json: JsonValue =
+		serde_json::from_str(&data).expect("parse json manifest");
+	assert!(!manifest_json["includes_secrets"]
+		.as_bool()
+		.unwrap_or(true));
+	let records =
+		manifest_json["records"].as_array().expect("records array");
+	assert_eq!(records.len(), 1);
+	let record = &records[0];
+	assert!(record["preview"]
+		.as_str()
+		.unwrap_or("")
+		.contains("****"));
+	assert!(record["value"].is_null());
+}
+
+#[test]
+fn console_vars_export_yaml_with_secrets_matches() {
+	let manifest = NamedTempFile::new().expect("manifest temp file");
+	let script_source = format!(
+		"set $alpha = digest string --algorithm blake3 \"alpha\"\n\
+export vars \"{path}\" --format yaml --include-secrets --yes\n\
+exit\n",
+		path = manifest.path().display()
+	);
+	let mut script_file =
+		NamedTempFile::new().expect("script temp file");
+	script_file
+		.write_all(script_source.as_bytes())
+		.expect("write script");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(&binary)
+		.args([
+			"console",
+			"--color",
+			"never",
+			"--script",
+			script_file.path().to_str().unwrap(),
+		])
+		.output()
+		.expect("run console export vars yaml script");
+	assert!(output.status.success());
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	assert!(
+		stdout.contains("includes secrets"),
+		"expected secrets warning"
+	);
+	let data =
+		fs::read_to_string(manifest.path()).expect("read manifest");
+	let manifest_yaml: YamlValue =
+		serde_yaml::from_str(&data).expect("parse yaml manifest");
+	assert_eq!(
+		manifest_yaml
+			.get("includes_secrets")
+			.and_then(YamlValue::as_bool),
+		Some(true)
+	);
+	let records = manifest_yaml
+		.get("records")
+		.and_then(YamlValue::as_sequence)
+		.expect("records sequence");
+	assert_eq!(records.len(), 1);
+	let record = &records[0];
+	assert_eq!(
+		record
+			.get("value")
+			.and_then(YamlValue::as_str)
+			.unwrap_or(""),
+		"644a9bc57c6063e2ba4028fa73ed585170ae7db8ac7723d32be49c021a0225f5"
+	);
 }

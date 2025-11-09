@@ -1,0 +1,3 @@
+rgh-console(script)# show history
+  1: digest string --algorithm blake3 "******"                    [0]
+rgh-console(script)# exit

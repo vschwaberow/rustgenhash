@@ -5,6 +5,7 @@
 // Copyright (c) 2022 Volker Schwaberow
 
 use std::collections::HashMap;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConsoleValueType {
@@ -20,6 +21,7 @@ pub struct ConsoleVariable {
 	pub value: String,
 	pub value_type: ConsoleValueType,
 	pub sensitive: bool,
+	pub created_at: SystemTime,
 }
 
 impl ConsoleVariable {
@@ -36,6 +38,7 @@ impl ConsoleVariable {
 #[derive(Default)]
 pub struct ConsoleVariableStore {
 	values: HashMap<String, ConsoleVariable>,
+	order: Vec<String>,
 }
 
 impl ConsoleVariableStore {
@@ -53,8 +56,13 @@ impl ConsoleVariableStore {
 			value,
 			value_type,
 			sensitive,
+			created_at: SystemTime::now(),
 		};
-		self.values.insert(name, variable);
+		let is_new = !self.values.contains_key(&name);
+		self.values.insert(name.clone(), variable);
+		if is_new {
+			self.order.push(name);
+		}
 	}
 
 	pub fn get(&self, name: &str) -> Option<&ConsoleVariable> {
@@ -62,12 +70,21 @@ impl ConsoleVariableStore {
 	}
 
 	pub fn clear(&mut self, name: &str) -> bool {
-		self.values.remove(name).is_some()
+		if self.values.remove(name).is_some() {
+			self.order.retain(|entry| entry != name);
+			true
+		} else {
+			false
+		}
 	}
 
 	pub fn list(&self) -> Vec<&ConsoleVariable> {
-		let mut vars: Vec<_> = self.values.values().collect();
-		vars.sort_by(|a, b| a.name.cmp(&b.name));
+		let mut vars = Vec::new();
+		for key in &self.order {
+			if let Some(var) = self.values.get(key) {
+				vars.push(var);
+			}
+		}
 		vars
 	}
 }

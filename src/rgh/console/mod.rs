@@ -5,7 +5,9 @@ pub mod builtins;
 pub mod color;
 pub mod completion;
 pub mod dispatcher;
+pub mod export;
 pub mod help;
+pub mod history;
 pub mod interpolation;
 pub mod parser;
 pub mod script;
@@ -24,6 +26,7 @@ pub struct ConsoleOptions {
 	pub tty_mode: ConsoleMode,
 	pub color_mode: ColorMode,
 	pub force_color_override: Option<ColorMode>,
+	pub history: history::ConsoleHistoryConfig,
 }
 
 impl ConsoleOptions {
@@ -34,6 +37,7 @@ impl ConsoleOptions {
 			tty_mode: SessionConsoleMode::Interactive,
 			color_mode: ColorMode::Auto,
 			force_color_override: None,
+			history: history::ConsoleHistoryConfig::disabled(),
 		}
 	}
 
@@ -44,6 +48,7 @@ impl ConsoleOptions {
 			tty_mode: SessionConsoleMode::Script,
 			color_mode: ColorMode::Auto,
 			force_color_override: None,
+			history: history::ConsoleHistoryConfig::disabled(),
 		}
 	}
 }
@@ -100,3 +105,4 @@ pub use variables::{
 };
 
 pub use color::ColorMode;
+pub use history::{ConsoleHistoryConfig, HistoryRetention};

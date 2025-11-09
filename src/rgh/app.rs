@@ -12,7 +12,10 @@ use crate::rgh::benchmark::{
 	BenchmarkMode, HkdfInputMaterial, SharedBenchmarkArgs,
 	DEFAULT_MAC_MESSAGE_BYTES,
 };
-use crate::rgh::console::{self, ColorMode, ConsoleOptions};
+use crate::rgh::console::{
+	self, history, ColorMode, ConsoleHistoryConfig, ConsoleOptions,
+	HistoryRetention,
+};
 use crate::rgh::digest::commands as digest_commands;
 use crate::rgh::file::{
 	DirectoryHashPlan, ErrorHandlingProfile, ErrorStrategy,
@@ -2563,6 +2566,35 @@ pub(crate) fn build_cli() -> clap::Command {
 								"Color console-owned output: auto (default), always, or never",
 							),
 					)
+					.arg(
+						Arg::new("history-file")
+							.long("history-file")
+							.value_name("FILE")
+							.help(
+								"Persist console history to FILE (defaults to platform config path when retention is enabled)",
+							),
+					)
+					.arg(
+						Arg::new("history-retention")
+							.long("history-retention")
+							.value_name("MODE")
+							.value_parser(PossibleValuesParser::new([
+								"off",
+								"sanitized",
+								"verbatim",
+							]))
+							.help(
+								"History retention policy (sanitized is default for interactive sessions, off for scripts)",
+							),
+					)
+					.arg(
+						Arg::new("force-script-history")
+							.long("force-script-history")
+							.action(ArgAction::SetTrue)
+							.help(
+								"Allow scripts to write history even though it is disabled by default (requires explicit retention)",
+							),
+					)
 					.after_help("Examples:\\n  rgh console\\n  rgh console --script playbook.rgh\\n  rgh console --script playbook.rgh --ignore-errors")
 			)
 			.subcommand(
@@ -3658,6 +3690,59 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				}
 				_ => None,
 			};
+			let history_file_arg = args
+				.get_one::<String>("history-file")
+				.map(PathBuf::from);
+			let requested_retention = args
+				.get_one::<String>("history-retention")
+				.and_then(|raw| HistoryRetention::from_str(raw).ok());
+			let force_script_history =
+				args.get_flag("force-script-history");
+			let history_enabled = history_file_arg.is_some()
+				|| requested_retention.is_some();
+			let default_retention = if matches!(
+				options.tty_mode,
+				console::ConsoleMode::Script
+			) {
+				HistoryRetention::Off
+			} else {
+				HistoryRetention::Sanitized
+			};
+			let retention = if history_enabled {
+				requested_retention.unwrap_or(default_retention)
+			} else {
+				HistoryRetention::Off
+			};
+			let resolved_history_path =
+				history_file_arg.or_else(|| {
+					if history_enabled && retention.is_enabled() {
+						history::default_history_path()
+					} else {
+						None
+					}
+				});
+			let (history_path, effective_retention) = match (
+				resolved_history_path,
+				retention,
+			) {
+				(Some(path), mode) if mode.is_enabled() => {
+					(Some(path), mode)
+				}
+				(None, mode) if mode.is_enabled() => {
+					eprintln!(
+							"warning: history retention requested but no config directory available; history disabled"
+						);
+					(None, HistoryRetention::Off)
+				}
+				(other_path, _) => {
+					(other_path, HistoryRetention::Off)
+				}
+			};
+			options.history = ConsoleHistoryConfig::new(
+				history_path,
+				effective_retention,
+				force_script_history,
+			);
 			match console::run_console(options) {
 				Ok(code) => {
 					if code != 0 {

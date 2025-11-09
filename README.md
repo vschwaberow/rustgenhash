@@ -229,7 +229,7 @@ MAC and KDF console runs now keep throughput tables to one row per algorithm whi
 
 ### Console Command Mode
 
-`rgh console` provides a network-appliance-style prompt for chaining rustgenhash commands without repeatedly prefixing `rgh`. When the terminal supports ANSI escapes, console-owned lines adopt the new palette (cyan prompt, green success, amber warnings, red errors) while child command stdout/stderr stay untouched—see the deterministic capture in `tests/fixtures/interactive/console_color_auto.txt`. The shell supports history, tab-safe prompts, and a built-in variable store:
+`rgh console` provides a network-appliance-style prompt for chaining rustgenhash commands without repeatedly prefixing `rgh`. When the terminal supports ANSI escapes, console-owned lines adopt the new palette (cyan prompt, green success, amber warnings, red errors) while child command stdout/stderr stay untouched—see the deterministic capture in `tests/fixtures/interactive/console_color_auto.txt`. The shell supports opt-in persistent history, tab-safe prompts, and a built-in variable store:
 
 ```
 $ rgh console
@@ -242,12 +242,13 @@ Match confirmed.
 ```
 
 - Variables behave like `$name` tokens; `set $name = <command>` runs the command, captures the last line of stdout, redacts it for `show vars`, and stores the full value for reuse.
-- `clear var $name`, `show history`, and `abort` commands mirror familiar network CLI muscle memory; `exit`/`quit` leave the shell.
+- `clear var $name`, `show history`, and `abort` commands mirror familiar network CLI muscle memory; `exit`/`quit` leave the shell. New builtins `history save <FILE>`, `history load <FILE>`, and `history clear` offer on-demand control when `--history-file` is configured.
 - Non-interactive mode executes files of console commands: `rgh console --script playbook.rgh [--ignore-errors]`. Scripts echo `rgh-console(script)# ...` before each command, stop on the first failure (unless `--ignore-errors`), and propagate the failing exit code; undefined variables produce exit code `65` with `error: undefined variable $name` on stderr.
 - Palette cues mirror the same behavior in script mode when you explicitly pass `--color=always`; otherwise scripts remain monochrome so fixtures stay deterministic.
 - Interactive TAB completion is enabled for commands, subcommands, and flags. Press `Tab` once to auto-complete unambiguous prefixes or twice to print a deterministic listing when multiple matches exist.
 - The `complete <prefix>` builtin mirrors the TAB engine for scripts/CI runs and exits with `0` on success or `66` when no suggestions exist, keeping transcripts diffable.
 - Contextual help stays inside the console: `help digest string`, `help kdf hkdf`, `help benchmark mac`, etc., reuse the same clap/README text you see via `rgh <cmd> --help` without emitting color (respects `NO_COLOR`).
+- Persistent history is disabled by default. Provide `--history-file <PATH>` and `--history-retention {off|sanitized|verbatim}` to save commands between sessions (sanitized redacts literals, verbatim requires confirmation). Scripts can opt in via `--force-script-history`. Export the variable store for automation with `export vars <FILE> [--format json|yaml] [--include-secrets --yes]`; secrets stay masked unless explicitly requested.
 
 #### Color controls & precedence
 
@@ -256,6 +257,9 @@ Match confirmed.
 | `rgh console --color=<mode>` | `auto` (default), `always`, `never` | Primary contract for enabling/disabling ANSI. `always` forces escape codes even when `NO_COLOR` or `--script` would normally suppress them; `never` disables colors regardless of terminal support. |
 | `set color <mode>` builtin | `auto`, `always`, `never`, `high-contrast` | Adjusts the current session without restarting. Attempts that conflict with `--color` overrides or scripts emit warnings and leave the existing mode intact. |
 | `set color high-contrast` | n/a | Switches to the high-contrast palette while keeping `auto` detection rules for enable/disable. |
+| `--history-file <PATH>` + `--history-retention {off,sanitized,verbatim}` | (optional) | `sanitized` in interactive mode, `off` for scripts | Stores command history between sessions; sanitized redacts sensitive literals while verbatim requires confirmation. |
+| `history save/load/clear` builtins | n/a | n/a | Snapshot, restore, or wipe history on demand (interactive by default; scripts require `--force-script-history`). |
+| `export vars <PATH> [--format json|yaml] [--include-secrets --yes]` | n/a | JSON masked previews (default) or YAML | Write variable manifests for automation. Secrets are only written when `--include-secrets --yes` is provided. |
 | `NO_COLOR=1` | boolean env var | Forces monochrome unless `--color=always` is provided at launch. |
 | `--script <file>` mode | implied | Scripts default to monochrome to keep fixtures deterministic; use `--color=always` when you expect ANSI in captures. |
 

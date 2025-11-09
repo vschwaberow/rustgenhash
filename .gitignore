@@ -15,3 +15,9 @@ release/
 *.log
 .env
 .env.*
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+tests/fixtures/interactive/export_vars_*.json
+tests/fixtures/interactive/export_vars_*.yaml

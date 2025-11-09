@@ -1,0 +1,3 @@
+set $alpha = digest string --algorithm blake3 "alpha"
+export vars tests/fixtures/interactive/export_vars_masked.json
+exit

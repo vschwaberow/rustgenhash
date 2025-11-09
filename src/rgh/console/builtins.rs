@@ -6,17 +6,28 @@
 
 use super::color::{ColorMode, ColorState, ConsoleLineRole};
 use super::completion::{CompletionContext, CompletionEngine};
+use super::export::ExportFormat;
 use super::help::{tokenize_topic, HelpResolver};
 use super::session::{CommandEntry, ConsoleMode};
 use super::variables::ConsoleVariableStore;
+use std::path::PathBuf;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuiltinAction {
 	NotHandled,
 	Continue,
 	Exit(i32),
 	CommandResult(i32),
 	ColorChange(ColorMode),
+	HistorySave(PathBuf),
+	HistoryLoad(PathBuf),
+	HistoryClear,
+	ExportVars {
+		path: PathBuf,
+		format: ExportFormat,
+		include_secrets: bool,
+		auto_confirm: bool,
+	},
 }
 
 pub fn handle_builtin(
@@ -94,6 +105,30 @@ pub fn handle_builtin(
 		_ if lowered.starts_with("set color ") => {
 			handle_set_color_builtin(lowered.as_str(), color)
 		}
+		_ if lowered.starts_with("history save ") => {
+			if let Some(path) =
+				parse_path_arg(&normalized["history save ".len()..])
+			{
+				BuiltinAction::HistorySave(path)
+			} else {
+				print_error(color, "usage: history save <path>");
+				BuiltinAction::CommandResult(64)
+			}
+		}
+		_ if lowered.starts_with("history load ") => {
+			if let Some(path) =
+				parse_path_arg(&normalized["history load ".len()..])
+			{
+				BuiltinAction::HistoryLoad(path)
+			} else {
+				print_error(color, "usage: history load <path>");
+				BuiltinAction::CommandResult(64)
+			}
+		}
+		"history clear" => BuiltinAction::HistoryClear,
+		_ if lowered.starts_with("export vars") => {
+			parse_export_vars_builtin(normalized, color)
+		}
 		_ => BuiltinAction::NotHandled,
 	}
 }
@@ -110,7 +145,19 @@ fn print_help(color: &ColorState) {
 	println!(
 		"  show history        Display last commands and exit codes"
 	);
+	println!(
+		"  history save <FILE> Persist current history to a custom file"
+	);
+	println!(
+		"  history load <FILE> Replace history with commands from FILE"
+	);
+	println!(
+		"  history clear       Remove in-memory history entries"
+	);
 	println!("  clear var $name     Remove a stored variable");
+	println!(
+		"  export vars <FILE> [--format json|yaml] [--include-secrets --yes]"
+	);
 	println!(
 		"  configure terminal  Jump to legacy interactive wizard"
 	);
@@ -176,6 +223,116 @@ fn handle_completion_builtin(
 		println!("{}", suggestion.value);
 	}
 	BuiltinAction::CommandResult(0)
+}
+
+fn parse_path_arg(raw: &str) -> Option<PathBuf> {
+	let trimmed = raw.trim();
+	if trimmed.is_empty() {
+		return None;
+	}
+	let unquoted = trimmed
+		.strip_prefix('"')
+		.and_then(|rest| rest.strip_suffix('"'))
+		.or_else(|| {
+			trimmed
+				.strip_prefix('\'')
+				.and_then(|rest| rest.strip_suffix('\''))
+		})
+		.unwrap_or(trimmed);
+	if unquoted.is_empty() {
+		None
+	} else {
+		Some(PathBuf::from(unquoted))
+	}
+}
+
+fn split_path_and_rest(input: &str) -> Option<(PathBuf, &str)> {
+	let trimmed = input.trim_start();
+	if trimmed.is_empty() {
+		return None;
+	}
+	if trimmed.starts_with('"') || trimmed.starts_with('\'') {
+		let quote = trimmed.chars().next().unwrap();
+		let mut consumed = 1;
+		let mut path = String::new();
+		for ch in trimmed[1..].chars() {
+			consumed += ch.len_utf8();
+			if ch == quote {
+				break;
+			}
+			path.push(ch);
+		}
+		let rest = &trimmed[consumed..];
+		return Some((PathBuf::from(path), rest));
+	}
+	let mut end = 0;
+	for (idx, ch) in trimmed.char_indices() {
+		if ch.is_whitespace() {
+			break;
+		}
+		end = idx + ch.len_utf8();
+	}
+	if end == 0 {
+		return Some((PathBuf::from(trimmed), ""));
+	}
+	let path = PathBuf::from(&trimmed[..end]);
+	let rest = &trimmed[end..];
+	Some((path, rest))
+}
+
+fn parse_export_vars_builtin(
+	command: &str,
+	color: &ColorState,
+) -> BuiltinAction {
+	let remainder = command["export vars".len()..].trim_start();
+	let Some((path, rest)) = split_path_and_rest(remainder) else {
+		print_error(color, "usage: export vars <FILE> [--format json|yaml] [--include-secrets --yes]");
+		return BuiltinAction::CommandResult(64);
+	};
+	let mut format = ExportFormat::Json;
+	let mut include_secrets = false;
+	let mut auto_confirm = false;
+	let mut tokens = rest.trim().split_whitespace().peekable();
+	while let Some(token) = tokens.next() {
+		match token {
+			"--include-secrets" => include_secrets = true,
+			"--format" => {
+				let Some(value) = tokens.next() else {
+					print_error(
+						color,
+						"--format requires json or yaml",
+					);
+					return BuiltinAction::CommandResult(64);
+				};
+				match ExportFormat::from_str(value) {
+					Some(fmt) => format = fmt,
+					None => {
+						print_error(
+							color,
+							"supported export formats are json or yaml",
+						);
+						return BuiltinAction::CommandResult(64);
+					}
+				}
+			}
+			"--yes" => auto_confirm = true,
+			other => {
+				print_warning(
+					color,
+					&format!(
+						"ignoring unrecognized flag `{}`",
+						other
+					),
+				);
+			}
+		}
+	}
+	BuiltinAction::ExportVars {
+		path,
+		format,
+		include_secrets,
+		auto_confirm,
+	}
 }
 
 fn handle_context_help(
