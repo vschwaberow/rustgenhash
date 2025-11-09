@@ -1,0 +1,7 @@
+=== MAC Benchmarks (duration 5s, payload 1024 bytes) ===
+Algorithm        Throughput      Latency    Notes
+poly1305         2.31 GB/s       0.42 ms    baseline
+hmac-sha1        0.42 GB/s       7.40 ms    legacy
+⚠ hmac-sha1 is deprecated per NIST SP 800-131A rev.2 §3 and BSI TR-02102-1 §5.1. Prefer SHA-2/3 family or BLAKE3.
+
+JSON manifest: target/benchmark/mac-integration.json

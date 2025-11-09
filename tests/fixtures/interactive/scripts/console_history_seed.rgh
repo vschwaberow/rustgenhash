@@ -1,0 +1,4 @@
+# Seed history with sanitized retention
+digest string --algorithm blake3 "alpha"
+show history
+exit

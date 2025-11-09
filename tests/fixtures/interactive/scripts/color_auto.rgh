@@ -1,0 +1,2 @@
+help digest string
+digest string --algorithm blake3 "alpha"

@@ -4,6 +4,9 @@ rustgenhash is a tool to generate hashes on the commandline from stdio.
 
 It can be used to generate single or multiple hashes for usage in password databases or even in penetration testing scenarios where you want to test password cracking tools. It can also help to identify the nature of a provided hash.
 
+> Multihash output support follows the [multiformats Multihash specification](https://github.com/multiformats/multihash) and uses the Rust [`multihash`](https://crates.io/crates/multihash) v0.18 and [`multibase`](https://crates.io/crates/multibase) v0.9 crates for TLV encoding and base58btc emission.
+> Supported multicodec mappings currently cover `sha2-256`, `sha2-512`, `blake2b-256`, and `blake3-256`. When `--format multihash` is selected, manifests record the emitted base58btc tokens verbatim.
+
 ## Install
 
 rustgenhash is written in Rust. You can install the tool with your Rust installation using following command:
@@ -14,55 +17,267 @@ cargo install rustgenhash
 
 ## Usage
 
-Rustgenhash has a command line interface which allows you to set the utility into a specific operating mode. The current
-modes are
+Rustgenhash groups its command line surface into two primary families:
 
-- analyze
-- benchmark
-- compare-hash
-- random
-- stdio
-- string
-- file
-- header
-- interactive
+- `rgh digest <mode>` — deterministic hashing for strings, files, or stdin streams.
+- `rgh kdf <algorithm>` — password-based key derivation with structured (JSON) metadata.
 
-After selecting the mode you will need to provide the -a switch for selecting a suitable hashing algorithm and a string
-or file to be hashed. The stdio mode allows you to pipe to the `rgh` command. The tool will hash the passed
-lines from the stdio (useful for hashing password lists).
+Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash`, `compare-file`, `random`, `header`, and
+`interactive` (a guided wizard that now branches between digest and KDF workflows).
 
-The file mode supports hashing of multiple files in a directory and currently works non-recursive.
+### Digest commands
 
-Scheme for string hashing:
+| Command | Description | Key flags |
+|---------|-------------|-----------|
+| `rgh digest string -a <ALG> <TEXT>` | Hash inline text with the selected algorithm. | `--format {hex,base64,json,jsonl,csv,hashcat,multihash}`, `--hash-only` |
+| `rgh digest file -a <ALG> <PATH>` | Hash files or directories (opt-in recursion, manifests, progress). | `--format`, `--recursive`, `--follow-symlinks`, `--threads`, `--mmap-threshold`, `--manifest`, `--error-strategy`, `--progress/--no-progress`, `--hash-only` |
+| `rgh digest stdio -a <ALG>` | Read newline-delimited input from stdin and emit one digest per line. | `--format`, `--hash-only` |
+
+Examples:
 
 ```bash
-rgh string -a <algorithm> <string>
+# Digest a release tarball with SHA-256
+rgh digest file -a sha256 target/release/rgh
 
-# Suppress plaintext echoes for scripting workflows
-rgh string -a <algorithm> --hash-only <string>
-```
+# Compute hashes for a list while keeping one token per line
+cat passwords.txt | rgh digest stdio -a sha3_512 --hash-only
 
-Scheme for file hashing:
+# Emit multibase multihash tokens for interoperability with CID tooling
+rgh digest file -a sha256 --format multihash tests/fixtures/file/sample.txt
+
+# Recursively hash a backup tree and write a manifest
+rgh digest file -a sha256 --recursive --manifest backup-hashes.json /mnt/backups
+
+Directory hashing options:
+
+- `--recursive` traverses nested directories; defaults to the legacy non-recursive behaviour.
+- `--follow-symlinks {never,files,all}` controls whether symbolic links are hashed or followed.
+- `--threads {1|auto|N}` enables Rayon-backed parallel hashing when more than one worker is requested.
+- `--mmap-threshold <SIZE|off>` switches to memory-mapped IO for large files (e.g., `64MiB`).
+- `--manifest <FILE>` writes a JSON summary containing per-file digests, failures, and performance metadata (fail-fast suppresses the file to avoid partial output). When `--format multihash` is selected, the manifest preserves the emitted base58btc tokens.
+- `--error-strategy {fail-fast,continue,report-only}` determines how failures affect exit codes and manifest writes:
+  - `fail-fast` stops on the first unreadable entry, exits `1`, and skips manifest creation.
+  - `continue` records failures, hashes readable files, and exits `2` when any recoverable errors occur.
+  - `report-only` logs failures for review but exits `0` to keep downstream scripts green.
+- `--progress`/`--no-progress` override adaptive stderr progress reporting (auto-disabled for `--hash-only`).
+
+### MAC commands
+
+`rgh mac` generates keyed message authentication codes for inline text, files, or newline-delimited stdin streams. Supply a key via `--key <PATH>` or `--key-stdin` and choose output formatting with `--hash-only` (digest only) or `--format json`.
+
+| Algorithm | Description | Key requirements | Notes |
+|-----------|-------------|------------------|-------|
+| `hmac-sha1` | HMAC-SHA1 | ≥ 1 byte | ⚠ Legacy — retained for backward compatibility ([NIST SP 800-131A rev.2 §3][nist]) |
+| `hmac-sha256` / `hmac-sha512` | HMAC over SHA-2 | ≥ 1 byte | [RFC 2104][rfc-2104] with FIPS 180-4 core |
+| `hmac-sha3-256` / `hmac-sha3-512` | HMAC over SHA-3 | ≥ 1 byte | [FIPS 202][fips-202] sponge construction |
+| `kmac128` / `kmac256` | NIST SP 800-185 KMAC | Arbitrary | cSHAKE-based MAC ([NIST SP 800-185][nist-800-185]) |
+| `cmac-aes128` / `cmac-aes192` / `cmac-aes256` | AES-CMAC | 16 / 24 / 32 bytes | Deterministic CMAC per [NIST SP 800-38B][nist-800-38b] |
+| `poly1305` | Poly1305 one-time MAC | 32 bytes | Warns on key reuse; follows [RFC 8439 §2.5][rfc-8439] guidance |
+| `blake3-keyed` | BLAKE3 keyed mode | 32 bytes | High-speed keyed hashing ([BLAKE3 spec][blake3-spec]) |
+
+Examples:
 
 ```bash
-rgh file -a <algorithm> <filename or directory>
+# CMAC over inline evidence string with 128-bit AES key
+rgh mac --alg cmac-aes128 --key tests/fixtures/keys/cmac_aes128.key --input "compliance-mac"
+# stdout → 3d5db00e9962fadb33cf8153f3167dae compliance-mac
 
-# Emit only digests when listing directory contents
-rgh file -a <algorithm> --hash-only <filename or directory>
+# CMAC over a file with a 256-bit key
+rgh mac --alg cmac-aes256 --key tests/fixtures/keys/cmac_aes256.key --file tests/fixtures/file/cmac_evidence.txt
+# stdout → 3e8413cbda3fc1bd20809494a42d4a5c tests/fixtures/file/cmac_evidence.txt
+
+# Poly1305 streaming MAC with reuse warning on the second line
+printf "config\npipeline\n" | rgh mac --alg poly1305 --key tests/fixtures/keys/poly1305.key --stdin
+# stderr → Poly1305 requires one-time keys; reuse detected
+# stdout → 1cb7a97202776f414eae3333aefc9f57 config
+#           720c7a23b362a576bb8e3cc3187c8e2b pipeline
 ```
 
-Scheme for string hashing from stdio:
+#### Weak Digest Algorithms
+
+| Algorithm | Risk | Safer alternatives | References |
+|-----------|------|--------------------|------------|
+| MD5 | ⚠ Weak | SHA-256, BLAKE3 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
+| SHA-1 | ⚠ Weak | SHA-256, SHA-512 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
+| SHA-224 | ⚠ Weak | SHA-256, SHA-512 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
+
+⚠ entries indicate algorithms retained solely for legacy verification; automation should migrate to the recommended replacements.
+
+#### Supported Digest Algorithms
+
+- **SHA-2 family**: SHA-256, SHA-384, SHA-512 (recommended); SHA-224 (⚠ Weak, legacy compatibility only).
+- **SHA-3 family**: SHA3-224, SHA3-256, SHA3-384, SHA3-512.
+- **BLAKE family**: BLAKE2b, BLAKE2s, BLAKE3 (memory-hard friendly, modern).
+- **FSB family**: FSB-160, FSB-224, FSB-256, FSB-384, FSB-512.
+- **GOST & Streebog**: GOST R 34.11-94, GOST R 34.11-94-UA, Streebog-256, Streebog-512.
+- **JH finalists**: JH-224, JH-256, JH-384, JH-512.
+- **Skein family**: Skein-256, Skein-512, Skein-1024.
+- **Shabal family**: Shabal-192, Shabal-224, Shabal-256, Shabal-384, Shabal-512.
+- **RIPEMD family**: RIPEMD-160, RIPEMD-320.
+- **Other classic digests**: Ascon, Belthash, Groestl, SM3, Tiger, Whirlpool.
+- **Legacy MD family**: MD2, MD4, MD5 (⚠ Weak) retained for checksums and historical datasets.
+
+The CLI exposes each algorithm via `-a/--algorithm`; `rgh digest --help` highlights weak options inline.
+
+### Password-based KDF commands
+
+KDF subcommands produce structured JSON output by default (use `--hash-only` to emit just the derived key). Passwords can
+be provided via `--password`, through the interactive prompt, or piped in using `--password-stdin` (newline trimmed).
+
+### MAC commands
+
+`rgh mac` produces keyed message authentication codes for strings, files, or stdin streams.
+
+| Identifier | Algorithm | Risk | Notes |
+|------------|-----------|------|-------|
+| `hmac-sha1` | HMAC-SHA1 | ⚠ Legacy | See [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi]; prefer SHA-2/3 variants |
+| `hmac-sha256` | HMAC-SHA256 | ✅ Recommended | [RFC 2104][rfc-2104] with SHA-2 core (FIPS 180-4) |
+| `hmac-sha512` | HMAC-SHA512 | ✅ Recommended | [RFC 2104][rfc-2104] with SHA-2 core (FIPS 180-4) |
+| `hmac-sha3-256` | HMAC-SHA3-256 | ✅ Recommended | HMAC over [FIPS 202][fips-202] SHA3-256 sponge |
+| `hmac-sha3-512` | HMAC-SHA3-512 | ✅ Recommended | HMAC over [FIPS 202][fips-202] SHA3-512 sponge |
+| `kmac128` | NIST SP 800-185 KMAC128 | ✅ Recommended | [NIST SP 800-185][nist-800-185] cSHAKE128-based MAC |
+| `kmac256` | NIST SP 800-185 KMAC256 | ✅ Recommended | [NIST SP 800-185][nist-800-185] cSHAKE256-based MAC |
+| `blake3-keyed` | BLAKE3 keyed hash | ✅ Recommended | [BLAKE3 specification §5][blake3-spec]; requires 32 byte key |
+
+Examples:
 
 ```bash
-cat myfile | rgh stdio -a <algorithm>
+# HMAC of inline text with key stored on disk
+rgh mac --alg hmac-sha256 --key tests/fixtures/keys/hmac.key --input "alpha"
 
-# Hash-only mode preserves one output token per input line
-cat myfile | rgh stdio -a <algorithm> --hash-only
+# KMAC256 over a file with key streamed from stdin
+cat tests/fixtures/keys/kmac.key | rgh mac --alg kmac256 --key-stdin --file reports/archive.zip --hash-only
+
+# BLAKE3 keyed MAC for stdin lines, JSON output
+cat payloads.txt | rgh mac --alg blake3-keyed --key tests/fixtures/keys/blake3.key --stdin --format json
 ```
+
+| Command | Parameters | Output |
+|---------|------------|--------|
+| `rgh kdf argon2` | `--mem-cost`, `--time-cost`, `--parallelism` | PHC string with Argon2id parameters + JSON metadata |
+| `rgh kdf scrypt` | `--log-n`, `--r`, `--p`, `--salt <HEX>`, `--profile <ID>` | Encoded scrypt string + metadata |
+| `rgh kdf pbkdf2` | `--algorithm {sha256,sha512}`, `--rounds`, `--length`, `--salt <HEX>`, `--profile <ID>` | `$pbkdf2-<digest>$...` plus metadata |
+| `rgh kdf bcrypt` | `--cost` | 64 byte hex digest + metadata |
+| `rgh kdf balloon` | `--time-cost`, `--memory-cost`, `--parallelism` | Balloon hash string + metadata |
+| `rgh kdf sha-crypt` | (rounds fixed to 10 000) | `$6$` SHA-crypt string + metadata |
+| `rgh kdf hkdf` | `--ikm-stdin`, `--salt <HEX>`, `--info <HEX>`, `--len <BYTES>`, `--hash {sha256,sha512,sha3-256,sha3-512,blake3}`, `--expand-only`, `--prk`, `--prk-stdin` | JSON with algorithm/hash metadata (`--hash-only` emits derived key hex) |
+
+#### Supported Password Derivation Schemes
+
+| Algorithm | Risk | Notes |
+|-----------|------|-------|
+| Argon2id | ✅ Recommended | Memory-hard PHC winner; default choice for new deployments. |
+| Scrypt | ✅ Recommended | Memory-hard; tune `log_n`, `r`, `p` to meet policy requirements. |
+| Balloon | ✅ Recommended | Configurable memory-hard alternative influenced by Argon2. |
+| PBKDF2-SHA256 / PBKDF2-SHA512 | ⚠ Legacy | Acceptable with high iteration counts; prefer Argon2 or Scrypt when feasible. |
+| Bcrypt | ⚠ Legacy | 72-byte password truncation; preserved for POSIX compatibility. |
+| SHA-crypt (`sha512`) | ⚠ Legacy | Provided for Unix compatibility; migrate to memory-hard schemes. |
+
+HKDF derives keyed material from input keying material (IKM) supplied via stdin. `--salt` and `--info` expect hex strings; omitting `--salt` in extract+expand mode defaults to an all-zero salt and prints `info: default salt = empty string` on stderr. Use `--hash` to choose the underlying digest (SHA-2, SHA-3, or `blake3`), `--len` to request the desired output length, and `--expand-only` together with `--prk <PATH>` or `--prk-stdin` when you need the RFC 5869 expand phase against an externally sourced PRK.
+
+Example:
 
 ```bash
-echo "mypassword" | rgh stdio -a <algorithm>
+# Derive an Argon2id password hash and capture the JSON payload
+rgh kdf argon2 --mem-cost 131072 --time-cost 4 --parallelism 2 --password-stdin <<'EOF'
+s3cret!
+EOF
+
+# HKDF with the BLAKE3 variant (hash-only output for pipelines)
+printf "ikm" | rgh kdf hkdf --hash blake3 --salt 73616c74 --info 696e666f --len 32 --ikm-stdin --hash-only
+
+# HKDF expand-only mode fed by a PRK file (stderr stays silent on success)
+rgh kdf hkdf --expand-only --prk tests/fixtures/keys/hkdf_prk.key --info 696e666f --len 64 --hash sha512 --hash-only
+
+# PBKDF2 compliance preset (NIST SP 800-132) with deterministic salt for audits
+printf "example-pass" | rgh kdf pbkdf2 --profile nist-sp800-132-2023 --salt 00112233445566778899aabbccddeeff --password-stdin
+
+# Scrypt compliance preset (OWASP 2024) sharing the same fixed salt
+printf "example-pass" | rgh kdf scrypt --profile owasp-2024 --salt 00112233445566778899aabbccddeeff --password-stdin --hash-only
 ```
+
+### Benchmark commands
+
+Use `rgh benchmark` to measure throughput/latency for MAC and KDF algorithms and to summarize the JSON manifests emitted by `--output`. The MAC runner reuses the verified implementations described above (HMAC, KMAC, CMAC, Poly1305, BLAKE3) with the 1 KiB payload guidance from [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) so you can compare algorithms on equal footing. The KDF runner executes PBKDF2 (NIST SP 800-132 presets), scrypt (OWASP 2024), and HKDF (RFC 5869, including expand-only mode) while flagging compliance issues when median latency exceeds the policy threshold or fewer than 30 samples are collected.
+
+| Command | Key flags | Output |
+|---------|-----------|--------|
+| `rgh benchmark mac --alg <ID> [--alg ...]` | `--duration <window>` or `--iterations <count>`, `--message-bytes <size>`, `--json`, `--output <FILE>`, `--list-algorithms`, `--yes` | Console table with banners plus unitized columns (`Ops/sec (kops)`, `Median ms`, `P95 ms`); `--json` keeps raw floats |
+| `rgh benchmark kdf --alg <pbkdf2|scrypt|hkdf>` | `--profile <alg=id>`, `--salt <HEX>`, `--info <HEX>`, `--ikm/--ikm-stdin`, `--prk/--prk-stdin`, `--length`, shared flags above | Bannered console table showing latency in `ms` and throughput in `kops/s`; JSON remains unchanged |
+| `rgh benchmark summarize --input <FILE> [--format markdown]` | `--format {console,markdown}` | Re-renders benchmark JSON with the same unitized columns as live runs so README/QA snippets stay aligned |
+
+Examples:
+
+```bash
+# Compare Poly1305 vs HMAC-SHA256 for five seconds
+rgh benchmark mac --alg poly1305 --alg hmac-sha256 --duration 5s --output target/benchmark/mac-comparison.json --yes
+
+# Validate PBKDF2 + scrypt compliance presets (NIST / OWASP) with JSON export
+rgh benchmark kdf --alg pbkdf2 --alg scrypt \
+  --profile pbkdf2=nist-sp800-132-2023 --profile scrypt=owasp-2024 \
+  --duration 3s --json --output target/benchmark/kdf-policy.json --yes
+
+# Convert a benchmark artifact into Markdown for your QA packet
+rgh benchmark summarize --input target/benchmark/mac-comparison.json --format markdown
+```
+
+Markdown output emitted by the summarizer already contains the compliance badges (`✅ PASS` / `⚠ WARN`), ops/sec or median latency columns (depending on the mode), and a note column that merges CLI warnings (e.g., Poly1305 key reuse or sample-count reminders) so you can paste the block into README files or QA dossiers without further editing.
+
+Console benchmark runs insert a blank line plus a banner such as `=== MAC Benchmarks (duration 5s, iterations auto, payload 1024 bytes) ===` or `=== KDF Benchmarks (duration 3s, iterations auto) ===` before each table, label every numeric column with explicit units, **and** show the runtime banner `Planned Xs · Actual Ys (±Δs)` directly beneath the header so performance drift is obvious. Pass `--json` to keep stdout machine-readable—the manifests still carry raw floats. The summarizer mirrors both the runtime line and the main banner for console and Markdown formats (Markdown begins with `> === Benchmark Summary: MAC ===` plus the same runtime text so evidence paste remains script-safe).
+
+MAC and KDF console runs now keep throughput tables to one row per algorithm while legacy/compliance warnings are consolidated below the table under a `Warnings` heading (one bullet per algorithm, citing NIST SP 800-131A rev.2 / BSI TR-02102-1). `rgh benchmark summarize --format console|markdown` reproduces the same grouped section so audit evidence stays consistent, and `--json` output remains banner- and warning-free for automation.
+
+### Console Command Mode
+
+`rgh console` provides a network-appliance-style prompt for chaining rustgenhash commands without repeatedly prefixing `rgh`. When the terminal supports ANSI escapes, console-owned lines adopt the new palette (cyan prompt, green success, amber warnings, red errors) while child command stdout/stderr stay untouched—see the deterministic capture in `tests/fixtures/interactive/console_color_auto.txt`. The shell supports opt-in persistent history, tab-safe prompts, and a built-in variable store:
+
+```
+$ rgh console
+rgh-console# set $alpha = digest string --algorithm blake3 "alpha"
+644a9bc57c6063e2ba4028fa73ed585170ae7db8ac7723d32be49c021a0225f5 alpha
+rgh-console# show vars
+$alpha = 644a****225f
+rgh-console# compare-hash --expected $alpha fixtures/alpha.txt
+Match confirmed.
+```
+
+- Variables behave like `$name` tokens; `set $name = <command>` runs the command, captures the last line of stdout, redacts it for `show vars`, and stores the full value for reuse.
+- `clear var $name`, `show history`, and `abort` commands mirror familiar network CLI muscle memory; `exit`/`quit` leave the shell. New builtins `history save <FILE>`, `history load <FILE>`, and `history clear` offer on-demand control when `--history-file` is configured.
+- Non-interactive mode executes files of console commands: `rgh console --script playbook.rgh [--ignore-errors]`. Scripts echo `rgh-console(script)# ...` before each command, stop on the first failure (unless `--ignore-errors`), and propagate the failing exit code; undefined variables produce exit code `65` with `error: undefined variable $name` on stderr.
+- Palette cues mirror the same behavior in script mode when you explicitly pass `--color=always`; otherwise scripts remain monochrome so fixtures stay deterministic.
+- Interactive TAB completion is enabled for commands, subcommands, and flags. Press `Tab` once to auto-complete unambiguous prefixes or twice to print a deterministic listing when multiple matches exist.
+- The `complete <prefix>` builtin mirrors the TAB engine for scripts/CI runs and exits with `0` on success or `66` when no suggestions exist, keeping transcripts diffable.
+- Contextual help stays inside the console: `help digest string`, `help kdf hkdf`, `help benchmark mac`, etc., reuse the same clap/README text you see via `rgh <cmd> --help` without emitting color (respects `NO_COLOR`).
+- Persistent history is disabled by default. Provide `--history-file <PATH>` and `--history-retention {off|sanitized|verbatim}` to save commands between sessions (sanitized redacts literals, verbatim requires confirmation). Scripts can opt in via `--force-script-history`. Export the variable store for automation with `export vars <FILE> [--format json|yaml] [--include-secrets --yes]`; secrets stay masked unless explicitly requested.
+
+#### Color controls & precedence
+
+| Surface | Accepted values | Purpose |
+|---------|-----------------|---------|
+| `rgh console --color=<mode>` | `auto` (default), `always`, `never` | Primary contract for enabling/disabling ANSI. `always` forces escape codes even when `NO_COLOR` or `--script` would normally suppress them; `never` disables colors regardless of terminal support. |
+| `set color <mode>` builtin | `auto`, `always`, `never`, `high-contrast` | Adjusts the current session without restarting. Attempts that conflict with `--color` overrides or scripts emit warnings and leave the existing mode intact. |
+| `set color high-contrast` | n/a | Switches to the high-contrast palette while keeping `auto` detection rules for enable/disable. |
+| `--history-file <PATH>` + `--history-retention {off,sanitized,verbatim}` | (optional) | `sanitized` in interactive mode, `off` for scripts | Stores command history between sessions; sanitized redacts sensitive literals while verbatim requires confirmation. |
+| `history save/load/clear` builtins | n/a | n/a | Snapshot, restore, or wipe history on demand (interactive by default; scripts require `--force-script-history`). |
+| `export vars <PATH> [--format json|yaml] [--include-secrets --yes]` | n/a | JSON masked previews (default) or YAML | Write variable manifests for automation. Secrets are only written when `--include-secrets --yes` is provided. |
+| `NO_COLOR=1` | boolean env var | Forces monochrome unless `--color=always` is provided at launch. |
+| `--script <file>` mode | implied | Scripts default to monochrome to keep fixtures deterministic; use `--color=always` when you expect ANSI in captures. |
+
+Precedence & warnings:
+- `--color` overrides every other input: `--color=always` ignores `NO_COLOR`, `--color=never` silences colors even if the terminal supports ANSI, and both produce informative success lines (e.g., “color output forced on”).
+- When `NO_COLOR=1` is present without an overriding flag, `set color` emits `warning: NO_COLOR is set; pass --color=always to force ANSI` and leaves the prior palette untouched.
+- Script mode refuses `set color auto|always|high-contrast`, reminding operators to relaunch with `--color=always` if colorized transcripts are desired.
+- Console-owned lines (prompt, success/error banners, builtin feedback) are the *only* surfaces that ever receive ANSI codes. Child command stdout/stderr remain raw so digest/KDF transcripts and fixtures stay deterministic.
+
+#### Cross-platform checklist
+
+| Platform | How to verify | Notes |
+|----------|---------------|-------|
+| Linux / macOS terminals | Launch `rgh console --color=auto` inside a TTY that advertises `TERM=xterm-256color`. Prompts and success banners adopt the cyan/green palette automatically. | High-contrast can be toggled at runtime with `set color high-contrast`; the palette still tracks the current enable/disable mode. |
+| Windows Terminal / PowerShell 7+ | `rgh console --color=auto` emits a single info line confirming ANSI support, then renders prompts exactly like the Linux capture stored in `tests/fixtures/interactive/console_color_auto.txt`. | VT processing is enabled automatically via `ENABLE_VIRTUAL_TERMINAL_PROCESSING`, so no extra configuration is required beyond running inside Windows Terminal. |
+| Legacy Windows CMD | Launching `rgh console` prints `warning: windows console lacks ANSI support; falling back to monochrome output (try Windows Terminal or PowerShell)` and keeps prompts monochrome to avoid garbled escape codes. | Operators can still force colors (and risk escape sequences) with `--color=always`, but README/help emphasize upgrading to Windows Terminal for proper rendering. |
+
+### Other utilities
 
 Scheme for analyzing a hash:
 
@@ -82,11 +297,16 @@ Scheme for comparing a hash:
 rgh compare-string <hash1> <hash2>
 ```
 
-Scheme for comparing hash files with each other:
+Scheme for comparing hashes across manifests or digest lists:
 
 ```bash
-rgh compare-file <file1> <file2>
+rgh compare-file --manifest reference.json --against current.json
+
+# Legacy digest lists remain supported
+rgh compare-file baseline.txt candidate.txt
 ```
+
+*Exit codes*: `0` identical, `1` differences detected, `2` comparison incomplete when manifests recorded failures.
 
 Scheme for benchmarking a hash algorithm:
 
@@ -94,13 +314,24 @@ Scheme for benchmarking a hash algorithm:
 rgh benchmark -a <algorithm> -i <iterations>
 ```
 
-You can list all supported algorithms over the help function.
+## Performance Profile
 
-Lastly, the tool offers the interactive mode:
+- Assembly-optimized code paths (`asm-accel` feature) are enabled by default for SHA-1, SHA-2, MD5, and Whirlpool on x86_64 and Apple Silicon (aarch64) targets. Unsupported targets automatically fall back to portable implementations.
+- Benchmark output includes an `asm_enabled` flag; use `scripts/benchmark/run.sh --mode baseline|optimized` to capture reproducible measurements and emit artifacts under `target/audit/`.
+- To opt out (e.g., deterministic builds or restricted environments), run with `--no-default-features --features portable-only` or set the same flags in `Cargo.toml`.
+- CI builds exercise wasm32 portable fallback and native macOS/Windows targets (`.github/workflows/build.yml`) to guarantee cross-platform coverage.
+- Observed SHA-256 speedup on a Ryzen 5 4600H host: baseline `0.001035 ms/op` → optimized `0.000989 ms/op` (~4.4% faster). Throughput gains vary by CPU and governor settings.
+
+The interactive wizard reflects the new structure:
 
 ```bash
 rgh interactive
+# → Choose between “Digest data” and “Derive password-based key” before drilling into specific modes.
+# → Select CMAC or Poly1305 to see key length guidance and confirmation prompts.
 ```
+
+- CMAC selection enforces 16/24/32-byte AES keys before execution.
+- Poly1305 selection requires a one-time 32-byte key confirmation and surfaces reuse warnings.
 
 ## Quality Audit
 
@@ -128,13 +359,24 @@ interactive flows) are marked with a skip reason and reported as `SKIP` in the
 summary. When the audit fails, review the emitted severity, reproduction notes,
 and the JSON payload to pinpoint the mismatch.
 
+### New Coverage (010-audit-fixture-depth)
+
+| Fixture ID | Focus | Expected Exit | Notes |
+|------------|-------|---------------|-------|
+| `digest_string_empty` | SHA-256 digest of empty input | `0` | Ensures default and `--hash-only` outputs remain identical. |
+| `digest_file_large_stream` | 1 GiB deterministic stream | `0` | Runtime target ≤10 min; data generated under `target/audit/large-stream/`. |
+| `mac_poly1305_mismatched_key` | Poly1305 key length violation | `2` | Requires error text “Poly1305 requires a 32-byte one-time key…”. |
+| `mac_cmac_padding_mismatch` | CMAC invalid key length | `2` | Fails fast with “Invalid CMAC key length…” guidance. |
+| `kdf_pbkdf2_invalid_iterations` | PBKDF2 preset under minimum rounds | `2` | Mirrors NIST SP 800-132 floor (310 000 iterations). |
+| `kdf_scrypt_zero_password` | Scrypt zero-length secret | `2` | Abort message “Password must not be empty”. |
+
 ### Release Readiness
 
-Release managers must complete `docs/qa/release-readiness.md` before tagging:
+Release managers must complete the release readiness checklist before tagging:
 
 1. Ensure the GitHub Actions “Audit Harness” workflow passed on the target commit.
 2. Run `cargo test --test audit` locally and sync failures into
-   `docs/qa/logic-issues.md` via `scripts/audit/export_issue.sh`.
+  a logic issues report via `scripts/audit/export_issue.sh`.
 3. Execute `scripts/audit/check_release.sh` to confirm zero failing fixtures and
    no open issues remain.
 4. Record retest evidence (commit hashes, CI artifact URLs) in the checklist and
@@ -143,3 +385,12 @@ Release managers must complete `docs/qa/release-readiness.md` before tagging:
 ## Contribution 
 
 If you want to contribute to this project, please feel free to do so. I am happy to accept pull requests. Any help is appreciated. If you have any questions, please feel free to contact me.
+
+[nist]: https://doi.org/10.6028/NIST.SP.800-131Ar2
+[bsi]: https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf
+[rfc-2104]: https://www.rfc-editor.org/rfc/rfc2104
+[fips-202]: https://doi.org/10.6028/NIST.FIPS.202
+[nist-800-185]: https://doi.org/10.6028/NIST.SP.800-185
+[nist-800-38b]: https://doi.org/10.6028/NIST.SP.800-38B
+[rfc-8439]: https://www.rfc-editor.org/rfc/rfc8439
+[blake3-spec]: https://github.com/BLAKE3-team/BLAKE3-specs

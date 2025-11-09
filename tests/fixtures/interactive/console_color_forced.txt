@@ -1,0 +1,45 @@
+[96mrgh-console(script)# set $alpha = digest string --algorithm blake3 "alpha"[0m
+644a9bc57c6063e2ba4028fa73ed585170ae7db8ac7723d32be49c021a0225f5 alpha
+[96mrgh-console(script)# show vars[0m
+$alpha = 644a****25f5
+[96mrgh-console(script)# set color never[0m
+[33mignoring request: --color=always keeps colors enabled[0m
+[96mrgh-console(script)# set color high-contrast[0m
+[92mhigh-contrast palette enabled[0m
+[37mrgh-console(script)# help console[0m
+Network appliance-style console shell for chaining rustgenhash commands
+
+Usage: console [OPTIONS]
+
+Options:
+      --script <FILE>
+          Run console commands from a script file (non-interactive mode)
+
+      --ignore-errors
+          Continue executing script commands after failures
+
+      --color <WHEN>
+          Color console-owned output: auto (default), always, or never
+          
+          [default: auto]
+          [possible values: auto, always, never]
+
+      --history-file <FILE>
+          Persist console history to FILE (defaults to platform config path when retention is enabled)
+
+      --history-retention <MODE>
+          History retention policy (sanitized is default for interactive sessions, off for scripts)
+          
+          [possible values: off, sanitized, verbatim]
+
+      --force-script-history
+          Allow scripts to write history even though it is disabled by default (requires explicit retention)
+
+  -h, --help
+          Print help
+
+  -V, --version
+          Print version
+
+Examples:\n  rgh console\n  rgh console --script playbook.rgh\n  rgh console --script playbook.rgh --ignore-errors
+

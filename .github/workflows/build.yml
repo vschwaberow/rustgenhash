@@ -1,9 +1,46 @@
+name: Cross Platform Builds
+
 on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
   release:
     types: [created]
 
 jobs:
+  compatibility:
+    if: github.event_name != 'release'
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: wasm32 portable fallback
+            runs-on: ubuntu-latest
+            target: wasm32-unknown-unknown
+            command: cargo build --target wasm32-unknown-unknown --no-default-features --features portable-only
+          - name: macOS ARM tests
+            runs-on: macos-14
+            target: ""
+            command: cargo test --all
+          - name: Windows x86_64 tests
+            runs-on: windows-latest
+            target: ""
+            command: cargo test --all
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Add target
+        if: matrix.target != ''
+        shell: bash
+        run: rustup target add ${{ matrix.target }}
+      - name: Build / Test
+        run: ${{ matrix.command }}
+
   release:
+    if: github.event_name == 'release'
     name: release ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
@@ -17,7 +54,7 @@ jobs:
           - target: x86_64-apple-darwin
             archive: zip
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:

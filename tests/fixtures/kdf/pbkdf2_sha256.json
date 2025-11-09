@@ -1,0 +1,26 @@
+{
+  "id": "kdf_pbkdf2_sha256",
+  "mode": "kdf",
+  "algorithm": "PBKDF2_SHA256",
+  "input": {
+    "password": "correct horse battery staple",
+    "salt": "/E8IB0nINAoTniN7ZESBkA",
+    "rounds": 100000,
+    "output_length": 32
+  },
+  "expected_output": {
+    "digest": "$pbkdf2-sha256$i=100000,l=32$/E8IB0nINAoTniN7ZESBkA$RzhbvgBDWUKO30Kb5293G7K973dfovxdk0uih0Xbv+M",
+    "metadata": {
+      "algorithm": "pbkdf2-sha256",
+      "rounds": 100000,
+      "output_length": 32,
+      "salt": "/E8IB0nINAoTniN7ZESBkA",
+      "salt_length_bytes": 16
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Ensures PBKDF2-SHA256 derived output matches documented metadata.",
+    "skip_reason": null
+  }
+}

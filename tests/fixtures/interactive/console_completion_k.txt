@@ -1,0 +1,3 @@
+rgh-console(script)# complete k
+# completions prefix='k' matches=1
+kdf

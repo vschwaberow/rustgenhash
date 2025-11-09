@@ -1,0 +1,32 @@
+{
+  "id": "digest_sha256_file",
+  "mode": "digest_file",
+  "algorithm": "SHA256",
+  "input": {
+    "path": "tests/fixtures/file/sample.txt"
+  },
+  "expected_output": {
+    "format": "hex",
+    "default_lines": [
+      "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3 tests/fixtures/file/sample.txt"
+    ],
+    "hash_only_lines": [
+      "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3"
+    ],
+    "entries": [
+      {
+        "path": "tests/fixtures/file/sample.txt",
+        "digest": "0c8d757cf395b77b846f01371a7f68177a26f46a2589a98e8b192cff856524b3"
+      }
+    ],
+    "exit_code": 0,
+    "failure_count": 0,
+    "should_write_manifest": true,
+    "fatal_error": null
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Confirms digest file mode emits expected SHA256 output.",
+    "skip_reason": null
+  }
+}

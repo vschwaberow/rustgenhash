@@ -1,0 +1,28 @@
+{
+  "id": "digest_string_md5_warning",
+  "mode": "digest_string",
+  "algorithm": "MD5",
+  "input": {
+    "value": "secret"
+  },
+  "expected_output": {
+    "digest": "5ebe2294ecd0e0f08eab7690d2a6ee69",
+    "format": "hex",
+    "default_lines": [
+      "5ebe2294ecd0e0f08eab7690d2a6ee69 secret"
+    ],
+    "hash_only_lines": [
+      "5ebe2294ecd0e0f08eab7690d2a6ee69"
+    ],
+    "warning_banner": "⚠ WARNING: MD5 is a weak algorithm (collisions known) See NIST SP 800-131A rev.2 §3 and BSI TR-02102-1 recommendations. Use SHA-256 or BLAKE3 for new digests.",
+    "warning_references": [
+      "https://doi.org/10.6028/NIST.SP.800-131Ar2",
+      "https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf"
+    ]
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Verifies digest string mode emits the weak-algorithm banner without altering stdout output.",
+    "skip_reason": null
+  }
+}

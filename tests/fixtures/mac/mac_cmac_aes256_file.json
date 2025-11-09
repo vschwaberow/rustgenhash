@@ -1,0 +1,26 @@
+{
+  "id": "mac_cmac_aes256_file",
+  "mode": "mac_file",
+  "algorithm": "cmac-aes256",
+  "key": {
+    "source": "tests/fixtures/keys/cmac_aes256.key"
+  },
+  "input": {
+    "type": "file",
+    "path": "tests/fixtures/file/cmac_evidence.txt"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "default_line": "3e8413cbda3fc1bd20809494a42d4a5c tests/fixtures/file/cmac_evidence.txt",
+    "hash_only_line": "3e8413cbda3fc1bd20809494a42d4a5c",
+    "exit_code": 0
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "AES-256 CMAC file-mode vector sourced from NIST SP 800-38B appendix keys.",
+    "skip_reason": null
+  }
+}

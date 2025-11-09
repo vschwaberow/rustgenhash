@@ -1,0 +1,38 @@
+{
+  "id": "mac_blake3_keyed_stdio",
+  "mode": "mac_stdio",
+  "algorithm": "blake3-keyed",
+  "key": {
+    "source": "tests/fixtures/keys/blake3.key"
+  },
+  "input": {
+    "lines": [
+      "alpha",
+      "beta"
+    ]
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "default_lines": [
+      "e66e5af037fb22dc6d957057b669507d4627de61b43061053cb3782ecb07e41f alpha",
+      "c1a91f69569cc82e93f716d02e7c07b5c5be53a27f2ad5b99af63fcbc6a63518 beta"
+    ],
+    "hash_only_lines": [
+      "e66e5af037fb22dc6d957057b669507d4627de61b43061053cb3782ecb07e41f",
+      "c1a91f69569cc82e93f716d02e7c07b5c5be53a27f2ad5b99af63fcbc6a63518"
+    ],
+    "records": [
+      { "source": "alpha", "digest": "e66e5af037fb22dc6d957057b669507d4627de61b43061053cb3782ecb07e41f" },
+      { "source": "beta", "digest": "c1a91f69569cc82e93f716d02e7c07b5c5be53a27f2ad5b99af63fcbc6a63518" }
+    ],
+    "exit_code": 0
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Ensures stdin streaming for BLAKE3 keyed MAC emits one digest per line.",
+    "skip_reason": null
+  }
+}

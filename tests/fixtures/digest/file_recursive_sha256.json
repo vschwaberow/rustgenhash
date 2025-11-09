@@ -1,0 +1,46 @@
+{
+  "id": "digest_file_recursive_sha256",
+  "mode": "digest_file",
+  "algorithm": "SHA256",
+  "input": {
+    "path": "tests/fixtures/digest/recursive_tree/root",
+    "recursive": true,
+    "follow_symlinks": "never"
+  },
+  "expected_output": {
+    "format": "hex",
+    "default_lines": [
+      "7bf3cff33acc9c92919dda6dd6fd4e9ad99ff424fd30833abc42921343e60709 tests/fixtures/digest/recursive_tree/root/alpha.txt",
+      "1f3ca3adc7718e13315779bc6e64b90b2e5072f058359001b0bbf09f1dfef273 tests/fixtures/digest/recursive_tree/root/nested/beta.txt",
+      "0464a5d6e33541544523ec3a8756900d536cb06684a3e430e43afd093d16bde3 tests/fixtures/digest/recursive_tree/root/nested/deeper/gamma.txt"
+    ],
+    "hash_only_lines": [
+      "7bf3cff33acc9c92919dda6dd6fd4e9ad99ff424fd30833abc42921343e60709",
+      "1f3ca3adc7718e13315779bc6e64b90b2e5072f058359001b0bbf09f1dfef273",
+      "0464a5d6e33541544523ec3a8756900d536cb06684a3e430e43afd093d16bde3"
+    ],
+    "entries": [
+      {
+        "path": "tests/fixtures/digest/recursive_tree/root/alpha.txt",
+        "digest": "7bf3cff33acc9c92919dda6dd6fd4e9ad99ff424fd30833abc42921343e60709"
+      },
+      {
+        "path": "tests/fixtures/digest/recursive_tree/root/nested/beta.txt",
+        "digest": "1f3ca3adc7718e13315779bc6e64b90b2e5072f058359001b0bbf09f1dfef273"
+      },
+      {
+        "path": "tests/fixtures/digest/recursive_tree/root/nested/deeper/gamma.txt",
+        "digest": "0464a5d6e33541544523ec3a8756900d536cb06684a3e430e43afd093d16bde3"
+      }
+    ],
+    "exit_code": 0,
+    "failure_count": 0,
+    "should_write_manifest": true,
+    "fatal_error": null
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Validates recursive SHA-256 hashing over nested directories without following symlinks.",
+    "skip_reason": null
+  }
+}

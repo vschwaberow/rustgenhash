@@ -1,0 +1,16 @@
+{
+  "id": "console_color_disabled",
+  "mode": "interactive",
+  "algorithm": "console",
+  "input": {
+    "scenario": "console-color-disabled"
+  },
+  "expected_output": {
+    "transcript": "tests/fixtures/interactive/console_color_disabled.txt"
+  },
+  "metadata": {
+    "severity": "low",
+    "notes": "Monochrome baseline captured with NO_COLOR=1 to guard deterministic transcripts.",
+    "skip_reason": "Requires ANSI/no-color environment toggling"
+  }
+}

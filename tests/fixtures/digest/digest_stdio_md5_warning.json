@@ -1,0 +1,35 @@
+{
+  "id": "digest_stdio_md5_warning",
+  "mode": "digest_stdio",
+  "algorithm": "MD5",
+  "input": {
+    "lines": [
+      "alpha"
+    ]
+  },
+  "expected_output": {
+    "format": "hex",
+    "records": [
+      {
+        "source": "alpha",
+        "digest": "2c1743a391305fbf367df8e4f069f9f9"
+      }
+    ],
+    "default_lines": [
+      "2c1743a391305fbf367df8e4f069f9f9 alpha"
+    ],
+    "hash_only_lines": [
+      "2c1743a391305fbf367df8e4f069f9f9"
+    ],
+    "warning_banner": "⚠ WARNING: MD5 is a weak algorithm (collisions known) See NIST SP 800-131A rev.2 §3 and BSI TR-02102-1 recommendations. Use SHA-256 or BLAKE3 for new digests.",
+    "warning_references": [
+      "https://doi.org/10.6028/NIST.SP.800-131Ar2",
+      "https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf"
+    ]
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Confirms stdio mode emits exactly one weak-algorithm banner before streaming digests.",
+    "skip_reason": null
+  }
+}

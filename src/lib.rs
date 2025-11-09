@@ -1,19 +1,46 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Project: rustgenhash
-// File: analyze.rs
+// File: lib.rs
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
 pub use serde::{Deserialize, Serialize};
+use serde_json::{json, Value as JsonValue};
 
 pub mod rgh {
 	pub mod analyze;
 	pub mod app;
 	pub mod audit;
 	pub mod benchmark;
+	pub mod console;
+	pub mod digest;
+	pub mod file;
 	pub mod hash;
 	pub mod hhhash;
+	pub mod kdf;
+	pub mod mac;
+	pub mod multihash;
+	pub mod output;
 	pub mod random;
+	pub mod weak;
+}
+
+pub fn render_kdf_output(
+	algorithm: &str,
+	digest: &str,
+	metadata: JsonValue,
+	hash_only: bool,
+) -> String {
+	if hash_only {
+		digest.to_string()
+	} else {
+		json!({
+			"algorithm": algorithm,
+			"digest": digest,
+			"metadata": metadata
+		})
+		.to_string()
+	}
 }
 
 #[cfg(test)]

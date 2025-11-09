@@ -1,0 +1,23 @@
+{
+  "id": "digest_sha256_string",
+  "mode": "digest_string",
+  "algorithm": "SHA256",
+  "input": {
+    "value": "rustgenhash"
+  },
+  "expected_output": {
+    "digest": "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf",
+    "format": "hex",
+    "default_lines": [
+      "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf rustgenhash"
+    ],
+    "hash_only_lines": [
+      "4d343364fc7e148c3575567da59f7f982902e4284c61951bc9f073bfb84129cf"
+    ]
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Validates the new digest command for strings (SHA256).",
+    "skip_reason": null
+  }
+}

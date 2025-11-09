@@ -1,0 +1,36 @@
+{
+  "id": "kdf_pbkdf2_profile_nist_sp800132",
+  "mode": "kdf",
+  "algorithm": "PBKDF2_SHA256",
+  "input": {
+    "password": "example-pass",
+    "salt": "ABEiM0RVZneImaq7zN3u/w",
+    "salt_hex": "00112233445566778899aabbccddeeff",
+    "rounds": 310000,
+    "output_length": 32,
+    "profile_id": "nist-sp800-132-2023"
+  },
+  "expected_output": {
+    "digest": "$pbkdf2-sha256$i=310000,l=32$ABEiM0RVZneImaq7zN3u/w$8LobkbvJONj1MUiEg4tABopsmKqjcUqXDaWhGKHX//4",
+    "metadata": {
+      "algorithm": "pbkdf2-sha256",
+      "output_length": 32,
+      "profile": {
+        "description": "NIST SP 800-132 draft (2023) baseline for general-purpose applications",
+        "id": "nist-sp800-132-2023",
+        "output_length": 32,
+        "reference": "NIST SP 800-132 (Draft 2023)",
+        "rounds": 310000,
+        "salt_length": 16
+      },
+      "rounds": 310000,
+      "salt": "ABEiM0RVZneImaq7zN3u/w",
+      "salt_length_bytes": 16
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Validates PBKDF2 NIST SP 800-132 preset with deterministic salt and digest output.",
+    "skip_reason": null
+  }
+}

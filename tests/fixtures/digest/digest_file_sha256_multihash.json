@@ -1,0 +1,32 @@
+{
+  "id": "digest_file_sha256_multihash",
+  "mode": "digest_file",
+  "algorithm": "SHA256",
+  "input": {
+    "path": "tests/fixtures/file/sample.txt"
+  },
+  "expected_output": {
+    "format": "multihash",
+    "default_lines": [
+      "zQmPBei532R8eTSeMZACNRhD2HY9i3MoKAXohpifrzfoemQ tests/fixtures/file/sample.txt"
+    ],
+    "hash_only_lines": [
+      "zQmPBei532R8eTSeMZACNRhD2HY9i3MoKAXohpifrzfoemQ"
+    ],
+    "entries": [
+      {
+        "path": "tests/fixtures/file/sample.txt",
+        "digest": "zQmPBei532R8eTSeMZACNRhD2HY9i3MoKAXohpifrzfoemQ"
+      }
+    ],
+    "exit_code": 0,
+    "failure_count": 0,
+    "should_write_manifest": true,
+    "fatal_error": null
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Validates multihash output for file mode, including hash-only semantics and manifest entries.",
+    "skip_reason": null
+  }
+}

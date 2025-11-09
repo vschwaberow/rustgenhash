@@ -1,0 +1,39 @@
+rgh-console(script)# set color always
+NO_COLOR is set; pass --color=always to force ANSI
+rgh-console(script)# help console
+Network appliance-style console shell for chaining rustgenhash commands
+
+Usage: console [OPTIONS]
+
+Options:
+      --script <FILE>
+          Run console commands from a script file (non-interactive mode)
+
+      --ignore-errors
+          Continue executing script commands after failures
+
+      --color <WHEN>
+          Color console-owned output: auto (default), always, or never
+          
+          [default: auto]
+          [possible values: auto, always, never]
+
+      --history-file <FILE>
+          Persist console history to FILE (defaults to platform config path when retention is enabled)
+
+      --history-retention <MODE>
+          History retention policy (sanitized is default for interactive sessions, off for scripts)
+          
+          [possible values: off, sanitized, verbatim]
+
+      --force-script-history
+          Allow scripts to write history even though it is disabled by default (requires explicit retention)
+
+  -h, --help
+          Print help
+
+  -V, --version
+          Print version
+
+Examples:\n  rgh console\n  rgh console --script playbook.rgh\n  rgh console --script playbook.rgh --ignore-errors
+

@@ -1,0 +1,15 @@
+{
+  "id": "benchmark_sha256_asm",
+  "mode": "benchmark",
+  "algorithm": "SHA256",
+  "input": {
+    "iterations": 5000
+  },
+  "expected_output": {
+    "asm_enabled": true
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Verify benchmark metadata reflects assembly acceleration on supported targets."
+  }
+}

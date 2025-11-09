@@ -1,0 +1,4 @@
+# Exercise child stdout/stderr handling to ensure color guards work.
+digest string --algorithm blake3 "alpha"
+digest string --algorithm unknown
+exit

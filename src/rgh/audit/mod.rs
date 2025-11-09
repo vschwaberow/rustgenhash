@@ -2,6 +2,7 @@
 // Project: rustgenhash
 // File: mod.rs
 // Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 use std::fmt;
 use std::fs::File;
@@ -32,6 +33,20 @@ pub enum AuditMode {
 	String,
 	File,
 	Stdio,
+	#[serde(rename = "digest_string")]
+	DigestString,
+	#[serde(rename = "digest_file")]
+	DigestFile,
+	#[serde(rename = "digest_stdio")]
+	DigestStdio,
+	#[serde(rename = "mac_string")]
+	MacString,
+	#[serde(rename = "mac_file")]
+	MacFile,
+	#[serde(rename = "mac_stdio")]
+	MacStdio,
+	#[serde(rename = "kdf")]
+	Kdf,
 	Header,
 	Analyze,
 	Random,
@@ -64,6 +79,8 @@ pub struct AuditCase {
 	pub mode: AuditMode,
 	pub algorithm: String,
 	pub input: Value,
+	#[serde(default)]
+	pub key: Option<Value>,
 	pub expected_output: Value,
 	#[serde(default)]
 	pub metadata: AuditMetadata,

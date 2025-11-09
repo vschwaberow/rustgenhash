@@ -1,0 +1,26 @@
+{
+  "id": "mac_poly1305_mismatched_key",
+  "mode": "mac_string",
+  "algorithm": "poly1305",
+  "key": {
+    "source": "tests/fixtures/keys/poly1305_long.key"
+  },
+  "input": {
+    "type": "inline",
+    "value": "test-message"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "error": "Poly1305 requires a 32-byte one-time key but received 48 bytes",
+    "exit_code": 2,
+    "stderr": "Poly1305 requires a 32-byte one-time key but received 48 bytes"
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Poly1305 key longer than 32 bytes should trigger RFC 8439 validation failure.",
+    "skip_reason": null
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "kdf_hkdf_sha256_basic",
+  "mode": "kdf",
+  "algorithm": "hkdf-sha256",
+  "input": {
+    "ikm_hex": "726f6f7420736563726574",
+    "salt_hex": "73616c74",
+    "info_hex": "617069",
+    "len": 32
+  },
+  "expected_output": {
+    "digest": "33f4df5eeadc1255748856f1f3c81be1e8cfd58e55a7f61e5abb729c279e922b",
+    "metadata": {
+      "display_name": "HKDF-SHA256",
+      "label": "HKDF-SHA256",
+      "variant": "hkdf-sha256",
+      "mode": "extract-expand",
+      "length": 32,
+      "ikm_length": 11,
+      "prk_length": 32,
+      "salt": "73616c74",
+      "info": "617069"
+    }
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Validates HKDF-SHA256 derive with inline text IKM and optional salt/info encoding.",
+    "skip_reason": null
+  }
+}

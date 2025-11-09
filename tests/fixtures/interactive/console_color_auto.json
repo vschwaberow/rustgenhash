@@ -1,0 +1,16 @@
+{
+  "id": "console_color_auto",
+  "mode": "interactive",
+  "algorithm": "console",
+  "input": {
+    "scenario": "console-color-auto"
+  },
+  "expected_output": {
+    "transcript": "tests/fixtures/interactive/console_color_auto.txt"
+  },
+  "metadata": {
+    "severity": "low",
+    "notes": "ANSI-capable transcript capturing auto-mode palette (see specs/018-console-color/quickstart.md §1).",
+    "skip_reason": "Requires ANSI-capable TTY capture"
+  }
+}

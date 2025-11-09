@@ -1,0 +1,5 @@
+set $alpha = digest string --algorithm blake3 "alpha"
+show vars
+set color never
+set color high-contrast
+help console

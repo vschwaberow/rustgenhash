@@ -1,0 +1,16 @@
+{
+  "id": "console_color_forced",
+  "mode": "interactive",
+  "algorithm": "console",
+  "input": {
+    "scenario": "console-color-forced"
+  },
+  "expected_output": {
+    "transcript": "tests/fixtures/interactive/console_color_forced.txt"
+  },
+  "metadata": {
+    "severity": "low",
+    "notes": "Deterministic script run with --color=always and high-contrast toggle; covers precedence + masking guarantees.",
+    "skip_reason": "Requires ANSI-capable TTY capture"
+  }
+}

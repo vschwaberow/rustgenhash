@@ -1,0 +1,29 @@
+{
+  "id": "mac_hmac_sha1_legacy",
+  "mode": "mac_string",
+  "algorithm": "hmac-sha1",
+  "key": {
+    "source": "tests/fixtures/keys/hmac.key"
+  },
+  "input": {
+    "type": "inline",
+    "value": "alpha"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "default_line": "23ea5cec55f20f94385951e634a461e26c2554f3 alpha",
+    "hash_only_line": "23ea5cec55f20f94385951e634a461e26c2554f3",
+    "stderr_contains": [
+      "warning: HMAC-SHA1 is considered legacy per NIST SP 800-131A Rev.2 §3; prefer SHA-2, SHA-3, KMAC, or BLAKE3 keyed alternatives"
+    ],
+    "exit_code": 0
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Legacy SHA-1 HMAC emits caution banner while remaining functional.",
+    "skip_reason": null
+  }
+}

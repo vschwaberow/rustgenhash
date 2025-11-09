@@ -1,0 +1,3 @@
+set $alpha = digest string --algorithm blake3 "alpha"
+show vars
+clear var $alpha

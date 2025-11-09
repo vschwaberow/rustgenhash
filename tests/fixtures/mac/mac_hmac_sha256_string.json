@@ -1,0 +1,26 @@
+{
+  "id": "mac_hmac_sha256_string",
+  "mode": "mac_string",
+  "algorithm": "hmac-sha256",
+  "key": {
+    "source": "tests/fixtures/keys/hmac.key"
+  },
+  "input": {
+    "type": "inline",
+    "value": "alpha"
+  },
+  "options": {
+    "hash_only": false,
+    "format": "text"
+  },
+  "expected_output": {
+    "default_line": "36bb6808df1ed0834db71b4d5c671ce1ef3beed1d90ed57ea5362c8a023c9488 alpha",
+    "hash_only_line": "36bb6808df1ed0834db71b4d5c671ce1ef3beed1d90ed57ea5362c8a023c9488",
+    "exit_code": 0
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Validates MAC string mode for HMAC-SHA256 using fixture key material.",
+    "skip_reason": null
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "kdf_pbkdf2_invalid_iterations",
+  "mode": "kdf",
+  "algorithm": "PBKDF2_SHA256",
+  "input": {
+    "password": "example-pass",
+    "salt": "ABEiM0RVZneImaq7zN3u/w",
+    "salt_hex": "00112233445566778899aabbccddeeff",
+    "rounds": 1000,
+    "output_length": 32,
+    "profile_id": "nist-sp800-132-2023"
+  },
+  "expected_output": {
+    "stderr": "PBKDF2 rounds 1000 must be >= profile minimum 310000",
+    "exit_code": 2
+  },
+  "metadata": {
+    "severity": "high",
+    "notes": "Profile violation should abort with policy guidance (NIST SP 800-132).",
+    "skip_reason": null
+  }
+}
