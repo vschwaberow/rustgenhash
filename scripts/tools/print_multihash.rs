@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: print_multihash.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 // Helper binary to emit multibase multihash tokens for fixture generation.
 
 use clap::{Parser, ValueEnum};
