@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: stdio_multihash.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 use assert_cmd::Command;
 
 fn make_input(lines: usize) -> String {

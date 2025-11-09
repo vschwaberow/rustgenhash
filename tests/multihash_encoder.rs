@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: multihash_encoder.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 use digest::Digest;
 use rustgenhash::rgh::multihash::{MultihashEncoder, MultihashError};
 

@@ -217,7 +217,7 @@ rgh benchmark kdf --alg pbkdf2 --alg scrypt \
   --profile pbkdf2=nist-sp800-132-2023 --profile scrypt=owasp-2024 \
   --duration 3s --json --output target/benchmark/kdf-policy.json --yes
 
-# Convert a benchmark artifact into Markdown for docs/qa/release-readiness.md
+# Convert a benchmark artifact into Markdown for your QA packet
 rgh benchmark summarize --input target/benchmark/mac-comparison.json --format markdown
 ```
 
@@ -229,7 +229,7 @@ MAC and KDF console runs now keep throughput tables to one row per algorithm whi
 
 ### Console Command Mode
 
-`rgh console` provides a network-appliance-style prompt for chaining rustgenhash commands without repeatedly prefixing `rgh`. The shell supports history, tab-safe prompts, and a built-in variable store:
+`rgh console` provides a network-appliance-style prompt for chaining rustgenhash commands without repeatedly prefixing `rgh`. When the terminal supports ANSI escapes, console-owned lines adopt the new palette (cyan prompt, green success, amber warnings, red errors) while child command stdout/stderr stay untouched—see the deterministic capture in `tests/fixtures/interactive/console_color_auto.txt`. The shell supports history, tab-safe prompts, and a built-in variable store:
 
 ```
 $ rgh console
@@ -244,9 +244,34 @@ Match confirmed.
 - Variables behave like `$name` tokens; `set $name = <command>` runs the command, captures the last line of stdout, redacts it for `show vars`, and stores the full value for reuse.
 - `clear var $name`, `show history`, and `abort` commands mirror familiar network CLI muscle memory; `exit`/`quit` leave the shell.
 - Non-interactive mode executes files of console commands: `rgh console --script playbook.rgh [--ignore-errors]`. Scripts echo `rgh-console(script)# ...` before each command, stop on the first failure (unless `--ignore-errors`), and propagate the failing exit code; undefined variables produce exit code `65` with `error: undefined variable $name` on stderr.
+- Palette cues mirror the same behavior in script mode when you explicitly pass `--color=always`; otherwise scripts remain monochrome so fixtures stay deterministic.
 - Interactive TAB completion is enabled for commands, subcommands, and flags. Press `Tab` once to auto-complete unambiguous prefixes or twice to print a deterministic listing when multiple matches exist.
 - The `complete <prefix>` builtin mirrors the TAB engine for scripts/CI runs and exits with `0` on success or `66` when no suggestions exist, keeping transcripts diffable.
 - Contextual help stays inside the console: `help digest string`, `help kdf hkdf`, `help benchmark mac`, etc., reuse the same clap/README text you see via `rgh <cmd> --help` without emitting color (respects `NO_COLOR`).
+
+#### Color controls & precedence
+
+| Surface | Accepted values | Purpose |
+|---------|-----------------|---------|
+| `rgh console --color=<mode>` | `auto` (default), `always`, `never` | Primary contract for enabling/disabling ANSI. `always` forces escape codes even when `NO_COLOR` or `--script` would normally suppress them; `never` disables colors regardless of terminal support. |
+| `set color <mode>` builtin | `auto`, `always`, `never`, `high-contrast` | Adjusts the current session without restarting. Attempts that conflict with `--color` overrides or scripts emit warnings and leave the existing mode intact. |
+| `set color high-contrast` | n/a | Switches to the high-contrast palette while keeping `auto` detection rules for enable/disable. |
+| `NO_COLOR=1` | boolean env var | Forces monochrome unless `--color=always` is provided at launch. |
+| `--script <file>` mode | implied | Scripts default to monochrome to keep fixtures deterministic; use `--color=always` when you expect ANSI in captures. |
+
+Precedence & warnings:
+- `--color` overrides every other input: `--color=always` ignores `NO_COLOR`, `--color=never` silences colors even if the terminal supports ANSI, and both produce informative success lines (e.g., “color output forced on”).
+- When `NO_COLOR=1` is present without an overriding flag, `set color` emits `warning: NO_COLOR is set; pass --color=always to force ANSI` and leaves the prior palette untouched.
+- Script mode refuses `set color auto|always|high-contrast`, reminding operators to relaunch with `--color=always` if colorized transcripts are desired.
+- Console-owned lines (prompt, success/error banners, builtin feedback) are the *only* surfaces that ever receive ANSI codes. Child command stdout/stderr remain raw so digest/KDF transcripts and fixtures stay deterministic.
+
+#### Cross-platform checklist
+
+| Platform | How to verify | Notes |
+|----------|---------------|-------|
+| Linux / macOS terminals | Launch `rgh console --color=auto` inside a TTY that advertises `TERM=xterm-256color`. Prompts and success banners adopt the cyan/green palette automatically. | High-contrast can be toggled at runtime with `set color high-contrast`; the palette still tracks the current enable/disable mode. |
+| Windows Terminal / PowerShell 7+ | `rgh console --color=auto` emits a single info line confirming ANSI support, then renders prompts exactly like the Linux capture stored in `tests/fixtures/interactive/console_color_auto.txt`. | VT processing is enabled automatically via `ENABLE_VIRTUAL_TERMINAL_PROCESSING`, so no extra configuration is required beyond running inside Windows Terminal. |
+| Legacy Windows CMD | Launching `rgh console` prints `warning: windows console lacks ANSI support; falling back to monochrome output (try Windows Terminal or PowerShell)` and keeps prompts monochrome to avoid garbled escape codes. | Operators can still force colors (and risk escape sequences) with `--color=always`, but README/help emphasize upgrading to Windows Terminal for proper rendering. |
 
 ### Other utilities
 
@@ -343,11 +368,11 @@ and the JSON payload to pinpoint the mismatch.
 
 ### Release Readiness
 
-Release managers must complete `docs/qa/release-readiness.md` before tagging:
+Release managers must complete the release readiness checklist before tagging:
 
 1. Ensure the GitHub Actions “Audit Harness” workflow passed on the target commit.
 2. Run `cargo test --test audit` locally and sync failures into
-   `docs/qa/logic-issues.md` via `scripts/audit/export_issue.sh`.
+  a logic issues report via `scripts/audit/export_issue.sh`.
 3. Execute `scripts/audit/check_release.sh` to confirm zero failing fixtures and
    no open issues remain.
 4. Record retest evidence (commit hashes, CI artifact URLs) in the checklist and

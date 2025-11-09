@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: parser.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 /// Parsed representation of a console command.
 #[derive(Debug, Clone, PartialEq, Eq)]

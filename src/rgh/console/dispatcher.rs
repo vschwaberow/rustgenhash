@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: dispatcher.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 use super::ConsoleError;
 use std::env;

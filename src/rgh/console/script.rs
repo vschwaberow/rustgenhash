@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: script.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
+use super::color::ConsoleLineRole;
 use super::session::{ConsoleSession, Flow};
 use super::ConsoleError;
 use std::fs::File;
@@ -20,16 +25,24 @@ pub fn run_script(
 		if trimmed.is_empty() || trimmed.starts_with('#') {
 			continue;
 		}
-		println!("rgh-console(script)# {}", trimmed);
+		let prompt_line = format!("rgh-console(script)# {}", trimmed);
+		let colored_prompt = session
+			.color_state()
+			.format(ConsoleLineRole::Prompt, &prompt_line);
+		println!("{}", colored_prompt);
 		match session.execute_line(&line) {
 			Ok(Flow::Continue) => continue,
 			Ok(Flow::Exit(code)) => return Ok(code),
 			Err(err) if ignore_errors => {
-				eprintln!(
+				let warning = format!(
 					"script line {} failed but continuing: {}",
 					idx + 1,
 					err
 				);
+				let colored = session
+					.color_state()
+					.format(ConsoleLineRole::Warning, &warning);
+				eprintln!("{}", colored);
 			}
 			Err(err) => return Err(err),
 		}

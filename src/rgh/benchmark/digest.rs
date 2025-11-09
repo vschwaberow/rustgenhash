@@ -2,6 +2,7 @@
 // Project: rustgenhash
 // File: benchmark/digest.rs
 // Author: Volker Schwaberow <volker@schwaberow.de>
+// (C) 2022
 
 use super::{
 	BenchmarkError, BenchmarkMode, BenchmarkResult,

@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: interactive_console.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
+
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use rustgenhash::rgh::console::{
@@ -246,4 +252,142 @@ fn console_help_script_fixture_matches() {
 		.success()
 		.stdout(predicate::eq(expected))
 		.stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn child_streams_remain_plain_when_color_forced() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/child_streams_guard.rgh",
+	);
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(binary)
+		.args([
+			"console",
+			"--color",
+			"always",
+			"--ignore-errors",
+			"--script",
+			script_path.to_str().unwrap(),
+		])
+		.output()
+		.expect("run console script with forced color");
+	assert!(output.status.success());
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	let stderr =
+		String::from_utf8(output.stderr).expect("stderr utf8");
+	let digest_line = stdout
+		.lines()
+		.find(|line| {
+			let mut parts = line.split_whitespace();
+			if let Some(token) = parts.next() {
+				token.len() == 64
+					&& token.chars().all(|c| c.is_ascii_hexdigit())
+			} else {
+				false
+			}
+		})
+		.expect("digest output line");
+	assert!(
+		!digest_line.contains('\u{1b}'),
+		"child stdout must not include ANSI escapes: {digest_line}",
+	);
+	let error_line = stderr
+		.lines()
+		.find(|line| line.contains("error"))
+		.expect("child stderr line");
+	assert!(
+		!error_line.contains('\u{1b}'),
+		"child stderr must not include ANSI escapes: {error_line}",
+	);
+}
+
+#[test]
+fn console_color_auto_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/color_auto.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_color_auto.txt",
+	)
+	.expect("read color auto fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(binary)
+		.env("TERM", "xterm-256color")
+		.env("COLORTERM", "truecolor")
+		.env_remove("NO_COLOR")
+		.args([
+			"console",
+			"--color",
+			"always",
+			"--script",
+			script_path.to_str().unwrap(),
+		])
+		.output()
+		.expect("run console color auto script");
+	assert!(output.status.success());
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	assert_eq!(stdout, expected);
+	assert!(stdout.contains('\u{1b}'));
+}
+
+#[test]
+fn console_color_forced_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/color_always.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_color_forced.txt",
+	)
+	.expect("read color forced fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(binary)
+		.env("TERM", "xterm-256color")
+		.env("COLORTERM", "truecolor")
+		.env_remove("NO_COLOR")
+		.args([
+			"console",
+			"--color",
+			"always",
+			"--script",
+			script_path.to_str().unwrap(),
+		])
+		.output()
+		.expect("run console color forced script");
+	assert!(output.status.success());
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	assert_eq!(stdout, expected);
+	assert!(stdout.contains('\u{1b}'));
+	assert!(stdout.contains("high-contrast palette enabled"));
+	assert!(stdout.contains("$alpha = 644a****"));
+}
+
+#[test]
+fn console_color_disabled_fixture_matches() {
+	let script_path = Path::new(
+		"tests/fixtures/interactive/scripts/color_never.rgh",
+	);
+	let expected = fs::read_to_string(
+		"tests/fixtures/interactive/console_color_disabled.txt",
+	)
+	.expect("read color disabled fixture");
+	let binary = assert_cmd::cargo::cargo_bin!("rgh");
+	let output = Command::new(binary)
+		.env("TERM", "xterm-256color")
+		.env("COLORTERM", "truecolor")
+		.env("NO_COLOR", "1")
+		.args(["console", "--script", script_path.to_str().unwrap()])
+		.output()
+		.expect("run console color disabled script");
+	assert!(output.status.success());
+	let stdout =
+		String::from_utf8(output.stdout).expect("stdout utf8");
+	assert_eq!(stdout, expected);
+	assert!(
+		!stdout.contains('\u{1b}'),
+		"disabled fixture must remain monochrome",
+	);
+	assert!(stdout.contains("NO_COLOR is set"));
 }

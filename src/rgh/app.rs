@@ -12,7 +12,7 @@ use crate::rgh::benchmark::{
 	BenchmarkMode, HkdfInputMaterial, SharedBenchmarkArgs,
 	DEFAULT_MAC_MESSAGE_BYTES,
 };
-use crate::rgh::console::{self, ConsoleOptions};
+use crate::rgh::console::{self, ColorMode, ConsoleOptions};
 use crate::rgh::digest::commands as digest_commands;
 use crate::rgh::file::{
 	DirectoryHashPlan, ErrorHandlingProfile, ErrorStrategy,
@@ -2549,6 +2549,20 @@ pub(crate) fn build_cli() -> clap::Command {
 							.action(ArgAction::SetTrue)
 							.help("Continue executing script commands after failures"),
 					)
+					.arg(
+						Arg::new("color")
+							.long("color")
+							.value_name("WHEN")
+							.value_parser(PossibleValuesParser::new([
+								"auto",
+								"always",
+								"never",
+							]))
+							.default_value("auto")
+							.help(
+								"Color console-owned output: auto (default), always, or never",
+							),
+					)
 					.after_help("Examples:\\n  rgh console\\n  rgh console --script playbook.rgh\\n  rgh console --script playbook.rgh --ignore-errors")
 			)
 			.subcommand(
@@ -3625,6 +3639,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 		}
 		Some(("console", args)) => {
 			let ignore_errors = args.get_flag("ignore-errors");
+			let color_mode = args
+				.get_one::<String>("color")
+				.and_then(|raw| ColorMode::from_str(raw).ok())
+				.unwrap_or(ColorMode::Auto);
 			let mut options = if let Some(path) =
 				args.get_one::<String>("script").map(PathBuf::from)
 			{
@@ -3633,6 +3651,13 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				ConsoleOptions::interactive()
 			};
 			options.ignore_errors = ignore_errors;
+			options.color_mode = color_mode;
+			options.force_color_override = match color_mode {
+				ColorMode::Always | ColorMode::Never => {
+					Some(color_mode)
+				}
+				_ => None,
+			};
 			match console::run_console(options) {
 				Ok(code) => {
 					if code != 0 {

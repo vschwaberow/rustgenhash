@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: mac_vectors.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
+
 use rustgenhash::rgh::mac::executor::{consume_bytes, digest_to_hex};
 use rustgenhash::rgh::mac::registry;
 use std::fs::File;

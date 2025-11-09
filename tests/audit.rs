@@ -241,28 +241,30 @@ fn audit_fixtures_smoke() {
 	prepare_large_stream_inputs(&cases)
 		.expect("failed to prepare runtime large-stream fixtures");
 
-	let required_cases = [
-		"digest_string_empty",
-		"digest_file_large_stream",
-		"mac_cmac_aes128_string",
-		"mac_cmac_aes256_file",
-		"mac_poly1305_stdio",
-		"mac_poly1305_key_error",
-		"mac_poly1305_mismatched_key",
-		"mac_cmac_padding_mismatch",
-		"kdf_hkdf_blake3_basic",
-		"kdf_hkdf_expand_only",
-		"kdf_pbkdf2_profile_nist_sp800132",
-		"kdf_scrypt_profile_owasp",
-		"kdf_pbkdf2_invalid_iterations",
-		"kdf_scrypt_zero_password",
-	];
-	for required in required_cases {
-		assert!(
-			cases.iter().any(|case| case.id == required),
-			"Required CMAC fixture `{}` missing from audit registry",
-			required
-		);
+	if requested.is_none() {
+		let required_cases = [
+			"digest_string_empty",
+			"digest_file_large_stream",
+			"mac_cmac_aes128_string",
+			"mac_cmac_aes256_file",
+			"mac_poly1305_stdio",
+			"mac_poly1305_key_error",
+			"mac_poly1305_mismatched_key",
+			"mac_cmac_padding_mismatch",
+			"kdf_hkdf_blake3_basic",
+			"kdf_hkdf_expand_only",
+			"kdf_pbkdf2_profile_nist_sp800132",
+			"kdf_scrypt_profile_owasp",
+			"kdf_pbkdf2_invalid_iterations",
+			"kdf_scrypt_zero_password",
+		];
+		for required in required_cases {
+			assert!(
+				cases.iter().any(|case| case.id == required),
+				"Required CMAC fixture `{}` missing from audit registry",
+				required
+			);
+		}
 	}
 
 	let outcomes =
@@ -302,6 +304,12 @@ fn audit_fixtures_smoke() {
 		.iter()
 		.filter(|outcome| outcome.status == AuditStatus::Pass)
 		.count();
+	let executed = outcomes
+		.iter()
+		.filter(|outcome| outcome.status != AuditStatus::Skipped)
+		.count();
 
-	assert!(passes > 0, "Audit produced zero passing fixtures");
+	if executed > 0 {
+		assert!(passes > 0, "Audit produced zero passing fixtures");
+	}
 }

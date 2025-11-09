@@ -1,0 +1,30 @@
+[96mrgh-console(script)# help digest string[0m
+Hash a provided string
+
+Usage: string [OPTIONS] --algorithm <algorithm> <input>
+
+Arguments:
+  <input>
+          String to hash
+
+Options:
+  -a, --algorithm <algorithm>
+          Digest algorithm identifier (e.g., sha256). ⚠ Weak: MD5, SHA-1, SHA-224 (md5, sha1, sha224). See README section "Weak Digest Algorithms" for safer alternatives.
+
+  -f, --format <format>
+          Output format (json, jsonl, csv, hex, base64, hashcat, multihash=base58btc)
+          
+          [default: hex]
+          [possible values: json, json-lines, csv, hex, base64, hashcat, multihash]
+
+      --hash-only
+          Emit only digests without original input
+
+  -h, --help
+          Print help
+
+  -V, --version
+          Print version
+
+[96mrgh-console(script)# digest string --algorithm blake3 "alpha"[0m
+644a9bc57c6063e2ba4028fa73ed585170ae7db8ac7723d32be49c021a0225f5 alpha

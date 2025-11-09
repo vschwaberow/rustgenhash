@@ -2,6 +2,7 @@
 // Project: rustgenhash
 
 pub mod builtins;
+pub mod color;
 pub mod completion;
 pub mod dispatcher;
 pub mod help;
@@ -21,6 +22,8 @@ pub struct ConsoleOptions {
 	pub script_path: Option<PathBuf>,
 	pub ignore_errors: bool,
 	pub tty_mode: ConsoleMode,
+	pub color_mode: ColorMode,
+	pub force_color_override: Option<ColorMode>,
 }
 
 impl ConsoleOptions {
@@ -29,6 +32,8 @@ impl ConsoleOptions {
 			script_path: None,
 			ignore_errors: false,
 			tty_mode: SessionConsoleMode::Interactive,
+			color_mode: ColorMode::Auto,
+			force_color_override: None,
 		}
 	}
 
@@ -37,6 +42,8 @@ impl ConsoleOptions {
 			script_path: Some(path),
 			ignore_errors,
 			tty_mode: SessionConsoleMode::Script,
+			color_mode: ColorMode::Auto,
+			force_color_override: None,
 		}
 	}
 }
@@ -91,3 +98,5 @@ pub use session::ConsoleMode;
 pub use variables::{
 	ConsoleValueType, ConsoleVariable, ConsoleVariableStore,
 };
+
+pub use color::ColorMode;

@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+// File: session.rs
+// Author: Volker Schwaberow <volker@schwaberow.de>
+// Copyright (c) 2022 Volker Schwaberow
 
 use super::builtins::{handle_builtin, BuiltinAction};
+use super::color::{
+	ColorMode, ColorState, ConsoleLineRole, PlatformCapabilityProfile,
+};
 use super::completion::{CompletionContext, CompletionEngine};
 use super::dispatcher;
 use super::dispatcher::DispatchOutput;
@@ -48,21 +55,38 @@ pub struct ConsoleSession {
 	prompt_label: String,
 	completion: CompletionEngine,
 	help: HelpResolver,
+	color: ColorState,
 }
 
 impl ConsoleSession {
 	pub fn new(options: ConsoleOptions) -> Self {
-		if matches!(options.tty_mode, ConsoleMode::Script) {
-			control::set_override(false);
+		let capability =
+			PlatformCapabilityProfile::detect(options.tty_mode);
+		let mut color =
+			ColorState::new(options.color_mode, capability);
+		if let Some(force) = options.force_color_override {
+			color = ColorState::new(force, capability);
 		}
-		Self {
+		control::set_override(color.should_emit());
+		let session = Self {
 			options,
 			variables: ConsoleVariableStore::default(),
 			history: Vec::new(),
 			prompt_label: "rgh-console".into(),
 			completion: CompletionEngine::default(),
 			help: HelpResolver,
+			color,
+		};
+
+		if let Some(message) = session.color.capability.legacy_notice
+		{
+			session.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				message,
+			);
 		}
+
+		session
 	}
 
 	pub fn run(&mut self) -> Result<i32, ConsoleError> {
@@ -70,6 +94,10 @@ impl ConsoleSession {
 			ConsoleMode::Interactive => self.run_interactive(),
 			ConsoleMode::Script => self.run_scripted(),
 		}
+	}
+
+	pub(crate) fn color_state(&self) -> &ColorState {
+		&self.color
 	}
 
 	fn run_interactive(&mut self) -> Result<i32, ConsoleError> {
@@ -84,8 +112,8 @@ impl ConsoleSession {
 		editor.set_helper(Some(ConsoleHelper::new(
 			self.completion.clone(),
 		)));
-		let prompt = format!("{}# ", self.prompt_label);
 		loop {
+			let prompt = self.render_prompt();
 			match editor.readline(&prompt) {
 				Ok(line) => {
 					if !line.trim().is_empty() {
@@ -98,7 +126,10 @@ impl ConsoleSession {
 					}
 				}
 				Err(ReadlineError::Interrupted) => {
-					println!("^C");
+					self.emit_console_stdout(
+						ConsoleLineRole::Warning,
+						"^C",
+					);
 				}
 				Err(ReadlineError::Eof) => {
 					println!();
@@ -137,6 +168,7 @@ impl ConsoleSession {
 			return Ok(Flow::Continue);
 		}
 
+		let color = self.color.clone();
 		match handle_builtin(
 			trimmed,
 			&mut self.variables,
@@ -144,6 +176,7 @@ impl ConsoleSession {
 			&self.completion,
 			&self.help,
 			self.options.tty_mode,
+			&color,
 		) {
 			BuiltinAction::Exit(code) => return Ok(Flow::Exit(code)),
 			BuiltinAction::Continue => return Ok(Flow::Continue),
@@ -152,6 +185,10 @@ impl ConsoleSession {
 				if code != 0 && self.should_abort_on_failure() {
 					return Ok(Flow::Exit(code));
 				}
+				return Ok(Flow::Continue);
+			}
+			BuiltinAction::ColorChange(mode) => {
+				self.apply_color_request(mode);
 				return Ok(Flow::Continue);
 			}
 			BuiltinAction::NotHandled => {}
@@ -207,7 +244,10 @@ impl ConsoleSession {
 
 		self.record_history(line, exit_code);
 		if exit_code != 0 {
-			eprintln!("command exited with code {}", exit_code);
+			self.emit_console_stderr(
+				ConsoleLineRole::Warning,
+				&format!("command exited with code {}", exit_code),
+			);
 			if self.should_abort_on_failure() {
 				return Ok(Flow::Exit(exit_code));
 			}
@@ -224,10 +264,10 @@ impl ConsoleSession {
 		let output: DispatchOutput =
 			dispatcher::run_command_capture(&args)?;
 		if !output.stdout.is_empty() {
-			print!("{}", output.stdout);
+			self.emit_child_stdout(&output.stdout);
 		}
 		if !output.stderr.is_empty() {
-			eprint!("{}", output.stderr);
+			self.emit_child_stderr(&output.stderr);
 		}
 		if output.exit_code == 0 {
 			let value = extract_last_line(&output.stdout);
@@ -252,6 +292,133 @@ impl ConsoleSession {
 		if self.history.len() > 1000 {
 			self.history.remove(0);
 		}
+	}
+
+	fn apply_color_request(&mut self, requested: ColorMode) {
+		if let Some(forced) = self.options.force_color_override {
+			match forced {
+				ColorMode::Always => {
+					if matches!(
+						requested,
+						ColorMode::Never | ColorMode::Auto
+					) {
+						self.emit_console_stdout(
+							ConsoleLineRole::Warning,
+							"ignoring request: --color=always keeps colors enabled",
+						);
+					} else {
+						self.apply_color_mode(requested);
+					}
+				}
+				ColorMode::Never => {
+					if matches!(requested, ColorMode::Never) {
+						self.emit_console_stdout(
+							ConsoleLineRole::Info,
+							"color disabled via --color=never",
+						);
+					} else {
+						self.emit_console_stdout(
+							ConsoleLineRole::Warning,
+							"ignoring request: --color=never disables colors for this session",
+						);
+					}
+				}
+				_ => {}
+			}
+			return;
+		}
+
+		if self.color.capability.no_color_env
+			&& !matches!(requested, ColorMode::Never)
+		{
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"NO_COLOR is set; pass --color=always to force ANSI",
+			);
+			return;
+		}
+
+		if matches!(self.options.tty_mode, ConsoleMode::Script)
+			&& !matches!(requested, ColorMode::Never)
+		{
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"script mode stays monochrome; use --color=always when launching",
+			);
+			return;
+		}
+
+		self.apply_color_mode(requested);
+	}
+
+	fn apply_color_mode(&mut self, requested: ColorMode) {
+		self.color.update_mode(requested);
+		control::set_override(self.color.should_emit());
+		let message = match requested {
+			ColorMode::Auto => format!(
+				"color auto-detect active ({})",
+				self.color.reason
+			),
+			ColorMode::Always => "color output forced on".to_string(),
+			ColorMode::Never => "color output disabled".to_string(),
+			ColorMode::HighContrast => {
+				"high-contrast palette enabled".to_string()
+			}
+		};
+		self.emit_console_stdout(ConsoleLineRole::Success, &message);
+	}
+
+	fn render_prompt(&self) -> String {
+		let base = format!("{}# ", self.prompt_label);
+		self.color.format(ConsoleLineRole::Prompt, &base)
+	}
+
+	fn emit_child_stdout(&self, text: &str) {
+		if text.is_empty() {
+			return;
+		}
+		debug_assert!(
+			!self.color.allows_coloring(ConsoleLineRole::ChildStdout),
+			"child stdout must never be colorized",
+		);
+		print!("{}", text);
+	}
+
+	fn emit_child_stderr(&self, text: &str) {
+		if text.is_empty() {
+			return;
+		}
+		debug_assert!(
+			!self.color.allows_coloring(ConsoleLineRole::ChildStderr),
+			"child stderr must never be colorized",
+		);
+		eprint!("{}", text);
+	}
+
+	fn emit_console_stdout(
+		&self,
+		role: ConsoleLineRole,
+		message: &str,
+	) {
+		debug_assert!(
+			role.is_console_owned(),
+			"console stdout helper used for child role",
+		);
+		let styled = self.color.format(role, message);
+		println!("{}", styled);
+	}
+
+	fn emit_console_stderr(
+		&self,
+		role: ConsoleLineRole,
+		message: &str,
+	) {
+		debug_assert!(
+			role.is_console_owned(),
+			"console stderr helper used for child role",
+		);
+		let styled = self.color.format(role, message);
+		eprintln!("{}", styled);
 	}
 }
 

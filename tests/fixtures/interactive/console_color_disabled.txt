@@ -1,0 +1,28 @@
+rgh-console(script)# set color always
+NO_COLOR is set; pass --color=always to force ANSI
+rgh-console(script)# help console
+Network appliance-style console shell for chaining rustgenhash commands
+
+Usage: console [OPTIONS]
+
+Options:
+      --script <FILE>
+          Run console commands from a script file (non-interactive mode)
+
+      --ignore-errors
+          Continue executing script commands after failures
+
+      --color <WHEN>
+          Color console-owned output: auto (default), always, or never
+          
+          [default: auto]
+          [possible values: auto, always, never]
+
+  -h, --help
+          Print help
+
+  -V, --version
+          Print version
+
+Examples:\n  rgh console\n  rgh console --script playbook.rgh\n  rgh console --script playbook.rgh --ignore-errors
+

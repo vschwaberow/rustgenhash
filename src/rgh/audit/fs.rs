@@ -8,6 +8,8 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use regex::Regex;
+
 use super::AuditError;
 
 pub fn fixtures_root() -> PathBuf {
@@ -22,12 +24,35 @@ pub fn collect_fixture_paths(
 	collect_recursive(&root, &mut files)?;
 	files.sort();
 	if let Some(filter) = case_filter {
+		let matcher = if filter.contains('*') || filter.contains('?')
+		{
+			let escaped = regex::escape(filter)
+				.replace("\\*", ".*")
+				.replace("\\?", ".");
+			Some(Regex::new(&format!("^{}$", escaped)).map_err(
+				|source| {
+					AuditError::Invalid(format!(
+						"Invalid fixture filter `{}`: {}",
+						filter, source
+					))
+				},
+			)?)
+		} else {
+			None
+		};
+
 		let filtered: Vec<PathBuf> = files
 			.into_iter()
 			.filter(|path| {
 				path.file_stem()
 					.and_then(OsStr::to_str)
-					.map(|stem| stem == filter)
+					.map(|stem| {
+						if let Some(regex) = &matcher {
+							regex.is_match(stem)
+						} else {
+							stem == filter
+						}
+					})
 					.unwrap_or(false)
 			})
 			.collect();
