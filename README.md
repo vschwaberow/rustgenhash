@@ -243,12 +243,14 @@ Match confirmed.
 
 - Variables behave like `$name` tokens; `set $name = <command>` runs the command, captures the last line of stdout, redacts it for `show vars`, and stores the full value for reuse.
 - `clear var $name`, `show history`, and `abort` commands mirror familiar network CLI muscle memory; `exit`/`quit` leave the shell. New builtins `history save <FILE>`, `history load <FILE>`, and `history clear` offer on-demand control when `--history-file` is configured.
+- Replay shortcuts mirror familiar shells: `!!` replays the previous command, while `replay <index>`/`!<index>` rerun any history entry (with optional inline edits). Persisted entries are marked `[P]`, and `history --export csv <FILE>` writes a sanitized audit log for compliance reviews.
+- Console prompts remain English-only; localization continues to apply to the executive training content rather than developer tooling.
 - Non-interactive mode executes files of console commands: `rgh console --script playbook.rgh [--ignore-errors]`. Scripts echo `rgh-console(script)# ...` before each command, stop on the first failure (unless `--ignore-errors`), and propagate the failing exit code; undefined variables produce exit code `65` with `error: undefined variable $name` on stderr.
 - Palette cues mirror the same behavior in script mode when you explicitly pass `--color=always`; otherwise scripts remain monochrome so fixtures stay deterministic.
 - Interactive TAB completion is enabled for commands, subcommands, and flags. Press `Tab` once to auto-complete unambiguous prefixes or twice to print a deterministic listing when multiple matches exist.
 - The `complete <prefix>` builtin mirrors the TAB engine for scripts/CI runs and exits with `0` on success or `66` when no suggestions exist, keeping transcripts diffable.
 - Contextual help stays inside the console: `help digest string`, `help kdf hkdf`, `help benchmark mac`, etc., reuse the same clap/README text you see via `rgh <cmd> --help` without emitting color (respects `NO_COLOR`).
-- Persistent history is disabled by default. Provide `--history-file <PATH>` and `--history-retention {off|sanitized|verbatim}` to save commands between sessions (sanitized redacts literals, verbatim requires confirmation). Scripts can opt in via `--force-script-history`. Export the variable store for automation with `export vars <FILE> [--format json|yaml] [--include-secrets --yes]`; secrets stay masked unless explicitly requested.
+- Persistent history is disabled by default. Provide `--history-file <PATH>` and `--history-retention {off|sanitized|verbatim}` to save commands between sessions (sanitized redacts literals, verbatim requires confirmation). When retention is active, the console keeps 200 in-memory entries per session and persists up to 500 entries to disk, pruning the oldest commands automatically. Scripts can opt in via `--force-script-history`. Export the variable store for automation with `export vars <FILE> [--format json|yaml] [--include-secrets --yes]`; secrets stay masked unless explicitly requested.
 
 #### Color controls & precedence
 
@@ -370,17 +372,6 @@ and the JSON payload to pinpoint the mismatch.
 | `kdf_pbkdf2_invalid_iterations` | PBKDF2 preset under minimum rounds | `2` | Mirrors NIST SP 800-132 floor (310 000 iterations). |
 | `kdf_scrypt_zero_password` | Scrypt zero-length secret | `2` | Abort message “Password must not be empty”. |
 
-### Release Readiness
-
-Release managers must complete the release readiness checklist before tagging:
-
-1. Ensure the GitHub Actions “Audit Harness” workflow passed on the target commit.
-2. Run `cargo test --test audit` locally and sync failures into
-  a logic issues report via `scripts/audit/export_issue.sh`.
-3. Execute `scripts/audit/check_release.sh` to confirm zero failing fixtures and
-   no open issues remain.
-4. Record retest evidence (commit hashes, CI artifact URLs) in the checklist and
-   gather maintainer sign-offs.
 
 ## Contribution 
 

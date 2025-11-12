@@ -8,8 +8,10 @@ use super::color::{ColorMode, ColorState, ConsoleLineRole};
 use super::completion::{CompletionContext, CompletionEngine};
 use super::export::ExportFormat;
 use super::help::{tokenize_topic, HelpResolver};
+use super::history::{self, HistoryOrigin};
 use super::session::{CommandEntry, ConsoleMode};
 use super::variables::ConsoleVariableStore;
+use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +30,11 @@ pub enum BuiltinAction {
 		include_secrets: bool,
 		auto_confirm: bool,
 	},
+	ReplayIndex {
+		index: usize,
+		allow_interactive_edit: bool,
+	},
+	HistoryExportCsv(PathBuf),
 }
 
 pub fn handle_builtin(
@@ -63,6 +70,21 @@ pub fn handle_builtin(
 		return handle_completion_builtin(
 			query, completion, mode, color,
 		);
+	}
+
+	if let Some(index) =
+		parse_history_index_command(normalized, "replay", color)
+	{
+		return BuiltinAction::ReplayIndex {
+			index,
+			allow_interactive_edit: true,
+		};
+	}
+
+	if let Some(path) =
+		parse_history_export_command(normalized, color)
+	{
+		return BuiltinAction::HistoryExportCsv(path);
 	}
 
 	match lowered.as_str() {
@@ -154,6 +176,9 @@ fn print_help(color: &ColorState) {
 	println!(
 		"  history clear       Remove in-memory history entries"
 	);
+	println!(
+		"  history --export csv <FILE>  Export sanitized history entries as CSV"
+	);
 	println!("  clear var $name     Remove a stored variable");
 	println!(
 		"  export vars <FILE> [--format json|yaml] [--include-secrets --yes]"
@@ -181,10 +206,20 @@ fn show_history(history: &[CommandEntry], color: &ColorState) {
 		return;
 	}
 	for (idx, entry) in history.iter().enumerate() {
+		let preview = history::sanitize_command(&entry.command);
+		let timestamp: DateTime<Utc> = entry.timestamp.into();
+		let origin_flag =
+			if matches!(entry.origin, HistoryOrigin::Persisted) {
+				'P'
+			} else {
+				' '
+			};
 		println!(
-			"{:>3}: {:<60} [{}]",
+			"{:>3} [{}] {} {:<48} [{}]",
 			idx + 1,
-			entry.command,
+			origin_flag,
+			timestamp.format("%Y-%m-%d %H:%M:%S"),
+			preview,
 			entry.exit_code
 		);
 	}
@@ -292,7 +327,7 @@ fn parse_export_vars_builtin(
 	let mut format = ExportFormat::Json;
 	let mut include_secrets = false;
 	let mut auto_confirm = false;
-	let mut tokens = rest.trim().split_whitespace().peekable();
+	let mut tokens = rest.split_whitespace().peekable();
 	while let Some(token) = tokens.next() {
 		match token {
 			"--include-secrets" => include_secrets = true,
@@ -304,9 +339,9 @@ fn parse_export_vars_builtin(
 					);
 					return BuiltinAction::CommandResult(64);
 				};
-				match ExportFormat::from_str(value) {
-					Some(fmt) => format = fmt,
-					None => {
+				match value.parse::<ExportFormat>() {
+					Ok(fmt) => format = fmt,
+					Err(_) => {
 						print_error(
 							color,
 							"supported export formats are json or yaml",
@@ -367,6 +402,71 @@ fn print_warning(color: &ColorState, message: &str) {
 
 fn print_error(color: &ColorState, message: &str) {
 	eprintln!("{}", color.format(ConsoleLineRole::Error, message));
+}
+
+fn parse_history_export_command(
+	input: &str,
+	color: &ColorState,
+) -> Option<PathBuf> {
+	const PREFIX: &str = "history --export";
+	if !input.to_ascii_lowercase().starts_with(PREFIX) {
+		return None;
+	}
+	let remainder = input[PREFIX.len()..].trim_start();
+	if !remainder.to_ascii_lowercase().starts_with("csv") {
+		print_error(
+			color,
+			"history --export currently supports only csv output",
+		);
+		return None;
+	}
+	let path_arg = remainder[3..].trim_start();
+	if path_arg.is_empty() {
+		print_error(color, "usage: history --export csv <path>");
+		return None;
+	}
+	parse_path_arg(path_arg).or_else(|| {
+		print_error(color, "usage: history --export csv <path>");
+		None
+	})
+}
+
+fn parse_history_index_command(
+	input: &str,
+	command: &str,
+	color: &ColorState,
+) -> Option<usize> {
+	let lowered = input.to_ascii_lowercase();
+	if !lowered.starts_with(command) {
+		return None;
+	}
+	let remainder = input[command.len()..].trim_start();
+	if remainder.is_empty() {
+		print_error(
+			color,
+			&format!(
+				"{} requires an index (e.g., {} 3)",
+				command, command
+			),
+		);
+		return None;
+	}
+	parse_history_index(remainder, color)
+}
+
+fn parse_history_index(
+	raw: &str,
+	color: &ColorState,
+) -> Option<usize> {
+	if !raw.is_empty() && raw.chars().all(|ch| ch.is_ascii_digit()) {
+		if let Ok(value) = raw.parse::<usize>() {
+			if value > 0 {
+				return Some(value);
+			}
+		}
+	}
+	print_error(color, "history index must be a positive number");
+	None
 }
 
 fn handle_set_color_builtin(

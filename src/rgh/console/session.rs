@@ -13,13 +13,19 @@ use super::dispatcher;
 use super::dispatcher::DispatchOutput;
 use super::export::{self, ExportFormat};
 use super::help::HelpResolver;
-use super::history::{self, ConsoleHistoryConfig, HistoryRetention};
+use super::history::{
+	self, ConsoleHistoryConfig, HistoryExecutionStatus,
+	HistoryOrigin, HistoryRetention,
+};
 use super::interpolation;
 use super::parser::parse_command;
 use super::script;
 use super::variables::{ConsoleValueType, ConsoleVariableStore};
 use super::{ConsoleError, ConsoleOptions};
+use chrono::{DateTime, Utc};
 use colored::control;
+use csv::Writer;
+use dialoguer::{Confirm, Input};
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -29,7 +35,8 @@ use rustyline::validate::{
 	ValidationContext, ValidationResult, Validator,
 };
 use rustyline::{CompletionType, Config, Context, Editor, Helper};
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +50,18 @@ pub struct CommandEntry {
 	pub command: String,
 	pub exit_code: i32,
 	pub timestamp: SystemTime,
+	pub execution_status: HistoryExecutionStatus,
+	pub replay_of: Option<String>,
+	pub origin: HistoryOrigin,
+}
+
+#[derive(Default)]
+struct ReplayStats {
+	attempts: usize,
+	successes: usize,
+	aborted_empty_history: usize,
+	aborted_invalid_index: usize,
+	aborted_missing_secret: usize,
 }
 
 pub(crate) enum Flow {
@@ -62,10 +81,15 @@ pub struct ConsoleSession {
 	history_path: Option<PathBuf>,
 	history_retention: HistoryRetention,
 	history_dirty: bool,
+	max_in_memory_entries: usize,
+	max_persisted_entries: usize,
+	replay_stats: ReplayStats,
 }
 
 impl ConsoleSession {
 	pub fn new(options: ConsoleOptions) -> Self {
+		let (max_in_memory_entries, max_persisted_entries) =
+			options.history.limits();
 		let capability =
 			PlatformCapabilityProfile::detect(options.tty_mode);
 		let mut color =
@@ -90,6 +114,9 @@ impl ConsoleSession {
 			history_path,
 			history_retention,
 			history_dirty: false,
+			max_in_memory_entries,
+			max_persisted_entries,
+			replay_stats: ReplayStats::default(),
 		};
 		session.load_history_from_disk();
 
@@ -183,6 +210,20 @@ impl ConsoleSession {
 			return Ok(Flow::Continue);
 		}
 
+		if trimmed == "!!" {
+			return self.replay_last_command();
+		}
+
+		if let Some(index_str) = trimmed.strip_prefix('!') {
+			if !index_str.is_empty()
+				&& index_str.chars().all(|ch| ch.is_ascii_digit())
+			{
+				if let Ok(index) = index_str.parse::<usize>() {
+					return self.replay_history_entry(index, false);
+				}
+			}
+		}
+
 		let color = self.color.clone();
 		match handle_builtin(
 			trimmed,
@@ -196,7 +237,7 @@ impl ConsoleSession {
 			BuiltinAction::Exit(code) => return Ok(Flow::Exit(code)),
 			BuiltinAction::Continue => return Ok(Flow::Continue),
 			BuiltinAction::CommandResult(code) => {
-				self.record_history(trimmed, code);
+				self.record_history(trimmed, code, None);
 				if code != 0 && self.should_abort_on_failure() {
 					return Ok(Flow::Exit(code));
 				}
@@ -207,11 +248,11 @@ impl ConsoleSession {
 				return Ok(Flow::Continue);
 			}
 			BuiltinAction::HistorySave(path) => {
-				self.handle_manual_history_save(&path);
+				self.handle_manual_history_save(path.as_path());
 				return Ok(Flow::Continue);
 			}
 			BuiltinAction::HistoryLoad(path) => {
-				self.handle_manual_history_load(&path);
+				self.handle_manual_history_load(path.as_path());
 				return Ok(Flow::Continue);
 			}
 			BuiltinAction::HistoryClear => {
@@ -232,15 +273,29 @@ impl ConsoleSession {
 				);
 				return Ok(Flow::Continue);
 			}
+			BuiltinAction::ReplayIndex {
+				index,
+				allow_interactive_edit,
+			} => {
+				return self.replay_history_entry(
+					index,
+					allow_interactive_edit,
+				);
+			}
+			BuiltinAction::HistoryExportCsv(path) => {
+				self.handle_history_export_csv(path.as_path());
+				return Ok(Flow::Continue);
+			}
 			BuiltinAction::NotHandled => {}
 		}
 
-		self.run_console_command(trimmed)
+		self.run_console_command(trimmed, None)
 	}
 
 	fn run_console_command(
 		&mut self,
 		line: &str,
+		replay_of: Option<&str>,
 	) -> Result<Flow, ConsoleError> {
 		let parsed = parse_command(line);
 		let is_assignment = parsed.is_assignment();
@@ -283,7 +338,11 @@ impl ConsoleSession {
 			dispatcher::run_command(&args)?
 		};
 
-		self.record_history(line, exit_code);
+		self.record_history(
+			line,
+			exit_code,
+			replay_of.map(|value| value.to_string()),
+		);
 		if exit_code != 0 {
 			self.emit_console_stderr(
 				ConsoleLineRole::Warning,
@@ -294,6 +353,119 @@ impl ConsoleSession {
 			}
 		}
 		Ok(Flow::Continue)
+	}
+
+	fn replay_last_command(&mut self) -> Result<Flow, ConsoleError> {
+		if self.history.is_empty() {
+			self.replay_stats.aborted_empty_history += 1;
+			self.emit_console_stdout(
+				ConsoleLineRole::Info,
+				"(history empty; nothing to replay)",
+			);
+			return Ok(Flow::Continue);
+		}
+		if let Some(command) = self
+			.history
+			.last()
+			.map(|entry| entry.command.trim().to_string())
+		{
+			self.emit_console_stdout(
+				ConsoleLineRole::Info,
+				&format!("!! replaying last command: {}", command),
+			);
+		}
+		let index = self.history.len();
+		self.replay_history_entry(index, false)
+	}
+
+	fn replay_history_entry(
+		&mut self,
+		index: usize,
+		allow_interactive_edit: bool,
+	) -> Result<Flow, ConsoleError> {
+		if index == 0 {
+			self.replay_stats.aborted_invalid_index += 1;
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"history index must be ≥ 1",
+			);
+			return Ok(Flow::Continue);
+		}
+		if index > self.history.len() {
+			self.replay_stats.aborted_invalid_index += 1;
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				&format!(
+					"history index {} is out of range (entries={})",
+					index,
+					self.history.len()
+				),
+			);
+			return Ok(Flow::Continue);
+		}
+		self.replay_stats.attempts += 1;
+		let entry = self.history[index - 1].clone();
+		let sanitized = history::sanitize_command(&entry.command);
+		self.emit_console_stdout(
+			ConsoleLineRole::Info,
+			&format!("replay #{}: {}", index, sanitized),
+		);
+		let mut command_to_run = entry.command.clone();
+		let is_interactive =
+			matches!(self.options.tty_mode, ConsoleMode::Interactive);
+		if allow_interactive_edit && is_interactive {
+			let wants_edit = Confirm::new()
+				.with_prompt("Edit command before replay?")
+				.default(false)
+				.interact()
+				.map_err(|err| {
+					ConsoleError::Message(err.to_string())
+				})?;
+			if wants_edit {
+				let edited = Input::new()
+					.with_prompt("Updated command")
+					.with_initial_text(command_to_run.clone())
+					.allow_empty(false)
+					.interact_text()
+					.map_err(|err| {
+						ConsoleError::Message(err.to_string())
+					})?;
+				command_to_run = edited;
+			}
+		} else if allow_interactive_edit && !is_interactive {
+			self.emit_console_stdout(
+				ConsoleLineRole::Info,
+				"edit prompts unavailable in script mode; replaying verbatim",
+			);
+		}
+		if command_to_run.trim().is_empty() {
+			self.replay_stats.aborted_invalid_index += 1;
+			self.emit_console_stdout(
+				ConsoleLineRole::Warning,
+				"replay aborted: command is empty",
+			);
+			return Ok(Flow::Continue);
+		}
+		if command_to_run.contains("******") {
+			if !is_interactive {
+				self.replay_stats.aborted_missing_secret += 1;
+				self.emit_console_stdout(
+					ConsoleLineRole::Warning,
+					"replay aborted: redacted literals require interactive input",
+				);
+				return Ok(Flow::Continue);
+			}
+			command_to_run =
+				self.prompt_for_redacted_literals(&command_to_run)?;
+		}
+		let result = self.run_console_command(
+			&command_to_run,
+			Some(&entry.command),
+		);
+		if result.is_ok() {
+			self.replay_stats.successes += 1;
+		}
+		result
 	}
 
 	fn run_assignment_command(
@@ -324,24 +496,81 @@ impl ConsoleSession {
 		Ok(output.exit_code)
 	}
 
-	fn record_history(&mut self, command: &str, exit_code: i32) {
-		let stored_command = match self.history_retention {
-			HistoryRetention::Sanitized => {
-				history::sanitize_command(command)
-			}
-			_ => command.to_string(),
-		};
+	fn record_history(
+		&mut self,
+		command: &str,
+		exit_code: i32,
+		replay_of: Option<String>,
+	) {
 		self.history.push(CommandEntry {
-			command: stored_command,
+			command: command.to_string(),
 			exit_code,
 			timestamp: SystemTime::now(),
+			execution_status: HistoryExecutionStatus::from_exit_code(
+				exit_code,
+			),
+			replay_of,
+			origin: HistoryOrigin::Live,
 		});
-		if self.history.len() > 1000 {
-			self.history.remove(0);
-		}
+		self.enforce_in_memory_limit();
 		if self.history_active() {
 			self.history_dirty = true;
 		}
+	}
+
+	fn enforce_in_memory_limit(&mut self) {
+		let max_entries = self.max_in_memory_entries.max(1);
+		if self.history.len() > max_entries {
+			let drop_count = self.history.len() - max_entries;
+			self.history.drain(0..drop_count);
+		}
+	}
+
+	fn persistable_entries(&self) -> &[CommandEntry] {
+		let keep = self.max_persisted_entries.max(1);
+		let total = self.history.len();
+		let start = total.saturating_sub(keep);
+		&self.history[start..]
+	}
+
+	fn command_for_retention(
+		&self,
+		entry: &CommandEntry,
+		retention: HistoryRetention,
+	) -> String {
+		if matches!(retention, HistoryRetention::Sanitized) {
+			history::sanitize_command(&entry.command)
+		} else {
+			entry.command.clone()
+		}
+	}
+
+	fn prompt_for_redacted_literals(
+		&self,
+		command: &str,
+	) -> Result<String, ConsoleError> {
+		let mut updated = String::with_capacity(command.len());
+		let mut remaining = command;
+		let mut counter = 1;
+		while let Some(pos) = remaining.find("******") {
+			updated.push_str(&remaining[..pos]);
+			let prompt = format!(
+				"Value for placeholder #{} (stored as ******)",
+				counter
+			);
+			let value = Input::<String>::new()
+				.with_prompt(prompt)
+				.allow_empty(true)
+				.interact_text()
+				.map_err(|err| {
+					ConsoleError::Message(err.to_string())
+				})?;
+			updated.push_str(&value);
+			remaining = &remaining[pos + 6..];
+			counter += 1;
+		}
+		updated.push_str(remaining);
+		Ok(updated)
 	}
 
 	fn apply_color_request(&mut self, requested: ColorMode) {
@@ -406,7 +635,7 @@ impl ConsoleSession {
 			|| self.options.history.force_script_history
 	}
 
-	fn handle_manual_history_save(&mut self, path: &PathBuf) {
+	fn handle_manual_history_save(&mut self, path: &Path) {
 		if !self.manual_history_allowed() {
 			self.emit_console_stdout(
 				ConsoleLineRole::Warning,
@@ -427,19 +656,15 @@ impl ConsoleSession {
 			HistoryRetention::Sanitized
 		};
 		let records: Vec<history::HistoryRecord> = self
-			.history
+			.persistable_entries()
 			.iter()
 			.map(|entry| history::HistoryRecord {
 				timestamp: entry.timestamp,
-				command: if matches!(
-					retention,
-					HistoryRetention::Sanitized
-				) {
-					history::sanitize_command(&entry.command)
-				} else {
-					entry.command.clone()
-				},
+				command: self.command_for_retention(entry, retention),
 				exit_code: entry.exit_code,
+				execution_status: entry.execution_status,
+				replay_of: entry.replay_of.clone(),
+				origin: HistoryOrigin::Persisted,
 			})
 			.collect();
 		match history::save_snapshot(path, retention, &records) {
@@ -463,7 +688,7 @@ impl ConsoleSession {
 		}
 	}
 
-	fn handle_manual_history_load(&mut self, path: &PathBuf) {
+	fn handle_manual_history_load(&mut self, path: &Path) {
 		if !self.manual_history_allowed() {
 			self.emit_console_stdout(
 				ConsoleLineRole::Warning,
@@ -491,11 +716,12 @@ impl ConsoleSession {
 						command: entry.command,
 						exit_code: entry.exit_code,
 						timestamp: entry.timestamp,
+						execution_status: entry.execution_status,
+						replay_of: entry.replay_of,
+						origin: entry.origin,
 					});
 				}
-				while self.history.len() > 1000 {
-					self.history.remove(0);
-				}
+				self.enforce_in_memory_limit();
 				self.history_dirty =
 					self.history_active() && !self.history.is_empty();
 				self.emit_console_stdout(
@@ -516,6 +742,10 @@ impl ConsoleSession {
 						err
 					),
 				);
+				self.emit_console_stdout(
+					ConsoleLineRole::Warning,
+					"history file ignored; starting with empty history",
+				);
 			}
 		}
 	}
@@ -533,6 +763,134 @@ impl ConsoleSession {
 		self.emit_console_stdout(
 			ConsoleLineRole::Info,
 			"history cleared",
+		);
+	}
+
+	fn log_replay_summary(&self) {
+		if self.replay_stats.attempts == 0 {
+			return;
+		}
+		let message = format!(
+			"replay summary: attempts={}, successes={}, blocked_secrets={}, invalid_index={}, empty_history={}",
+			self.replay_stats.attempts,
+			self.replay_stats.successes,
+			self.replay_stats.aborted_missing_secret,
+			self.replay_stats.aborted_invalid_index,
+			self.replay_stats.aborted_empty_history
+		);
+		self.emit_console_stdout(ConsoleLineRole::Info, &message);
+	}
+
+	fn handle_history_export_csv(&self, path: &Path) {
+		if self.history.is_empty() {
+			self.emit_console_stdout(
+				ConsoleLineRole::Info,
+				"(history empty; nothing to export)",
+			);
+			return;
+		}
+		if let Some(parent) = path.parent() {
+			if !parent.as_os_str().is_empty() {
+				if let Err(err) = fs::create_dir_all(parent) {
+					self.emit_console_stderr(
+						ConsoleLineRole::Warning,
+						&format!(
+							"failed to prepare export directory ({}): {}",
+							parent.display(),
+							err
+						),
+					);
+					return;
+				}
+			}
+		}
+		let file = match File::create(path) {
+			Ok(file) => file,
+			Err(err) => {
+				self.emit_console_stderr(
+					ConsoleLineRole::Warning,
+					&format!(
+						"failed to open {} for writing: {}",
+						path.display(),
+						err
+					),
+				);
+				return;
+			}
+		};
+		let mut writer = Writer::from_writer(file);
+		if let Err(err) = writer.write_record([
+			"ordinal",
+			"timestamp",
+			"exit_code",
+			"status",
+			"replay_of",
+			"origin",
+			"command",
+		]) {
+			self.emit_console_stderr(
+				ConsoleLineRole::Warning,
+				&format!(
+					"failed to write CSV header ({}): {}",
+					path.display(),
+					err
+				),
+			);
+			return;
+		}
+		for (idx, entry) in self.history.iter().enumerate() {
+			let timestamp: DateTime<Utc> = entry.timestamp.into();
+			let sanitized = history::sanitize_command(&entry.command);
+			let status = match entry.execution_status {
+				HistoryExecutionStatus::Success => "success",
+				HistoryExecutionStatus::Error => "error",
+				HistoryExecutionStatus::Cancelled => "cancelled",
+			}
+			.to_string();
+			let origin = match entry.origin {
+				HistoryOrigin::Live => "live",
+				HistoryOrigin::Persisted => "persisted",
+			}
+			.to_string();
+			let record = [
+				(idx + 1).to_string(),
+				timestamp.to_rfc3339(),
+				entry.exit_code.to_string(),
+				status,
+				entry.replay_of.clone().unwrap_or_default(),
+				origin,
+				sanitized,
+			];
+			if let Err(err) = writer.write_record(&record) {
+				self.emit_console_stderr(
+					ConsoleLineRole::Warning,
+					&format!(
+						"failed to write CSV row ({}): {}",
+						path.display(),
+						err
+					),
+				);
+				return;
+			}
+		}
+		if let Err(err) = writer.flush() {
+			self.emit_console_stderr(
+				ConsoleLineRole::Warning,
+				&format!(
+					"failed to finalize CSV ({}): {}",
+					path.display(),
+					err
+				),
+			);
+			return;
+		}
+		self.emit_console_stdout(
+			ConsoleLineRole::Success,
+			&format!(
+				"exported {} history entries to {}",
+				self.history.len(),
+				path.display()
+			),
 		);
 	}
 
@@ -683,8 +1041,12 @@ impl ConsoleSession {
 						command: entry.command,
 						exit_code: entry.exit_code,
 						timestamp: entry.timestamp,
+						execution_status: entry.execution_status,
+						replay_of: entry.replay_of,
+						origin: entry.origin,
 					});
 				}
+				self.enforce_in_memory_limit();
 				self.history_dirty = false;
 			}
 			Err(err) => {
@@ -696,6 +1058,12 @@ impl ConsoleSession {
 						err
 					),
 				);
+				self.emit_console_stdout(
+					ConsoleLineRole::Warning,
+					"history file ignored; starting with empty history",
+				);
+				self.history.clear();
+				self.history_dirty = false;
 			}
 		}
 	}
@@ -709,19 +1077,15 @@ impl ConsoleSession {
 		};
 		let retention = self.history_retention;
 		let records: Vec<history::HistoryRecord> = self
-			.history
+			.persistable_entries()
 			.iter()
 			.map(|entry| history::HistoryRecord {
 				timestamp: entry.timestamp,
-				command: if matches!(
-					retention,
-					HistoryRetention::Sanitized
-				) {
-					history::sanitize_command(&entry.command)
-				} else {
-					entry.command.clone()
-				},
+				command: self.command_for_retention(entry, retention),
 				exit_code: entry.exit_code,
+				execution_status: entry.execution_status,
+				replay_of: entry.replay_of.clone(),
+				origin: HistoryOrigin::Persisted,
 			})
 			.collect();
 		if let Err(err) =
@@ -764,6 +1128,7 @@ impl ConsoleSession {
 
 impl Drop for ConsoleSession {
 	fn drop(&mut self) {
+		self.log_replay_summary();
 		self.flush_history();
 	}
 }

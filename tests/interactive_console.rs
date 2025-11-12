@@ -408,7 +408,7 @@ fn console_history_persist_fixture_matches() {
 	)
 	.expect("read history seed fixture");
 	let binary = assert_cmd::cargo::cargo_bin!("rgh");
-	let output = Command::new(&binary)
+	let output = Command::new(binary.as_os_str())
 		.args([
 			"console",
 			"--color",
@@ -435,7 +435,7 @@ fn console_history_persist_fixture_matches() {
 		"tests/fixtures/interactive/console_history_show.txt",
 	)
 	.expect("read history show fixture");
-	let output2 = Command::new(&binary)
+	let output2 = Command::new(binary.as_os_str())
 		.args([
 			"console",
 			"--color",
@@ -476,7 +476,7 @@ exit\n",
 		.expect("write script");
 
 	let binary = assert_cmd::cargo::cargo_bin!("rgh");
-	let output = Command::new(&binary)
+	let output = Command::new(binary.as_os_str())
 		.args([
 			"console",
 			"--color",
@@ -533,7 +533,7 @@ exit\n",
 		.write_all(script_source.as_bytes())
 		.expect("write script");
 	let binary = assert_cmd::cargo::cargo_bin!("rgh");
-	let output = Command::new(&binary)
+	let output = Command::new(binary.as_os_str())
 		.args([
 			"console",
 			"--color",
@@ -583,7 +583,7 @@ exit\n",
 		.write_all(script_source.as_bytes())
 		.expect("write script");
 	let binary = assert_cmd::cargo::cargo_bin!("rgh");
-	let output = Command::new(&binary)
+	let output = Command::new(binary.as_os_str())
 		.args([
 			"console",
 			"--color",

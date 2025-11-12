@@ -41,12 +41,14 @@ pub enum ExportFormat {
 	Yaml,
 }
 
-impl ExportFormat {
-	pub fn from_str(raw: &str) -> Option<Self> {
+impl std::str::FromStr for ExportFormat {
+	type Err = ();
+
+	fn from_str(raw: &str) -> Result<Self, Self::Err> {
 		match raw.to_ascii_lowercase().as_str() {
-			"json" => Some(Self::Json),
-			"yaml" | "yml" => Some(Self::Yaml),
-			_ => None,
+			"json" => Ok(Self::Json),
+			"yaml" | "yml" => Ok(Self::Yaml),
+			_ => Err(()),
 		}
 	}
 }

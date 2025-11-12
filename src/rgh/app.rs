@@ -2571,7 +2571,7 @@ pub(crate) fn build_cli() -> clap::Command {
 							.long("history-file")
 							.value_name("FILE")
 							.help(
-								"Persist console history to FILE (defaults to platform config path when retention is enabled)",
+								"Persist console history to FILE (defaults to platform config path; keeps 200 in-memory entries per session and persists up to 500 commands)",
 							),
 					)
 					.arg(
@@ -2584,7 +2584,7 @@ pub(crate) fn build_cli() -> clap::Command {
 								"verbatim",
 							]))
 							.help(
-								"History retention policy (sanitized is default for interactive sessions, off for scripts)",
+								"History retention policy (sanitized is default for interactive sessions, off for scripts); retention obeys the 200/500 entry limits noted above",
 							),
 					)
 					.arg(
