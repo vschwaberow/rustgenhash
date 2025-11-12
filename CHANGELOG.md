@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1 - 2025-11-12
+
+- Added replay shortcuts to `rgh console`: `!!` replays the last command, while `replay <index>` / `!<index>` re-run any numbered history entry with optional edit prompts, redacted literal re-entry, persisted indicators, and `history --export csv <FILE>` for sanitized audit logs.
+
 ## 0.12.0 — 2025-11-09
 
 - Introduced `rgh digest` and `rgh kdf` command families; `rgh string`, `rgh file`, and `rgh stdio` now emit deprecation warnings.
