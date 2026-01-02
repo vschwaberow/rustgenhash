@@ -71,12 +71,12 @@ impl RandomNumberGenerator {
 		&mut self,
 		output_length: u64,
 		output_format: DigestOutputFormat,
-	) -> String {
+	) -> Result<String, Box<dyn Error>> {
 		let mut buffer = vec![0; output_length as usize];
 
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom(&mut buffer).unwrap();
+				getrandom(&mut buffer).map_err(|err| err.into())?;
 			}
 			RngType::ThreadRng => {
 				thread_rng().fill_bytes(&mut buffer);
@@ -125,7 +125,7 @@ impl RandomNumberGenerator {
 				std::process::exit(0);
 			}
 		}
-		match output_format {
+		let encoded = match output_format {
 			DigestOutputFormat::Hex => hex::encode(buffer),
 			DigestOutputFormat::Base64 => {
 				URL_SAFE_NO_PAD.encode(&buffer)
@@ -133,6 +133,7 @@ impl RandomNumberGenerator {
 			_ => unreachable!(
 				"Unsupported format for random generator"
 			),
-		}
+		};
+		Ok(encoded)
 	}
 }
