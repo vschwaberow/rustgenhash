@@ -76,14 +76,14 @@ fn tokenize_segments(
 	let mut current = String::new();
 	let mut in_quotes = false;
 
-		for ch in input.chars() {
-			match ch {
-				'"' => {
-					if keep_partial && !in_quotes && current.is_empty() {
-						current.push('"');
-					}
-					in_quotes = !in_quotes;
+	for ch in input.chars() {
+		match ch {
+			'"' => {
+				if keep_partial && !in_quotes && current.is_empty() {
+					current.push('"');
 				}
+				in_quotes = !in_quotes;
+			}
 			' ' | '\t' if !in_quotes => {
 				if !current.is_empty() {
 					tokens.push(current.clone());

@@ -76,9 +76,8 @@ impl RandomNumberGenerator {
 
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom(&mut buffer).map_err(|err| {
-					Box::new(err) as Box<dyn Error>
-				})?;
+				getrandom(&mut buffer)
+					.map_err(|err| Box::new(err) as Box<dyn Error>)?;
 			}
 			RngType::ThreadRng => {
 				thread_rng().fill_bytes(&mut buffer);
@@ -106,17 +105,19 @@ impl RandomNumberGenerator {
 				use std::time::{SystemTime, UNIX_EPOCH};
 				let time_error = Arc::new(AtomicBool::new(false));
 				let time_error_flag = Arc::clone(&time_error);
-				let mut rng =
-					rand_jitter::JitterRng::new_with_timer(move || {
+				let mut rng = rand_jitter::JitterRng::new_with_timer(
+					move || {
 						let dur = SystemTime::now()
 							.duration_since(UNIX_EPOCH)
 							.unwrap_or_else(|err| {
-								time_error_flag.store(true, Ordering::Relaxed);
+								time_error_flag
+									.store(true, Ordering::Relaxed);
 								err.duration()
 							});
 						dur.as_secs() << 30
 							| dur.subsec_nanos() as u64
-					});
+					},
+				);
 				rng.fill_bytes(&mut buffer);
 				if time_error.load(Ordering::Relaxed) {
 					return Err(std::io::Error::new(

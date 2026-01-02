@@ -226,14 +226,14 @@ mod tests {
 		symlink(root.join("target.txt"), root.join("link.txt"))
 			.unwrap();
 
-			let plan_never = make_plan(root, SymlinkPolicy::Never, false);
-			let entries_never = Walker::new(plan_never).walk().unwrap();
-			assert_eq!(entries_never.len(), 2);
-			assert!(entries_never.iter().all(|e| !e.is_symlink));
+		let plan_never = make_plan(root, SymlinkPolicy::Never, false);
+		let entries_never = Walker::new(plan_never).walk().unwrap();
+		assert_eq!(entries_never.len(), 2);
+		assert!(entries_never.iter().all(|e| !e.is_symlink));
 
-			let plan_files = make_plan(root, SymlinkPolicy::Files, false);
-			let entries_files = Walker::new(plan_files).walk().unwrap();
-			assert_eq!(entries_files.len(), 3);
-			assert!(entries_files.iter().any(|e| e.is_symlink));
-		}
+		let plan_files = make_plan(root, SymlinkPolicy::Files, false);
+		let entries_files = Walker::new(plan_files).walk().unwrap();
+		assert_eq!(entries_files.len(), 3);
+		assert!(entries_files.iter().any(|e| e.is_symlink));
 	}
+}

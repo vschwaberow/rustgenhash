@@ -3972,8 +3972,8 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				);
 				std::process::exit(1);
 			}
-			let out =
-				RandomNumberGenerator::new(a).generate(*len, format)?;
+			let out = RandomNumberGenerator::new(a)
+				.generate(*len, format)?;
 			println!("{}", out);
 		}
 		Some(("analyze", s)) => {
