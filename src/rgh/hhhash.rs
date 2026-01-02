@@ -58,7 +58,7 @@ pub fn generate_hhhash(
 	let client =
 		Client::builder().timeout(Duration::from_secs(10)).build()?;
 
-	let resp = client.get(parsed_url).send()?;
+	let resp = client.get(parsed_url).send()?.error_for_status()?;
 
 	let header_names: Vec<_> = resp
 		.headers()
