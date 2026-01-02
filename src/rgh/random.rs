@@ -71,12 +71,13 @@ impl RandomNumberGenerator {
 		&mut self,
 		output_length: u64,
 		output_format: DigestOutputFormat,
-	) -> String {
+	) -> Result<String, Box<dyn Error>> {
 		let mut buffer = vec![0; output_length as usize];
 
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom(&mut buffer).unwrap();
+				getrandom(&mut buffer)
+					.map_err(|err| Box::new(err) as Box<dyn Error>)?;
 			}
 			RngType::ThreadRng => {
 				thread_rng().fill_bytes(&mut buffer);
@@ -99,16 +100,32 @@ impl RandomNumberGenerator {
 			}
 			RngType::JitterRng => {
 				use rand_jitter::rand_core::RngCore;
+				use std::sync::atomic::{AtomicBool, Ordering};
+				use std::sync::Arc;
 				use std::time::{SystemTime, UNIX_EPOCH};
-				let mut rng =
-					rand_jitter::JitterRng::new_with_timer(|| {
+				let time_error = Arc::new(AtomicBool::new(false));
+				let time_error_flag = Arc::clone(&time_error);
+				let mut rng = rand_jitter::JitterRng::new_with_timer(
+					move || {
 						let dur = SystemTime::now()
 							.duration_since(UNIX_EPOCH)
-							.unwrap();
+							.unwrap_or_else(|err| {
+								time_error_flag
+									.store(true, Ordering::Relaxed);
+								err.duration()
+							});
 						dur.as_secs() << 30
 							| dur.subsec_nanos() as u64
-					});
+					},
+				);
 				rng.fill_bytes(&mut buffer);
+				if time_error.load(Ordering::Relaxed) {
+					return Err(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						"System clock is before UNIX_EPOCH",
+					)
+					.into());
+				}
 			}
 			RngType::Pcg32 => {
 				let mut rng = rand_pcg::Pcg32::from_entropy();
@@ -125,7 +142,7 @@ impl RandomNumberGenerator {
 				std::process::exit(0);
 			}
 		}
-		match output_format {
+		let encoded = match output_format {
 			DigestOutputFormat::Hex => hex::encode(buffer),
 			DigestOutputFormat::Base64 => {
 				URL_SAFE_NO_PAD.encode(&buffer)
@@ -133,6 +150,7 @@ impl RandomNumberGenerator {
 			_ => unreachable!(
 				"Unsupported format for random generator"
 			),
-		}
+		};
+		Ok(encoded)
 	}
 }

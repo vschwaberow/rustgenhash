@@ -1312,7 +1312,7 @@ fn interactive_generate_random() -> Result<(), Box<dyn Error>> {
 	let output_option = select_output_format()?;
 
 	let out = RandomNumberGenerator::new(rng_type)
-		.generate(length, output_option);
+		.generate(length, output_option)?;
 	println!("{}", out);
 
 	Ok(())
@@ -3972,8 +3972,8 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				);
 				std::process::exit(1);
 			}
-			let out =
-				RandomNumberGenerator::new(a).generate(*len, format);
+			let out = RandomNumberGenerator::new(a)
+				.generate(*len, format)?;
 			println!("{}", out);
 		}
 		Some(("analyze", s)) => {

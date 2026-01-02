@@ -79,6 +79,9 @@ fn tokenize_segments(
 	for ch in input.chars() {
 		match ch {
 			'"' => {
+				if keep_partial && !in_quotes && current.is_empty() {
+					current.push('"');
+				}
 				in_quotes = !in_quotes;
 			}
 			' ' | '\t' if !in_quotes => {
