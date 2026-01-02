@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0 - 2026-01-02
+
+- Hardened random output generation: `getrandom` failures and jitter RNG clock anomalies now return errors instead of panicking.
+- HHHash URL validation now reports invalid schemes as errors, and HTTP error responses are treated as failures.
+- Console cursor parsing retains opening quotes in the active prefix for completion.
+
 ## 0.12.1 - 2025-11-12
 
 - Added replay shortcuts to `rgh console`: `!!` replays the last command, while `replay <index>` / `!<index>` re-run any numbered history entry with optional edit prompts, redacted literal re-entry, persisted indicators, and `history --export csv <FILE>` for sanitized audit logs.
