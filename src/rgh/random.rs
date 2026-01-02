@@ -99,22 +99,24 @@ impl RandomNumberGenerator {
 			}
 			RngType::JitterRng => {
 				use rand_jitter::rand_core::RngCore;
-				use std::cell::Cell;
+				use std::sync::atomic::{AtomicBool, Ordering};
+				use std::sync::Arc;
 				use std::time::{SystemTime, UNIX_EPOCH};
-				let time_error = Cell::new(false);
+				let time_error = Arc::new(AtomicBool::new(false));
+				let time_error_flag = Arc::clone(&time_error);
 				let mut rng =
-					rand_jitter::JitterRng::new_with_timer(|| {
+					rand_jitter::JitterRng::new_with_timer(move || {
 						let dur = SystemTime::now()
 							.duration_since(UNIX_EPOCH)
 							.unwrap_or_else(|err| {
-								time_error.set(true);
+								time_error_flag.store(true, Ordering::Relaxed);
 								err.duration()
 							});
 						dur.as_secs() << 30
 							| dur.subsec_nanos() as u64
 					});
 				rng.fill_bytes(&mut buffer);
-				if time_error.get() {
+				if time_error.load(Ordering::Relaxed) {
 					return Err(std::io::Error::new(
 						std::io::ErrorKind::Other,
 						"System clock is before UNIX_EPOCH",
