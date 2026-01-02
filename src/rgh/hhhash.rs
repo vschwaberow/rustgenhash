@@ -18,13 +18,20 @@ pub fn parse_url(
 	url: &str,
 ) -> Result<Url, Box<dyn std::error::Error>> {
 	let parsed_url = match Url::parse(url) {
-		Ok(url) => match url.scheme() {
-			"http" | "https" => url,
-			_ => {
-				eprintln!("Error: URL {} has an invalid scheme. Only http or https are allowed.", url);
-				std::process::exit(1);
+		Ok(url) => {
+			if matches!(url.scheme(), "http" | "https") {
+				url
+			} else {
+				return Err(std::io::Error::new(
+					std::io::ErrorKind::InvalidInput,
+					format!(
+						"URL {} has an invalid scheme. Only http or https are allowed.",
+						url
+					),
+				)
+				.into());
 			}
-		},
+		}
 		Err(_) => {
 			eprintln!("Warning: URL {} is not valid / complete. Assuming https.", url);
 			Url::parse(&format!("https://{}", url)).map_err(|e| {
