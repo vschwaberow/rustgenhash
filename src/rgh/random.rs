@@ -76,7 +76,9 @@ impl RandomNumberGenerator {
 
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom(&mut buffer).map_err(|err| err.into())?;
+				getrandom(&mut buffer).map_err(|err| {
+					Box::new(err) as Box<dyn Error>
+				})?;
 			}
 			RngType::ThreadRng => {
 				thread_rng().fill_bytes(&mut buffer);
