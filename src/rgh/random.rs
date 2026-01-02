@@ -99,16 +99,28 @@ impl RandomNumberGenerator {
 			}
 			RngType::JitterRng => {
 				use rand_jitter::rand_core::RngCore;
+				use std::cell::Cell;
 				use std::time::{SystemTime, UNIX_EPOCH};
+				let time_error = Cell::new(false);
 				let mut rng =
 					rand_jitter::JitterRng::new_with_timer(|| {
 						let dur = SystemTime::now()
 							.duration_since(UNIX_EPOCH)
-							.unwrap();
+							.unwrap_or_else(|err| {
+								time_error.set(true);
+								err.duration()
+							});
 						dur.as_secs() << 30
 							| dur.subsec_nanos() as u64
 					});
 				rng.fill_bytes(&mut buffer);
+				if time_error.get() {
+					return Err(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						"System clock is before UNIX_EPOCH",
+					)
+					.into());
+				}
 			}
 			RngType::Pcg32 => {
 				let mut rng = rand_pcg::Pcg32::from_entropy();
