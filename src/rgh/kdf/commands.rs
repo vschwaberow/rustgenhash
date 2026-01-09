@@ -6,7 +6,7 @@
 
 #![allow(dead_code)]
 
-use crate::render_kdf_output;
+use crate::rgh::kdf::render_kdf_output;
 use crate::rgh::hash::{
 	Argon2Config, BalloonConfig, BcryptConfig, PHash, Pbkdf2Config,
 	ScryptConfig,

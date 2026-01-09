@@ -5,6 +5,7 @@
 //
 // Password-based key derivation command group.
 
+use serde_json::{json, Value as JsonValue};
 use std::fs;
 use std::io::{self, Read};
 use std::path::Path;
@@ -13,6 +14,24 @@ use zeroize::Zeroizing;
 pub mod commands;
 pub mod hkdf;
 pub mod profile;
+
+pub fn render_kdf_output(
+	algorithm: &str,
+	digest: &str,
+	metadata: JsonValue,
+	hash_only: bool,
+) -> String {
+	if hash_only {
+		digest.to_string()
+	} else {
+		json!({
+			"algorithm": algorithm,
+			"digest": digest,
+			"metadata": metadata
+		})
+		.to_string()
+	}
+}
 
 /// Wrapper for secret byte buffers (passwords, PRKs, IKM) that guarantees
 /// zeroization on drop.

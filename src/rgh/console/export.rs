@@ -120,7 +120,8 @@ pub fn write_manifest(
 				file.write_all(&data)?;
 			}
 			ExportFormat::Yaml => {
-				let yaml = serde_yaml::to_string(&manifest).map_err(
+									let yaml = serde_yml::to_string(&manifest).map_err(
+				
 					|err| ExportError::Serialize(err.to_string()),
 				)?;
 				file.write_all(yaml.as_bytes())?;
