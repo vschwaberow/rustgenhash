@@ -6,7 +6,7 @@
 
 use crate::rgh::analyze::HashAnalyzer;
 use crate::rgh::benchmark::{
-	self, digest_benchmark_presets, kdf_benchmark_presets,
+	digest_benchmark_presets, kdf_benchmark_presets,
 	render_digest_report, run_digest_benchmarks, BenchmarkMode,
 };
 pub use crate::rgh::cli::algorithms::Algorithm;
@@ -66,7 +66,7 @@ use crate::rgh::mac::key::KeySource;
 use crate::rgh::mac::registry;
 use crate::rgh::output::DigestOutputFormat;
 use crate::rgh::random::{RandomNumberGenerator, RngType};
-use clap::builder::{PossibleValuesParser, ValueParser};
+use clap::builder::PossibleValuesParser;
 use clap::parser::ValueSource;
 use clap::{crate_name, Arg, ArgAction, ArgGroup};
 use clap_complete::{generate, Generator, Shell};
@@ -75,7 +75,6 @@ use dialoguer::Password;
 use pbkdf2::password_hash::SaltString as Pbkdf2SaltString;
 use scrypt::password_hash::SaltString as ScryptSaltString;
 use std::error::Error;
-use std::fs;
 use std::io::{self, BufRead, Read};
 use std::path::{Path, PathBuf};
 use std::process;

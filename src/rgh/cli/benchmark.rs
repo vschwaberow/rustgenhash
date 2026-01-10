@@ -2,19 +2,17 @@
 // Project: rustgenhash
 
 use crate::rgh::benchmark::{
-	self,
-	digest_benchmark_presets,
-	kdf_benchmark_presets,
-	render_digest_report,
-	run_digest_benchmarks,
-	BenchmarkError,
-	BenchmarkMode,
-	SharedBenchmarkArgs,
+
+	self, BenchmarkError, BenchmarkMode, SharedBenchmarkArgs,
+
 	DEFAULT_MAC_MESSAGE_BYTES,
+
 };
-use crate::rgh::cli::algorithms::Algorithm;
+
 use crate::rgh::cli::parser::{
+
 	collect_profile_overrides, parse_duration_arg, parse_hkdf_inputs,
+
 };
 use clap::builder::ValueParser;
 use clap::{Arg, ArgAction};
