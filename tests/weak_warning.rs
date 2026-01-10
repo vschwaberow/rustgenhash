@@ -4,7 +4,7 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2025 Volker Schwaberow
 //! Helpers for identifying compromised/weak digest algorithms and presenting
-use rustgenhash::rgh::app::{
+use rustgenhash::rgh::cli::defs::{
 	WEAK_PROMPT_DEFAULT_INDEX, WEAK_PROMPT_OPTIONS,
 };
 use rustgenhash::rgh::weak::{

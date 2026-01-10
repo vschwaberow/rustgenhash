@@ -41,5 +41,8 @@ Options:
   -V, --version
           Print version
 
-Examples:\n  rgh console\n  rgh console --script playbook.rgh\n  rgh console --script playbook.rgh --ignore-errors
+Examples:
+  rgh console
+  rgh console --script playbook.rgh
+  rgh console --script playbook.rgh --ignore-errors
 

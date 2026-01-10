@@ -11,6 +11,7 @@ pub mod rgh {
         pub mod app;
         pub mod audit;
         pub mod benchmark;
+        pub mod cli;
         pub mod console;
         pub mod digest;
         pub mod file;
