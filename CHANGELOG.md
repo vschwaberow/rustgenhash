@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.0 - 2026-01-09
+
+- Refactored `app.rs` into smaller CLI modules for better maintainability.
+- Replaced deprecated `serde_yaml` dependency with `serde_yml`.
+- Fixed flaky tests in audit suite (`digest_file_large_stream`, `digest_file_error_strategy_continue`) and KDF benchmark assertions.
+- Addressed various compilation warnings and unused imports.
+
 ## 0.13.0 - 2026-01-02
 
 - Hardened random output generation: `getrandom` failures and jitter RNG clock anomalies now return errors instead of panicking.
