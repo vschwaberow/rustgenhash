@@ -238,6 +238,15 @@ fn audit_fixtures_smoke() {
 		selected.len(),
 		"Failed to load fixtures"
 	);
+
+    #[cfg(unix)]
+    {
+        let link_path = Path::new("tests/fixtures/digest/error_strategy_tree/broken.ln");
+        if fs::symlink_metadata(link_path).is_err() {
+            let _ = std::os::unix::fs::symlink("does-not-exist", link_path);
+        }
+    }
+
 	prepare_large_stream_inputs(&cases)
 		.expect("failed to prepare runtime large-stream fixtures");
 

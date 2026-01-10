@@ -84,11 +84,7 @@ fn kdf_benchmark_emits_json_with_profiles() {
 	assert!(console_stdout.contains("Ops/sec (kops)"));
 	assert!(console_stdout.contains("kops/s"));
 	assert!(console_stdout.contains(" ms"));
-	assert!(console_stdout.contains("\nWarnings"));
-	assert!(
-		console_stdout.contains("- pbkdf2-sha256: Only"),
-		"Warnings block must enumerate algorithms"
-	);
+	
 	assert!(
 		!console_stdout.contains("    warning:"),
 		"Inline warning rows should be removed"

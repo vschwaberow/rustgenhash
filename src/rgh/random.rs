@@ -120,11 +120,9 @@ impl RandomNumberGenerator {
 				);
 				rng.fill_bytes(&mut buffer);
 				if time_error.load(Ordering::Relaxed) {
-					return Err(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						"System clock is before UNIX_EPOCH",
-					)
-					.into());
+					                    return Err(std::io::Error::other(
+					                        "System clock is before UNIX_EPOCH",
+					                    )					.into());
 				}
 			}
 			RngType::Pcg32 => {

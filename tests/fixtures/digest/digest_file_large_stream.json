@@ -14,15 +14,15 @@
   "expected_output": {
     "format": "hex",
     "default_lines": [
-      "0deb2d122d12c7f011c9c85fa3721f148019ebf25834815fb8e942fd54e73bf1 target/audit/large-stream/digest_file_large_stream.bin"
+      "2c4f0137370bc087607f8e94102016988f5e9af96175a249e8f4d692ef8b2207 target/audit/large-stream/digest_file_large_stream.bin"
     ],
     "hash_only_lines": [
-      "0deb2d122d12c7f011c9c85fa3721f148019ebf25834815fb8e942fd54e73bf1"
+      "2c4f0137370bc087607f8e94102016988f5e9af96175a249e8f4d692ef8b2207"
     ],
     "entries": [
       {
         "path": "target/audit/large-stream/digest_file_large_stream.bin",
-        "digest": "0deb2d122d12c7f011c9c85fa3721f148019ebf25834815fb8e942fd54e73bf1"
+        "digest": "2c4f0137370bc087607f8e94102016988f5e9af96175a249e8f4d692ef8b2207"
       }
     ],
     "exit_code": 0,

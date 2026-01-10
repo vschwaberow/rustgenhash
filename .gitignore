@@ -21,3 +21,4 @@ Thumbs.db
 *.swp
 tests/fixtures/interactive/export_vars_*.json
 tests/fixtures/interactive/export_vars_*.yaml
+tests/fixtures/digest/error_strategy_tree/broken.ln
