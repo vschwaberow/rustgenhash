@@ -7,7 +7,7 @@
 use crate::rgh::output::DigestOutputFormat;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use getrandom::getrandom;
-use rand::thread_rng;
+use rand::TryRngCore;
 use rand_core::{RngCore, SeedableRng};
 use std::error::Error;
 
@@ -80,11 +80,11 @@ impl RandomNumberGenerator {
 					.map_err(|err| Box::new(err) as Box<dyn Error>)?;
 			}
 			RngType::ThreadRng => {
-				thread_rng().fill_bytes(&mut buffer);
+				rand::rng().try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::OsRng => {
 				let mut rng = rand::rngs::OsRng;
-				rng.fill_bytes(&mut buffer);
+				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::ChaChaRng => {
 				let mut rng = rand_chacha::ChaChaRng::from_entropy();

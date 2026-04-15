@@ -11,7 +11,7 @@ use rustgenhash::rgh::console::{
 	ConsoleOptions, ConsoleValueType, ConsoleVariableStore,
 };
 use serde_json::Value as JsonValue;
-use serde_yml::Value as YamlValue;
+use yaml_serde::Value as YamlValue;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -598,7 +598,7 @@ exit\n",
 	let data =
 		fs::read_to_string(manifest.path()).expect("read manifest");
 	let manifest_yaml: YamlValue =
-		serde_yml::from_str(&data).expect("parse yaml manifest");
+		yaml_serde::from_str(&data).expect("parse yaml manifest");
 	assert_eq!(
 		manifest_yaml
 			.get("includes_secrets")
