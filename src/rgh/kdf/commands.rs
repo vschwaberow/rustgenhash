@@ -32,7 +32,6 @@ use pbkdf2::{
 use rand_core::{OsRng, RngCore};
 use scrypt::password_hash::SaltString as ScryptSaltString;
 use serde_json::json;
-use sha_crypt::Sha512Params;
 use std::error::Error;
 use std::io;
 
@@ -281,10 +280,13 @@ pub fn derive_sha_crypt(
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
-	let params = Sha512Params::new(10_000)
-		.map_err(|err| io::Error::other(format!("{:?}", err)))?;
-	let digest = sha_crypt::sha512_simple(password, &params)
-		.map_err(|err| io::Error::other(format!("{:?}", err)))?;
+	let params = sha_crypt::Params::new(10_000).unwrap();
+	let mut rng = ArgonOsRng;
+	let salt = ArgonSaltString::generate(&mut rng);
+	let sha_crypt_hasher = sha_crypt::ShaCrypt::new(sha_crypt::Algorithm::Sha512Crypt, params);
+	let digest = sha_crypt::PasswordHasher::hash_password_with_salt(&sha_crypt_hasher, password.as_bytes(), salt.as_str().as_bytes())
+		.map_err(|err| io::Error::other(format!("{:?}", err)))?
+		.to_string();
 	let metadata = json!({
 		"rounds": 10_000,
 		"salt_embedded": true

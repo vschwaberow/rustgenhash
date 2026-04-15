@@ -458,11 +458,12 @@ impl PHash {
 		password: &str,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let params = sha_crypt::Sha512Params::new(10_000)
+		let params = sha_crypt::Params::new(10_000).unwrap();
+		let salt = SaltString::generate(&mut OsRng);
+		let sha_crypt = sha_crypt::ShaCrypt::new(sha_crypt::Algorithm::Sha512Crypt, params);
+		let hash = sha_crypt::PasswordHasher::hash_password_with_salt(&sha_crypt, password.as_bytes(), salt.as_str().as_bytes())
 			.map_err(|err| format!("{:?}", err))?;
-		let hash = sha_crypt::sha512_simple(password, &params)
-			.map_err(|err| format!("{:?}", err))?;
-		Ok(assemble_output(hash_only, vec![hash], Some(password)))
+		Ok(assemble_output(hash_only, vec![hash.to_string()], Some(password)))
 	}
 
 	pub fn hash_pbkdf2(

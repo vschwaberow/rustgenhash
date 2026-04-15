@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1 - 2026-04-15
+
+- Fixed random number generation to use `try_fill_bytes` instead of `fill_bytes` to prevent panics on systems with insufficient entropy.
+
 ## 0.14.0 - 2026-01-09
 
 - Refactored `app.rs` into smaller CLI modules for better maintainability.

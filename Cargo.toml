@@ -1,6 +1,6 @@
 [package]
 name = "rustgenhash"
-version = "0.14.0"
+version = "0.14.1"
 license = "MIT"
 authors = ["Volker Schwaberow <volker@schwaberow.de>"]
 description = "A tool to generate hashes from the command line."
@@ -91,7 +91,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 yaml_serde = "0.10.4"
 sha-1 = "0.10.0"
-sha-crypt = "0.4.0"
+sha-crypt = "=0.6.0-rc.4"
 sha2 = "0.10.6"
 sha3 = "0.10.5"
 shabal = "0.4.1"
