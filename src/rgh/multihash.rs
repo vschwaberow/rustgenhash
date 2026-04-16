@@ -7,7 +7,6 @@
 // Copyright (c) 2025 Volker Schwaberow
 
 use multibase::Base;
-use multihash::{Code, MultihashDigest};
 use std::borrow::Cow;
 use std::fmt;
 
@@ -37,7 +36,7 @@ impl MulticodecSupportMatrix {
 #[derive(Clone, Copy, Debug)]
 pub struct MulticodecEntry {
 	pub algorithm: &'static str,
-	pub code: Code,
+	pub code: u64,
 	pub expected_digest_len: usize,
 	pub description: &'static str,
 }
@@ -52,10 +51,6 @@ pub enum MultihashError {
 		algorithm: String,
 		expected: usize,
 		actual: usize,
-	},
-	EncodeFailure {
-		algorithm: String,
-		source: multihash::Error,
 	},
 }
 
@@ -78,23 +73,11 @@ impl fmt::Display for MultihashError {
 				"multihash expected a {}-byte digest for {}, but received {} bytes",
 				expected, algorithm, actual
 			),
-			Self::EncodeFailure { algorithm, source } => write!(
-				f,
-				"failed to wrap digest for {} into a multihash: {}",
-				algorithm, source
-			),
 		}
 	}
 }
 
-impl std::error::Error for MultihashError {
-	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-		match self {
-			Self::EncodeFailure { source, .. } => Some(source),
-			_ => None,
-		}
-	}
-}
+impl std::error::Error for MultihashError {}
 
 /// Convenience helper that wraps digest bytes into a base58btc multihash string.
 pub struct MultihashEncoder;
@@ -126,40 +109,51 @@ impl MultihashEncoder {
 			});
 		};
 
-		let multihash = entry
-			.code
-			.wrap(canonical_digest.as_ref())
-			.map_err(|source| MultihashError::EncodeFailure {
-				algorithm: algorithm.to_string(),
-				source,
-			})?;
+		let mut out_bytes = Vec::with_capacity(canonical_digest.len() + 8);
+		encode_varint(entry.code, &mut out_bytes);
+		encode_varint(canonical_digest.len() as u64, &mut out_bytes);
+		out_bytes.extend_from_slice(canonical_digest.as_ref());
 
-		Ok(multibase::encode(Base::Base58Btc, multihash.to_bytes()))
+		Ok(multibase::encode(Base::Base58Btc, &out_bytes))
+	}
+}
+
+fn encode_varint(mut value: u64, buf: &mut Vec<u8>) {
+	loop {
+		let mut byte = (value & 0x7f) as u8;
+		value >>= 7;
+		if value != 0 {
+			byte |= 0x80;
+		}
+		buf.push(byte);
+		if value == 0 {
+			break;
+		}
 	}
 }
 
 const ENTRIES: &[MulticodecEntry] = &[
 	MulticodecEntry {
 		algorithm: "sha256",
-		code: Code::Sha2_256,
+		code: 0x12,
 		expected_digest_len: 32,
 		description: "multihash code 0x12 (sha2-256)",
 	},
 	MulticodecEntry {
 		algorithm: "sha512",
-		code: Code::Sha2_512,
+		code: 0x13,
 		expected_digest_len: 64,
 		description: "multihash code 0x13 (sha2-512)",
 	},
 	MulticodecEntry {
 		algorithm: "blake2b",
-		code: Code::Blake2b256,
+		code: 0xb220,
 		expected_digest_len: 32,
 		description: "multihash code 0xb220 (blake2b-256)",
 	},
 	MulticodecEntry {
 		algorithm: "blake3",
-		code: Code::Blake3_256,
+		code: 0x1e,
 		expected_digest_len: 32,
 		description: "multihash code 0x1e (blake3-256)",
 	},

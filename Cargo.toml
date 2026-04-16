@@ -61,7 +61,6 @@ digest = { version = "0.10.5", features = ["std"] }
 hmac = "0.12"
 hkdf = "0.12"
 multibase = "0.9" # Multiformats multibase (https://github.com/multiformats/multibase)
-multihash = "0.18" # Multiformats multihash spec (https://github.com/multiformats/multihash)
 fsb = "0.1.3"
 getrandom = "0.2.16"
 gost94 = "0.10.4"
@@ -120,6 +119,4 @@ features = ["js"]
 version = "1.3.0"
 features = ["js"]
 
-[patch.crates-io]
-core2 = { path = "vendor/core2" }
 
