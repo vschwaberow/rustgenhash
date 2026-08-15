@@ -626,8 +626,8 @@ impl PHash {
 macro_rules! create_hasher {
     ($alg:expr, $($pat:expr => $hasher:expr),+ $(,)?) => {
         match $alg {
-            $($pat => Box::new($hasher),)+
-            _ => panic!("Unknown algorithm"),
+            $($pat => Ok(Box::new($hasher) as Box<dyn digest::DynDigest>),)+
+            other => Err(format!("Unknown algorithm: {other}")),
         }
     };
 }
@@ -637,9 +637,10 @@ pub struct RHash {
 	digest: Box<dyn DynDigest>,
 }
 impl RHash {
-	pub fn new(alg: &str) -> Self {
-		Self {
-			digest: create_hasher!(alg,
+	pub fn new(alg: &str) -> Result<Self, String> {
+		let normalized = alg.to_ascii_uppercase().replace('-', "_");
+		Ok(Self {
+			digest: create_hasher!(normalized.as_str(),
 				"BELTHASH" => belt_hash::BeltHash::new(),
 			"BLAKE2B"   => blake2::Blake2b512::new(),
 				"BLAKE2S"   => blake2::Blake2s256::new(),
@@ -683,8 +684,8 @@ impl RHash {
 				"STREEBOG512" => streebog::Streebog512::new(),
 				"TIGER"     => tiger::Tiger::new(),
 				"WHIRLPOOL" => whirlpool::Whirlpool::new(),
-			),
-		}
+			)?,
+		})
 	}
 
 	pub fn process_string(&mut self, data: &[u8]) -> Vec<u8> {
@@ -708,7 +709,7 @@ pub fn digest_bytes_to_record(
 	label: Option<&str>,
 	source: DigestSource,
 ) -> Result<DigestRecord, String> {
-	let mut engine = RHash::new(&algorithm.to_uppercase());
+	let mut engine = RHash::new(algorithm)?;
 	let digest = engine.process_string(data);
 	let path = label.map(|value| value.to_string());
 	Ok(DigestRecord::from_digest(path, algorithm, &digest, source))
@@ -831,7 +832,7 @@ fn digest_with_options_internal(
 		let modified =
 			metadata.modified().ok().map(DateTime::<Utc>::from);
 
-		let mut engine = RHash::new(&algorithm_upper);
+		let mut engine = RHash::new(&algorithm_upper).map_err(|err| -> Box<dyn std::error::Error> { err.into() })?;
 		let digest_bytes = match engine
 			.read_file(display_path.as_ref())
 		{
@@ -1145,4 +1146,20 @@ fn entry_status_from_error(
 		};
 	}
 	EntryStatus::Error
+}
+
+#[cfg(test)]
+mod rhash_new_tests {
+	use super::RHash;
+
+	#[test]
+	fn rhash_accepts_hyphenated_sha3() {
+		let mut h = RHash::new("sha3-256").expect("sha3-256");
+		assert_eq!(h.process_string(b"").len(), 32);
+	}
+
+	#[test]
+	fn rhash_rejects_unknown_algorithm() {
+		assert!(RHash::new("nosuch").is_err());
+	}
 }
