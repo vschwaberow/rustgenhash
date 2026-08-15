@@ -665,7 +665,9 @@ impl RHash {
 				"FSB256"    => fsb::Fsb256::new(),
 				"FSB384"    => fsb::Fsb384::new(),
 				"FSB512"    => fsb::Fsb512::new(),
-				"GOST94"    => gost94::Gost94Test::new(),
+				"GOST94"    => gost94::Gost94CryptoPro::new(),
+				"GOST94TEST" => gost94::Gost94Test::new(),
+				"GOST94_TEST" => gost94::Gost94Test::new(),
 				"GOST94UA"  => gost94::Gost94UA::new(),
 				"GROESTL"   => groestl::Groestl256::new(),
 				"JH224"     => jh::Jh224::new(),
@@ -1161,6 +1163,22 @@ fn entry_status_from_error(
 		};
 	}
 	EntryStatus::Error
+}
+
+#[cfg(test)]
+mod gost94_sbox_tests {
+	use super::RHash;
+
+	#[test]
+	fn gost94_default_differs_from_test_sbox() {
+		let crypto = RHash::new("GOST94")
+			.expect("GOST94")
+			.process_string(b"rustgenhash");
+		let test = RHash::new("gost94-test")
+			.expect("gost94-test")
+			.process_string(b"rustgenhash");
+		assert_ne!(crypto, test);
+	}
 }
 
 #[cfg(test)]
