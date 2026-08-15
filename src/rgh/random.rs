@@ -135,9 +135,16 @@ impl RandomNumberGenerator {
 				rng.fill_bytes(&mut buffer);
 			}
 			RngType::Uuidv4 => {
-				let uuid = uuid::Uuid::new_v4();
-				print!("{}", uuid.hyphenated());
-				std::process::exit(0);
+				if output_length != 16 {
+					return Err(std::io::Error::new(
+						std::io::ErrorKind::InvalidInput,
+						"uuidv4 produces 16 bytes",
+					)
+					.into());
+				}
+				buffer.copy_from_slice(
+					uuid::Uuid::new_v4().as_bytes(),
+				);
 			}
 		}
 		let encoded = match output_format {
@@ -150,5 +157,28 @@ impl RandomNumberGenerator {
 			),
 		};
 		Ok(encoded)
+	}
+}
+
+#[cfg(test)]
+mod uuidv4_tests {
+	use super::{RandomNumberGenerator, RngType};
+	use crate::rgh::output::DigestOutputFormat;
+
+	#[test]
+	fn uuidv4_rejects_non_16_length() {
+		let err = RandomNumberGenerator::new(RngType::Uuidv4)
+			.generate(8, DigestOutputFormat::Hex)
+			.unwrap_err();
+		assert!(err.to_string().contains("16 bytes"));
+	}
+
+	#[test]
+	fn uuidv4_hex_is_32_chars() {
+		let out = RandomNumberGenerator::new(RngType::Uuidv4)
+			.generate(16, DigestOutputFormat::Hex)
+			.unwrap();
+		assert_eq!(out.len(), 32);
+		assert!(out.chars().all(|c| c.is_ascii_hexdigit()));
 	}
 }
