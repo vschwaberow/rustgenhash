@@ -7,7 +7,8 @@
 use crate::rgh::file::{
 	DirectoryHashPlan, EntryStatus, ErrorHandlingProfile,
 	ManifestEntry, ManifestOutcome, ManifestSummary, ManifestWriter,
-	ProgressConfig, ProgressEmitter, Walker,
+	PerformanceEnvelope, ProgressConfig, ProgressEmitter,
+	ThreadStrategy, Walker,
 };
 use crate::rgh::multihash::MultihashEncoder;
 use crate::rgh::output::{
@@ -42,9 +43,11 @@ use scrypt::{
 use serde_json::to_writer_pretty;
 use skein::{consts::U32, Skein1024, Skein256, Skein512};
 use std::fs::{self, File};
-use std::io::IsTerminal;
+use std::io::{self, IsTerminal, Read};
+use std::time::Instant;
+use rayon::prelude::*;
 use std::path::{Path, PathBuf};
-use std::{collections::HashMap, io};
+use std::collections::HashMap;
 
 #[cfg(all(
 	feature = "asm-accel",
@@ -696,8 +699,29 @@ impl RHash {
 		&mut self,
 		path: &str,
 	) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-		let data = std::fs::read(path)?;
-		self.digest.update(&data);
+		self.hash_path(Path::new(path), false)
+	}
+
+	pub fn hash_path(
+		&mut self,
+		path: &Path,
+		use_mmap: bool,
+	) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+		if use_mmap {
+			let file = File::open(path)?;
+			let mmap = unsafe { memmap2::MmapOptions::new().map(&file)? };
+			self.digest.update(&mmap);
+			return Ok(self.digest.finalize_reset().to_vec());
+		}
+		let mut file = File::open(path)?;
+		let mut buf = [0u8; 64 * 1024];
+		loop {
+			let n = file.read(&mut buf)?;
+			if n == 0 {
+				break;
+			}
+			self.digest.update(&buf[..n]);
+		}
 		Ok(self.digest.finalize_reset().to_vec())
 	}
 }
@@ -782,6 +806,89 @@ pub fn digest_with_options_collect(
 	})
 }
 
+enum HashedFile {
+	Ok {
+		path: PathBuf,
+		digest_bytes: Vec<u8>,
+		size: u64,
+		modified: Option<DateTime<Utc>>,
+		used_mmap: bool,
+	},
+	Fail {
+		path: PathBuf,
+		message: String,
+		status: EntryStatus,
+	},
+}
+
+impl HashedFile {
+	fn path(&self) -> &Path {
+		match self {
+			Self::Ok { path, .. } | Self::Fail { path, .. } => path,
+		}
+	}
+}
+
+fn hash_walk_entry(
+	algorithm: &str,
+	plan: &DirectoryHashPlan,
+	path: PathBuf,
+) -> HashedFile {
+	let display_path = path.to_string_lossy().into_owned();
+	let metadata = match fs::metadata(&path) {
+		Ok(meta) => meta,
+		Err(err) => {
+			let status = match err.kind() {
+				io::ErrorKind::PermissionDenied => {
+					EntryStatus::Skipped
+				}
+				_ => EntryStatus::Error,
+			};
+			return HashedFile::Fail {
+				path,
+				message: format!(
+					"failed to read metadata for {}: {}",
+					display_path, err
+				),
+				status,
+			};
+		}
+	};
+	let size = metadata.len();
+	let modified = metadata.modified().ok().map(DateTime::<Utc>::from);
+	let use_mmap = plan.should_use_mmap(size);
+	let mut engine = RHash::new(algorithm);
+	match engine.hash_path(&path, use_mmap) {
+		Ok(digest_bytes) => HashedFile::Ok {
+			path,
+			digest_bytes,
+			size,
+			modified,
+			used_mmap: use_mmap,
+		},
+		Err(err) => HashedFile::Fail {
+			path,
+			message: format!(
+				"failed to hash {}: {}",
+				display_path, err
+			),
+			status: entry_status_from_error(err.as_ref()),
+		},
+	}
+}
+
+fn worker_threads(strategy: ThreadStrategy) -> usize {
+	match strategy {
+		ThreadStrategy::Single => 1,
+		ThreadStrategy::Auto => {
+			std::thread::available_parallelism()
+				.map(|n| n.get())
+				.unwrap_or(1)
+		}
+		ThreadStrategy::Fixed(n) => u16::max(n, 1) as usize,
+	}
+}
+
 fn digest_with_options_internal(
 	options: &FileDigestOptions,
 	mut emitter: Option<&mut ProgressEmitter>,
@@ -797,96 +904,124 @@ fn digest_with_options_internal(
 		options.error_profile.clone(),
 	);
 	let mut records = Vec::new();
+	let started = Instant::now();
+	let thread_count = worker_threads(options.plan.threads);
 
-	for entry in entries {
-		let path = entry.path.clone();
-		let display_path = path.to_string_lossy();
-		let metadata = match fs::metadata(&path) {
-			Ok(meta) => meta,
-			Err(err) => {
-				let status = match err.kind() {
-					io::ErrorKind::PermissionDenied => {
-						EntryStatus::Skipped
+	let mut hashed: Vec<HashedFile> =
+		if matches!(options.plan.threads, ThreadStrategy::Single) {
+			entries
+				.into_iter()
+				.map(|entry| {
+					hash_walk_entry(
+						&algorithm_upper,
+						&options.plan,
+						entry.path,
+					)
+				})
+				.collect()
+		} else {
+			let mut builder = rayon::ThreadPoolBuilder::new();
+			if let ThreadStrategy::Fixed(n) = options.plan.threads {
+				builder = builder.num_threads(u16::max(n, 1) as usize);
+			}
+			let pool = builder.build()?;
+			pool.install(|| {
+				entries
+					.into_par_iter()
+					.map(|entry| {
+						hash_walk_entry(
+							&algorithm_upper,
+							&options.plan,
+							entry.path,
+						)
+					})
+					.collect()
+			})
+		};
+	hashed.sort_by(|a, b| a.path().cmp(b.path()));
+
+	let mut mmap_active = false;
+	let mut hashed_bytes = 0u64;
+	for item in hashed {
+		match item {
+			HashedFile::Fail {
+				path,
+				message,
+				status,
+			} => {
+				eprintln!("{}", message);
+				let should_continue = writer.record_failure(
+					path,
+					&options.algorithm,
+					message,
+					status,
+				);
+				if !should_continue {
+					break;
+				}
+			}
+			HashedFile::Ok {
+				path,
+				digest_bytes,
+				size,
+				modified,
+				used_mmap,
+			} => {
+				mmap_active |= used_mmap;
+				hashed_bytes = hashed_bytes.saturating_add(size);
+				let display_path = path.to_string_lossy();
+				let record = DigestRecord::from_digest(
+					Some(display_path.to_string()),
+					&options.algorithm,
+					&digest_bytes,
+					DigestSource::File,
+				);
+				if let Some(emitter) = emitter.as_mut() {
+					emitter.record(size);
+					emitter.maybe_emit();
+				}
+				let mut manifest_digest = record.digest_hex.clone();
+				if options.format == DigestOutputFormat::Multihash {
+					let algorithm =
+						options.algorithm.to_ascii_lowercase();
+					match MultihashEncoder::encode(
+						&algorithm,
+						&digest_bytes,
+					) {
+						Ok(token) => manifest_digest = token,
+						Err(err) => eprintln!(
+							"warning: failed to encode multihash for manifest entry {}: {}",
+							display_path,
+							err
+						),
 					}
-					_ => EntryStatus::Error,
-				};
-				let message = format!(
-					"failed to read metadata for {}: {}",
-					display_path, err
-				);
-				let should_continue = writer.record_failure(
+				}
+				records.push(record);
+				writer.record_success(
 					path,
 					&options.algorithm,
-					message.clone(),
-					status,
+					manifest_digest,
+					size,
+					modified,
 				);
-				eprintln!("{}", message);
-				if !should_continue {
-					return Ok((writer.finalize(), records));
-				}
-				continue;
-			}
-		};
-		let size = metadata.len();
-		let modified =
-			metadata.modified().ok().map(DateTime::<Utc>::from);
-
-		let mut engine = RHash::new(&algorithm_upper);
-		let digest_bytes = match engine
-			.read_file(display_path.as_ref())
-		{
-			Ok(bytes) => bytes,
-			Err(err) => {
-				let status = entry_status_from_error(err.as_ref());
-				let message = format!(
-					"failed to hash {}: {}",
-					display_path, err
-				);
-				let should_continue = writer.record_failure(
-					path,
-					&options.algorithm,
-					message.clone(),
-					status,
-				);
-				eprintln!("{}", message);
-				if !should_continue {
-					return Ok((writer.finalize(), records));
-				}
-				continue;
-			}
-		};
-		let record = DigestRecord::from_digest(
-			Some(display_path.to_string()),
-			&options.algorithm,
-			&digest_bytes,
-			DigestSource::File,
-		);
-		if let Some(emitter) = emitter.as_mut() {
-			emitter.record(size);
-			emitter.maybe_emit();
-		}
-		let mut manifest_digest = record.digest_hex.clone();
-		if options.format == DigestOutputFormat::Multihash {
-			let algorithm = options.algorithm.to_ascii_lowercase();
-			match MultihashEncoder::encode(&algorithm, &digest_bytes)
-			{
-				Ok(token) => manifest_digest = token,
-				Err(err) => eprintln!(
-					"warning: failed to encode multihash for manifest entry {}: {}",
-					display_path,
-					err
-				),
 			}
 		}
-		records.push(record);
-		writer.record_success(
-			path,
-			&options.algorithm,
-			manifest_digest,
-			size,
-			modified,
-		);
 	}
+
+	let elapsed = started.elapsed();
+	let elapsed_ms = elapsed.as_millis() as u64;
+	let secs = elapsed.as_secs_f64();
+	let bytes_per_second = if secs > 0.0 {
+		hashed_bytes as f64 / secs
+	} else {
+		0.0
+	};
+	writer.set_performance(PerformanceEnvelope {
+		elapsed_ms,
+		bytes_per_second,
+		threads: thread_count,
+		mmap_active,
+	});
 
 	Ok((writer.finalize(), records))
 }
@@ -1145,4 +1280,22 @@ fn entry_status_from_error(
 		};
 	}
 	EntryStatus::Error
+}
+
+#[cfg(test)]
+mod mmap_thread_tests {
+	use super::RHash;
+	use std::io::Write;
+
+	#[test]
+	fn hash_path_mmap_matches_stream() {
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("sample.bin");
+		let mut file = std::fs::File::create(&path).unwrap();
+		file.write_all(&(0u8..=255).cycle().take(4096).collect::<Vec<_>>()).unwrap();
+		drop(file);
+		let streamed = RHash::new("SHA256").hash_path(&path, false).unwrap();
+		let mapped = RHash::new("SHA256").hash_path(&path, true).unwrap();
+		assert_eq!(streamed, mapped);
+	}
 }
