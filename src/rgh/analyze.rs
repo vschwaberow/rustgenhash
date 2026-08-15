@@ -32,11 +32,31 @@ impl HashAnalyzer {
 
 	pub fn is_balloon(&self) -> bool {
 		let parts: Vec<&str> = self.hash.split('$').collect();
-		parts.len() == 5
-			&& parts[1] == "balloon"
-			&& ["1", "2"].contains(&parts[2])
-			&& parts[3].split(',').count() == 3
-			&& parts[3].split(',').all(|p| p.split('=').count() == 2)
+		if parts.first() != Some(&"") || parts.get(1) != Some(&"balloon")
+		{
+			return false;
+		}
+		let version_ok = |part: &str| {
+			part.starts_with("v=") || ["1", "2"].contains(&part)
+		};
+		let params_ok = |part: &str| {
+			part.split(',').count() == 3
+				&& part.split(',').all(|p| p.split('=').count() == 2)
+		};
+		match parts.as_slice() {
+			[_, _, version, params, _] if version_ok(version) && params_ok(params) => {
+				true
+			}
+			[_, _, version, params, salt, hash]
+				if version_ok(version)
+					&& params_ok(params)
+					&& !salt.is_empty()
+					&& !hash.is_empty() =>
+			{
+				true
+			}
+			_ => false,
+		}
 	}
 
 	pub fn is_argon2(&self) -> bool {
