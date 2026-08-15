@@ -40,7 +40,10 @@ use scrypt::{
 	Scrypt,
 };
 use serde_json::to_writer_pretty;
-use skein::{consts::U32, Skein1024, Skein256, Skein512};
+use skein::{
+	consts::{U128, U32, U64},
+	Skein1024, Skein256, Skein512,
+};
 use std::fs::{self, File};
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -460,10 +463,22 @@ impl PHash {
 	) -> Result<String, String> {
 		let params = sha_crypt::Params::new(10_000).unwrap();
 		let salt = SaltString::generate(&mut OsRng);
-		let sha_crypt = sha_crypt::ShaCrypt::new(sha_crypt::Algorithm::Sha512Crypt, params);
-		let hash = sha_crypt::PasswordHasher::hash_password_with_salt(&sha_crypt, password.as_bytes(), salt.as_str().as_bytes())
+		let sha_crypt = sha_crypt::ShaCrypt::new(
+			sha_crypt::Algorithm::Sha512Crypt,
+			params,
+		);
+		let hash =
+			sha_crypt::PasswordHasher::hash_password_with_salt(
+				&sha_crypt,
+				password.as_bytes(),
+				salt.as_str().as_bytes(),
+			)
 			.map_err(|err| format!("{:?}", err))?;
-		Ok(assemble_output(hash_only, vec![hash.to_string()], Some(password)))
+		Ok(assemble_output(
+			hash_only,
+			vec![hash.to_string()],
+			Some(password),
+		))
 	}
 
 	pub fn hash_pbkdf2(
@@ -626,8 +641,8 @@ impl PHash {
 macro_rules! create_hasher {
     ($alg:expr, $($pat:expr => $hasher:expr),+ $(,)?) => {
         match $alg {
-            $($pat => Box::new($hasher),)+
-            _ => panic!("Unknown algorithm"),
+            $($pat => Ok(Box::new($hasher) as Box<dyn digest::DynDigest>),)+
+            other => Err(format!("Unknown algorithm: {other}")),
         }
     };
 }
@@ -637,9 +652,10 @@ pub struct RHash {
 	digest: Box<dyn DynDigest>,
 }
 impl RHash {
-	pub fn new(alg: &str) -> Self {
-		Self {
-			digest: create_hasher!(alg,
+	pub fn new(alg: &str) -> Result<Self, String> {
+		let normalized = alg.to_ascii_uppercase().replace('-', "_");
+		Ok(Self {
+			digest: create_hasher!(normalized.as_str(),
 				"BELTHASH" => belt_hash::BeltHash::new(),
 			"BLAKE2B"   => blake2::Blake2b512::new(),
 				"BLAKE2S"   => blake2::Blake2s256::new(),
@@ -651,6 +667,7 @@ impl RHash {
 				"FSB512"    => fsb::Fsb512::new(),
 				"GOST94"    => gost94::Gost94CryptoPro::new(),
 				"GOST94TEST" => gost94::Gost94Test::new(),
+				"GOST94_TEST" => gost94::Gost94Test::new(),
 				"GOST94UA"  => gost94::Gost94UA::new(),
 				"GROESTL"   => groestl::Groestl256::new(),
 				"JH224"     => jh::Jh224::new(),
@@ -677,15 +694,15 @@ impl RHash {
 				"SHABAL384" => shabal::Shabal384::new(),
 				"SHABAL512" => shabal::Shabal512::new(),
 				"SKEIN256"  => Skein256::<U32>::new(),
-				"SKEIN512"  => Skein512::<U32>::new(),
-				"SKEIN1024" => Skein1024::<U32>::new(),
+				"SKEIN512"  => Skein512::<U64>::new(),
+				"SKEIN1024" => Skein1024::<U128>::new(),
 				"SM3"       => sm3::Sm3::new(),
 				"STREEBOG256" => streebog::Streebog256::new(),
 				"STREEBOG512" => streebog::Streebog512::new(),
 				"TIGER"     => tiger::Tiger::new(),
 				"WHIRLPOOL" => whirlpool::Whirlpool::new(),
-			),
-		}
+			)?,
+		})
 	}
 
 	pub fn process_string(&mut self, data: &[u8]) -> Vec<u8> {
@@ -709,7 +726,7 @@ pub fn digest_bytes_to_record(
 	label: Option<&str>,
 	source: DigestSource,
 ) -> Result<DigestRecord, String> {
-	let mut engine = RHash::new(&algorithm.to_uppercase());
+	let mut engine = RHash::new(algorithm)?;
 	let digest = engine.process_string(data);
 	let path = label.map(|value| value.to_string());
 	Ok(DigestRecord::from_digest(path, algorithm, &digest, source))
@@ -832,7 +849,7 @@ fn digest_with_options_internal(
 		let modified =
 			metadata.modified().ok().map(DateTime::<Utc>::from);
 
-		let mut engine = RHash::new(&algorithm_upper);
+		let mut engine = RHash::new(&algorithm_upper).map_err(|err| -> Box<dyn std::error::Error> { err.into() })?;
 		let digest_bytes = match engine
 			.read_file(display_path.as_ref())
 		{
@@ -1154,8 +1171,45 @@ mod gost94_sbox_tests {
 
 	#[test]
 	fn gost94_default_differs_from_test_sbox() {
-		let crypto = RHash::new("GOST94").process_string(b"rustgenhash");
-		let test = RHash::new("GOST94TEST").process_string(b"rustgenhash");
+		let crypto = RHash::new("GOST94")
+			.expect("GOST94")
+			.process_string(b"rustgenhash");
+		let test = RHash::new("gost94-test")
+			.expect("gost94-test")
+			.process_string(b"rustgenhash");
 		assert_ne!(crypto, test);
+	}
+}
+
+#[cfg(test)]
+mod skein_output_tests {
+	use super::RHash;
+
+	#[test]
+	fn skein512_empty_digest_is_64_bytes() {
+		let mut h = RHash::new("SKEIN512").expect("SKEIN512");
+		assert_eq!(h.process_string(b"").len(), 64);
+	}
+
+	#[test]
+	fn skein1024_empty_digest_is_128_bytes() {
+		let mut h = RHash::new("SKEIN1024").expect("SKEIN1024");
+		assert_eq!(h.process_string(b"").len(), 128);
+	}
+}
+
+#[cfg(test)]
+mod rhash_new_tests {
+	use super::RHash;
+
+	#[test]
+	fn rhash_accepts_hyphenated_sha3() {
+		let mut h = RHash::new("sha3-256").expect("sha3-256");
+		assert_eq!(h.process_string(b"").len(), 32);
+	}
+
+	#[test]
+	fn rhash_rejects_unknown_algorithm() {
+		assert!(RHash::new("nosuch").is_err());
 	}
 }

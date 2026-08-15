@@ -237,7 +237,7 @@ fn benchmark_algorithm(
 fn benchmark_rhash(alg: &str, iterations: u32) -> Duration {
 	let start = Instant::now();
 	for _ in 0..iterations {
-		let mut hasher = RHash::new(alg);
+		let mut hasher = RHash::new(alg).expect("benchmark algorithm");
 		hasher.process_string(b"Hello, world!");
 	}
 	start.elapsed()
