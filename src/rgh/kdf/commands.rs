@@ -280,7 +280,8 @@ pub fn derive_sha_crypt(
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
-	let params = sha_crypt::Params::new(10_000).unwrap();
+	let params = sha_crypt::Params::new(10_000)
+		.map_err(|err| io::Error::other(format!("{:?}", err)))?;
 	let mut rng = ArgonOsRng;
 	let salt = ArgonSaltString::generate(&mut rng);
 	let sha_crypt_hasher = sha_crypt::ShaCrypt::new(sha_crypt::Algorithm::Sha512Crypt, params);

@@ -109,7 +109,7 @@ printf "config\npipeline\n" | rgh mac --alg poly1305 --key tests/fixtures/keys/p
 - **SHA-3 family**: SHA3-224, SHA3-256, SHA3-384, SHA3-512.
 - **BLAKE family**: BLAKE2b, BLAKE2s, BLAKE3 (memory-hard friendly, modern).
 - **FSB family**: FSB-160, FSB-224, FSB-256, FSB-384, FSB-512.
-- **GOST & Streebog**: GOST R 34.11-94, GOST R 34.11-94-UA, Streebog-256, Streebog-512.
+- **GOST & Streebog**: GOST R 34.11-94 (CryptoPro S-box; `gost94-test` for the standard test S-box), GOST R 34.11-94-UA, Streebog-256, Streebog-512.
 - **JH finalists**: JH-224, JH-256, JH-384, JH-512.
 - **Skein family**: Skein-256, Skein-512, Skein-1024.
 - **Shabal family**: Shabal-192, Shabal-224, Shabal-256, Shabal-384, Shabal-512.
