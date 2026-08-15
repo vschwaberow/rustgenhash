@@ -32,11 +32,31 @@ impl HashAnalyzer {
 
 	pub fn is_balloon(&self) -> bool {
 		let parts: Vec<&str> = self.hash.split('$').collect();
-		parts.len() == 5
-			&& parts[1] == "balloon"
-			&& ["1", "2"].contains(&parts[2])
-			&& parts[3].split(',').count() == 3
-			&& parts[3].split(',').all(|p| p.split('=').count() == 2)
+		if parts.first() != Some(&"") || parts.get(1) != Some(&"balloon")
+		{
+			return false;
+		}
+		let version_ok = |part: &str| {
+			part.starts_with("v=") || ["1", "2"].contains(&part)
+		};
+		let params_ok = |part: &str| {
+			part.split(',').count() == 3
+				&& part.split(',').all(|p| p.split('=').count() == 2)
+		};
+		match parts.as_slice() {
+			[_, _, version, params, _] if version_ok(version) && params_ok(params) => {
+				true
+			}
+			[_, _, version, params, salt, hash]
+				if version_ok(version)
+					&& params_ok(params)
+					&& !salt.is_empty()
+					&& !hash.is_empty() =>
+			{
+				true
+			}
+			_ => false,
+		}
 	}
 
 	pub fn is_argon2(&self) -> bool {
@@ -51,9 +71,14 @@ impl HashAnalyzer {
 	pub fn is_bcrypt(&self) -> bool {
 		let parts: Vec<&str> = self.hash.split('$').collect();
 		parts.len() == 4
-			&& parts[1] == "2a"
+			&& ["2a", "2b", "2y"].contains(&parts[1])
 			&& parts[2].parse::<u32>().is_ok()
 			&& parts[3].len() == 53
+	}
+
+	pub fn is_bcrypt_pbkdf(&self) -> bool {
+		self.hash.len() == 128
+			&& self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_pbkdf2(&self) -> bool {
@@ -115,6 +140,7 @@ impl HashAnalyzer {
 		let specific_checks = [
 			(self.is_balloon(), "Balloon"),
 			(self.is_bcrypt(), "bcrypt"),
+			(self.is_bcrypt_pbkdf(), "bcrypt-pbkdf"),
 			(self.is_argon2(), "Argon2"),
 			(self.is_pbkdf2(), "PBKDF2"), // Make sure this line is present
 			(self.is_scrypt(), "scrypt"),

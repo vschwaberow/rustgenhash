@@ -7,6 +7,7 @@
 
 use blake3::Hasher;
 use poly1305::{
+	universal_hash::generic_array::GenericArray,
 	universal_hash::KeyInit, universal_hash::UniversalHash,
 	Poly1305 as Poly1305Mac,
 };
@@ -83,17 +84,36 @@ pub fn catalog() -> &'static [MacAlgorithm] {
 	ALGORITHMS
 }
 
+const POLY1305_BLOCK: usize = 16;
+
 struct Poly1305Executor {
 	inner: Poly1305Mac,
+	leftover: Vec<u8>,
 }
 
 impl MacExecutor for Poly1305Executor {
 	fn update(&mut self, data: &[u8]) {
-		self.inner.update_padded(data);
+		if data.is_empty() {
+			return;
+		}
+		let mut input = std::mem::take(&mut self.leftover);
+		input.extend_from_slice(data);
+		let full = input.len() - (input.len() % POLY1305_BLOCK);
+		if full > 0 {
+			let mut blocks = Vec::with_capacity(full / POLY1305_BLOCK);
+			for chunk in input[..full].chunks_exact(POLY1305_BLOCK) {
+				blocks.push(GenericArray::clone_from_slice(chunk));
+			}
+			self.inner.update(&blocks);
+		}
+		self.leftover = input[full..].to_vec();
 	}
 
 	fn finalize(self: Box<Self>) -> Vec<u8> {
-		self.inner.finalize().to_vec()
+		let this = *self;
+		let mut inner = this.inner;
+		inner.update_padded(&this.leftover);
+		inner.finalize().to_vec()
 	}
 }
 
@@ -107,5 +127,33 @@ fn create_poly1305(
 			"Poly1305 failed to initialize with provided key",
 		)
 	})?;
-	Ok(Box::new(Poly1305Executor { inner: mac }))
+	Ok(Box::new(Poly1305Executor {
+		inner: mac,
+		leftover: Vec::new(),
+	}))
+}
+
+#[cfg(test)]
+mod poly1305_stream_tests {
+	use super::create_poly1305;
+	fn tag(chunks: &[&[u8]]) -> Vec<u8> {
+		let key = [7u8; 32];
+		let mut exec = create_poly1305(&key).expect("key");
+		for chunk in chunks {
+			exec.update(chunk);
+		}
+		exec.finalize()
+	}
+
+	#[test]
+	fn poly1305_chunked_matches_oneshot() {
+		let data: Vec<u8> = (0..8193).map(|i| (i % 251) as u8).collect();
+		let oneshot = tag(&[&data]);
+		let mut chunks = Vec::new();
+		for piece in data.chunks(100) {
+			chunks.push(piece);
+		}
+		let chunked = tag(&chunks);
+		assert_eq!(oneshot, chunked);
+	}
 }
