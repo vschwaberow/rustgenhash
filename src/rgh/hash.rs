@@ -694,7 +694,7 @@ impl RHash {
 
 	pub fn read_file(
 		&mut self,
-		path: &str,
+		path: &Path,
 	) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 		let data = std::fs::read(path)?;
 		self.digest.update(&data);
@@ -833,7 +833,7 @@ fn digest_with_options_internal(
 
 		let mut engine = RHash::new(&algorithm_upper);
 		let digest_bytes = match engine
-			.read_file(display_path.as_ref())
+			.read_file(&path)
 		{
 			Ok(bytes) => bytes,
 			Err(err) => {
