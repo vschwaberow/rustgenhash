@@ -334,8 +334,7 @@ impl PHash {
 				cfg.time_cost,
 				cfg.parallelism,
 				None,
-			)
-			.unwrap(),
+			)?,
 		);
 		Ok(argon2
 			.hash_password(password.as_bytes(), salt)?
@@ -371,8 +370,7 @@ impl PHash {
 				cfg.time_cost,
 				cfg.memory_cost,
 				cfg.parallelism,
-			)
-			.unwrap(),
+			)?,
 			None,
 		);
 		Ok(balloon
@@ -403,7 +401,8 @@ impl PHash {
 		cfg: &ScryptConfig,
 		salt: &ScSaltString,
 	) -> Result<String, scrypt::password_hash::Error> {
-		let params = ScParams::new(cfg.log_n, cfg.r, cfg.p).unwrap();
+		let params = ScParams::new(cfg.log_n, cfg.r, cfg.p)
+			.map_err(|_| scrypt::password_hash::Error::Crypto)?;
 		Ok(Scrypt
 			.hash_password_customized(
 				password.as_bytes(),
@@ -458,7 +457,7 @@ impl PHash {
 		password: &str,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let params = sha_crypt::Params::new(10_000).unwrap();
+		let params = sha_crypt::Params::new(10_000).map_err(|err| format!("{:?}", err))?;
 		let salt = SaltString::generate(&mut OsRng);
 		let sha_crypt = sha_crypt::ShaCrypt::new(sha_crypt::Algorithm::Sha512Crypt, params);
 		let hash = sha_crypt::PasswordHasher::hash_password_with_salt(&sha_crypt, password.as_bytes(), salt.as_str().as_bytes())
@@ -1145,4 +1144,22 @@ fn entry_status_from_error(
 		};
 	}
 	EntryStatus::Error
+}
+
+#[cfg(test)]
+mod kdf_param_tests {
+	use super::{PHash, ScryptConfig};
+	use scrypt::password_hash::SaltString;
+	use scrypt::password_hash::rand_core::OsRng;
+
+	#[test]
+	fn scrypt_rejects_invalid_log_n() {
+		let cfg = ScryptConfig {
+			log_n: 64,
+			r: 8,
+			p: 1,
+		};
+		let salt = SaltString::generate(&mut OsRng);
+		assert!(PHash::hash_scrypt_impl("secret", &cfg, &salt).is_err());
+	}
 }
