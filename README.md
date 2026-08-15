@@ -52,8 +52,8 @@ Directory hashing options:
 
 - `--recursive` traverses nested directories; defaults to the legacy non-recursive behaviour.
 - `--follow-symlinks {never,files,all}` controls whether symbolic links are hashed or followed.
-- `--threads {1|auto|N}` enables Rayon-backed parallel hashing when more than one worker is requested.
-- `--mmap-threshold <SIZE|off>` switches to memory-mapped IO for large files (e.g., `64MiB`).
+- `--threads {1|auto|N}` hashes files in parallel with Rayon when the value is `auto` or `N`. The default is `1`.
+- `--mmap-threshold <SIZE|off>` maps files at or above the threshold (default `64MiB`). Smaller files stream in 64 KiB blocks. Use `off` to disable mmap.
 - `--manifest <FILE>` writes a JSON summary containing per-file digests, failures, and performance metadata (fail-fast suppresses the file to avoid partial output). When `--format multihash` is selected, the manifest preserves the emitted base58btc tokens.
 - `--error-strategy {fail-fast,continue,report-only}` determines how failures affect exit codes and manifest writes:
   - `fail-fast` stops on the first unreadable entry, exits `1`, and skips manifest creation.
@@ -111,13 +111,13 @@ printf "config\npipeline\n" | rgh mac --alg poly1305 --key tests/fixtures/keys/p
 - **FSB family**: FSB-160, FSB-224, FSB-256, FSB-384, FSB-512.
 - **GOST & Streebog**: GOST R 34.11-94 (CryptoPro S-box; `gost94-test` for the standard test S-box), GOST R 34.11-94-UA, Streebog-256, Streebog-512.
 - **JH finalists**: JH-224, JH-256, JH-384, JH-512.
-- **Skein family**: Skein-256, Skein-512, Skein-1024.
+- **Skein family**: Skein-256 (32 bytes), Skein-512 (64 bytes), Skein-1024 (128 bytes).
 - **Shabal family**: Shabal-192, Shabal-224, Shabal-256, Shabal-384, Shabal-512.
 - **RIPEMD family**: RIPEMD-160, RIPEMD-320.
 - **Other classic digests**: Ascon, Belthash, Groestl, SM3, Tiger, Whirlpool.
 - **Legacy MD family**: MD2, MD4, MD5 (⚠ Weak) retained for checksums and historical datasets.
 
-The CLI exposes each algorithm via `-a/--algorithm`; `rgh digest --help` highlights weak options inline.
+The CLI exposes each algorithm via `-a/--algorithm`. Hyphenated IDs such as `sha3-256` and `gost94-test` are accepted. `rgh digest --help` highlights weak options inline.
 
 ### Password-based KDF commands
 
@@ -281,11 +281,25 @@ Precedence & warnings:
 
 ### Other utilities
 
-Scheme for analyzing a hash:
+`rgh analyze` classifies a hash string. It does not take an algorithm flag.
 
 ```bash
-rgh analyze -a <algorithm> <hash>
+rgh analyze '$balloon$v=1$s=1024,t=3,p=1$c2FsdHNhbHRzYWx0$hashvalue'
+rgh analyze '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 ```
+
+The command reports Balloon PHC strings with five or six `$` fields.
+It also reports bcrypt `$2a$` / `$2b$` / `$2y$` and 128-digit bcrypt-pbkdf hex.
+Argon2, PBKDF2, scrypt, UUIDv4, and fixed-length hex digests are included.
+
+`rgh random` writes random bytes as hex or base64.
+
+```bash
+rgh random -a os-rng -l 32
+rgh random -a uuidv4 -l 16
+```
+
+`uuidv4` produces 16 bytes. Other lengths return an error.
 
 Scheme for generating a [HHHash](https://www.foo.be/2023/07/HTTP-Headers-Hashing_HHHash) of a provided url:
 
