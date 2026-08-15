@@ -19,6 +19,7 @@ pub enum Algorithm {
 	Fsb384,
 	Fsb512,
 	Gost94,
+	Gost94Test,
 	Gost94ua,
 	Groestl,
 	Jh224,

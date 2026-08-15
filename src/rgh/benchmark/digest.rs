@@ -112,6 +112,9 @@ fn benchmark_algorithm(
 		Algorithm::Fsb384 => benchmark_rhash("FSB384", iterations),
 		Algorithm::Fsb512 => benchmark_rhash("FSB512", iterations),
 		Algorithm::Gost94 => benchmark_rhash("GOST94", iterations),
+		Algorithm::Gost94Test => {
+			benchmark_rhash("GOST94TEST", iterations)
+		}
 		Algorithm::Gost94ua => {
 			benchmark_rhash("GOST94UA", iterations)
 		}
