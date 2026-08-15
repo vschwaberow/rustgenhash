@@ -112,6 +112,9 @@ fn benchmark_algorithm(
 		Algorithm::Fsb384 => benchmark_rhash("FSB384", iterations),
 		Algorithm::Fsb512 => benchmark_rhash("FSB512", iterations),
 		Algorithm::Gost94 => benchmark_rhash("GOST94", iterations),
+		Algorithm::Gost94Test => {
+			benchmark_rhash("GOST94TEST", iterations)
+		}
 		Algorithm::Gost94ua => {
 			benchmark_rhash("GOST94UA", iterations)
 		}
@@ -234,7 +237,7 @@ fn benchmark_algorithm(
 fn benchmark_rhash(alg: &str, iterations: u32) -> Duration {
 	let start = Instant::now();
 	for _ in 0..iterations {
-		let mut hasher = RHash::new(alg);
+		let mut hasher = RHash::new(alg).expect("benchmark algorithm");
 		hasher.process_string(b"Hello, world!");
 	}
 	start.elapsed()
