@@ -40,7 +40,10 @@ use scrypt::{
 	Scrypt,
 };
 use serde_json::to_writer_pretty;
-use skein::{consts::U32, Skein1024, Skein256, Skein512};
+use skein::{
+	consts::{U128, U32, U64},
+	Skein1024, Skein256, Skein512,
+};
 use std::fs::{self, File};
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -460,10 +463,22 @@ impl PHash {
 	) -> Result<String, String> {
 		let params = sha_crypt::Params::new(10_000).unwrap();
 		let salt = SaltString::generate(&mut OsRng);
-		let sha_crypt = sha_crypt::ShaCrypt::new(sha_crypt::Algorithm::Sha512Crypt, params);
-		let hash = sha_crypt::PasswordHasher::hash_password_with_salt(&sha_crypt, password.as_bytes(), salt.as_str().as_bytes())
+		let sha_crypt = sha_crypt::ShaCrypt::new(
+			sha_crypt::Algorithm::Sha512Crypt,
+			params,
+		);
+		let hash =
+			sha_crypt::PasswordHasher::hash_password_with_salt(
+				&sha_crypt,
+				password.as_bytes(),
+				salt.as_str().as_bytes(),
+			)
 			.map_err(|err| format!("{:?}", err))?;
-		Ok(assemble_output(hash_only, vec![hash.to_string()], Some(password)))
+		Ok(assemble_output(
+			hash_only,
+			vec![hash.to_string()],
+			Some(password),
+		))
 	}
 
 	pub fn hash_pbkdf2(
@@ -676,8 +691,8 @@ impl RHash {
 				"SHABAL384" => shabal::Shabal384::new(),
 				"SHABAL512" => shabal::Shabal512::new(),
 				"SKEIN256"  => Skein256::<U32>::new(),
-				"SKEIN512"  => Skein512::<U32>::new(),
-				"SKEIN1024" => Skein1024::<U32>::new(),
+				"SKEIN512"  => Skein512::<U64>::new(),
+				"SKEIN1024" => Skein1024::<U128>::new(),
 				"SM3"       => sm3::Sm3::new(),
 				"STREEBOG256" => streebog::Streebog256::new(),
 				"STREEBOG512" => streebog::Streebog512::new(),
@@ -1145,4 +1160,21 @@ fn entry_status_from_error(
 		};
 	}
 	EntryStatus::Error
+}
+
+#[cfg(test)]
+mod skein_output_tests {
+	use super::RHash;
+
+	#[test]
+	fn skein512_empty_digest_is_64_bytes() {
+		let mut h = RHash::new("SKEIN512");
+		assert_eq!(h.process_string(b"").len(), 64);
+	}
+
+	#[test]
+	fn skein1024_empty_digest_is_128_bytes() {
+		let mut h = RHash::new("SKEIN1024");
+		assert_eq!(h.process_string(b"").len(), 128);
+	}
 }
