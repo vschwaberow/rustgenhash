@@ -61,6 +61,25 @@ pub mod rgh {
 	}
 
 	#[test]
+	fn test_analyze_bcrypt_2b() {
+		let hash = HashAnalyzer::from_string(
+			"$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+		);
+		assert!(hash.is_bcrypt());
+	}
+
+	#[test]
+	fn test_analyze_bcrypt_pbkdf_hex() {
+		let hash = HashAnalyzer::from_string(
+			"6a3e6ed5ac928d1633d76182d1617410e565aff5bd8796f2d92dcefe27d6e04c50756887eeb56a1f09110187424af91964fe6f873a1a680ef7e44a50c0431ed6",
+		);
+		assert!(hash.is_bcrypt_pbkdf());
+		assert!(hash
+			.detect_possible_hashes()
+			.contains(&"bcrypt-pbkdf".to_string()));
+	}
+
+	#[test]
 	fn test_analyze_pbkdf2() {
 		let hash = HashAnalyzer::from_string(
         "$pbkdf2$SHA256$131000$7573657273616c74$b6987782641e8b3c9936a3685b2c6ced2b8a0668d4f681fd52d0efdc5e2e261c"

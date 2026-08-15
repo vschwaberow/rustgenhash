@@ -71,9 +71,14 @@ impl HashAnalyzer {
 	pub fn is_bcrypt(&self) -> bool {
 		let parts: Vec<&str> = self.hash.split('$').collect();
 		parts.len() == 4
-			&& parts[1] == "2a"
+			&& ["2a", "2b", "2y"].contains(&parts[1])
 			&& parts[2].parse::<u32>().is_ok()
 			&& parts[3].len() == 53
+	}
+
+	pub fn is_bcrypt_pbkdf(&self) -> bool {
+		self.hash.len() == 128
+			&& self.hash.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
 	pub fn is_pbkdf2(&self) -> bool {
@@ -135,6 +140,7 @@ impl HashAnalyzer {
 		let specific_checks = [
 			(self.is_balloon(), "Balloon"),
 			(self.is_bcrypt(), "bcrypt"),
+			(self.is_bcrypt_pbkdf(), "bcrypt-pbkdf"),
 			(self.is_argon2(), "Argon2"),
 			(self.is_pbkdf2(), "PBKDF2"), // Make sure this line is present
 			(self.is_scrypt(), "scrypt"),
