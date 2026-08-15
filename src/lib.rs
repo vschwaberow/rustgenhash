@@ -45,6 +45,14 @@ pub mod rgh {
 	}
 
 	#[test]
+	fn test_analyze_balloon_phc() {
+		let hash = HashAnalyzer::from_string(
+			"$balloon$v=1$s=1024,t=3,p=1$c2FsdHNhbHRzYWx0$hashvalue",
+		);
+		assert!(hash.is_balloon());
+	}
+
+	#[test]
 	fn test_analyze_bcrypt() {
 		let hash = HashAnalyzer::from_string(
             "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
