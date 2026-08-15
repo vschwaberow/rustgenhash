@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.0 - 2026-08-15
+
+- `RHash::new` returns `Result` and maps `-` in algorithm IDs to `_`.
+- GOST94 uses the CryptoPro S-box. The test S-box stays available as `gost94-test`.
+- Skein-512 and Skein-1024 emit 64-byte and 128-byte digests.
+- File hashing streams 64 KiB blocks, maps large files with mmap, and uses Rayon when `--threads` is set.
+- File hashing opens paths as `Path` instead of lossy strings.
+- The analyzer accepts 5-field and 6-field balloon PHC strings, bcrypt `$2b$`/`$2y$`, and 128-digit bcrypt-pbkdf hex.
+- Invalid KDF parameters return errors instead of panicking.
+- Poly1305 pads only the final block.
+- UUIDv4 uses the random output path and no longer calls `process::exit`.
+
 ## 0.14.1 - 2026-04-15
 
 - Fixed random number generation to use `try_fill_bytes` instead of `fill_bytes` to prevent panics on systems with insufficient entropy.
