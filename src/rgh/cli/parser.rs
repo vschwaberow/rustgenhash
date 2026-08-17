@@ -305,3 +305,21 @@ pub fn build_progress_config(args: &clap::ArgMatches) -> ProgressConfig {
 	}
 }
 
+#[cfg(test)]
+mod mmap_threshold_parse_tests {
+	use super::parse_mmap_threshold;
+
+	#[test]
+	fn off_disables_mmap() {
+		assert_eq!(parse_mmap_threshold("off").unwrap(), None);
+		assert_eq!(parse_mmap_threshold("OFF").unwrap(), None);
+	}
+
+	#[test]
+	fn size_enables_mmap() {
+		assert_eq!(
+			parse_mmap_threshold("64MiB").unwrap(),
+			Some(64 * 1024 * 1024)
+		);
+	}
+}

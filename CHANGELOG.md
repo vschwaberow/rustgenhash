@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- File digest mmap is off by default. Pass `--mmap-threshold <SIZE>` to enable it.
+
 ## 0.15.0 - 2026-08-15
 
 - Algorithm IDs accept hyphens (`sha3-256`). Unknown IDs return an error instead of panicking.
