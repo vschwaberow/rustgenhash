@@ -179,6 +179,7 @@ fn benchmark_algorithm(
 			benchmark_rhash("STREEBOG512", iterations)
 		}
 		Algorithm::Tiger => benchmark_rhash("TIGER", iterations),
+		Algorithm::Tiger2 => benchmark_rhash("TIGER2", iterations),
 		Algorithm::Whirlpool => {
 			benchmark_rhash("WHIRLPOOL", iterations)
 		}

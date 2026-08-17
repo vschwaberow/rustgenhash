@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Tiger2 digest (`tiger2`, `tiger-2`). Same 192-bit width as Tiger, MD4-style padding.
+
 ## 0.15.0 - 2026-08-15
 
 - Algorithm IDs accept hyphens (`sha3-256`). Unknown IDs return an error instead of panicking.
