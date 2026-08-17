@@ -16,6 +16,7 @@ use crate::rgh::output::{
 	DigestSource, OutputError, OutputFormatProfile,
 	SerializationResult,
 };
+use crate::rgh::snefru::{Snefru128, Snefru256};
 use crate::rgh::weak;
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
@@ -698,6 +699,11 @@ impl RHash {
 				"SKEIN256"  => Skein256::<U32>::new(),
 				"SKEIN512"  => Skein512::<U64>::new(),
 				"SKEIN1024" => Skein1024::<U128>::new(),
+				"SNEFRU" => Snefru128::new(),
+				"SNEFRU128" => Snefru128::new(),
+				"SNEFRU_128" => Snefru128::new(),
+				"SNEFRU256" => Snefru256::new(),
+				"SNEFRU_256" => Snefru256::new(),
 				"SM3"       => sm3::Sm3::new(),
 				"STREEBOG256" => streebog::Streebog256::new(),
 				"STREEBOG512" => streebog::Streebog512::new(),
@@ -1394,6 +1400,22 @@ mod rhash_new_tests {
 	fn rhash_accepts_hyphenated_sha3() {
 		let mut h = RHash::new("sha3-256").expect("sha3-256");
 		assert_eq!(h.process_string(b"").len(), 32);
+	}
+
+	#[test]
+	fn rhash_accepts_snefru_aliases() {
+		let a = RHash::new("snefru-128")
+			.expect("snefru-128")
+			.process_string(b"abc");
+		let b = RHash::new("SNEFRU128")
+			.expect("SNEFRU128")
+			.process_string(b"abc");
+		assert_eq!(a, b);
+		assert_eq!(a.len(), 16);
+		let c = RHash::new("snefru-256")
+			.expect("snefru-256")
+			.process_string(b"");
+		assert_eq!(c.len(), 32);
 	}
 
 	#[test]

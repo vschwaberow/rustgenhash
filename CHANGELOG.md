@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Snefru-128 and Snefru-256 (8-pass) digests. IDs: `snefru`, `snefru128`, `snefru256`.
+
 ## 0.15.0 - 2026-08-15
 
 - Algorithm IDs accept hyphens (`sha3-256`). Unknown IDs return an error instead of panicking.

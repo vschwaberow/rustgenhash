@@ -22,6 +22,7 @@ pub mod rgh {
         pub mod multihash;
         pub mod output;
         pub mod random;
+        pub mod snefru;
         pub mod weak;
 }
 
