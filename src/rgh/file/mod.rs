@@ -133,3 +133,34 @@ pub struct PerformanceEnvelope {
 	pub threads: usize,
 	pub mmap_active: bool,
 }
+
+#[cfg(test)]
+mod mmap_threshold_tests {
+	use super::{DirectoryHashPlan, ThreadStrategy, WalkOrder};
+	use crate::rgh::file::SymlinkPolicy;
+	use std::path::PathBuf;
+
+	fn plan(threshold: Option<u64>) -> DirectoryHashPlan {
+		DirectoryHashPlan {
+			root_path: PathBuf::from("."),
+			recursive: false,
+			follow_symlinks: SymlinkPolicy::Never,
+			order: WalkOrder::Lexicographic,
+			threads: ThreadStrategy::Single,
+			mmap_threshold: threshold,
+		}
+	}
+
+	#[test]
+	fn mmap_stays_off_without_threshold() {
+		assert!(!plan(None).should_use_mmap(0));
+		assert!(!plan(None).should_use_mmap(u64::MAX));
+	}
+
+	#[test]
+	fn mmap_turns_on_at_explicit_threshold() {
+		let threshold = 64 * 1024 * 1024;
+		assert!(!plan(Some(threshold)).should_use_mmap(threshold - 1));
+		assert!(plan(Some(threshold)).should_use_mmap(threshold));
+	}
+}

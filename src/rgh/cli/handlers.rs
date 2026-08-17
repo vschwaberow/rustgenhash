@@ -124,7 +124,7 @@ pub fn hash_file(
 		follow_symlinks: SymlinkPolicy::Never,
 		order: WalkOrder::Lexicographic,
 		threads: ThreadStrategy::Single,
-		mmap_threshold: Some(64 * 1024 * 1024),
+		mmap_threshold: None,
 	};
 	let progress = ProgressConfig {
 		mode: ProgressMode::Auto,

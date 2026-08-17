@@ -659,7 +659,7 @@ fn run_digest_file_case(
 		.input
 		.get("mmap_threshold")
 		.and_then(Value::as_str)
-		.unwrap_or("64MiB");
+		.unwrap_or("off");
 	let mmap_threshold = parse_mmap_threshold(mmap_raw, &case.id)?;
 	let error_strategy_raw = case
 		.input
