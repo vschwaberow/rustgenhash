@@ -53,7 +53,7 @@ Directory hashing options:
 - `--recursive` traverses nested directories; defaults to the legacy non-recursive behaviour.
 - `--follow-symlinks {never,files,all}` controls whether symbolic links are hashed or followed.
 - `--threads {1|auto|N}` hashes files in parallel with Rayon when the value is `auto` or `N`. The default is `1`.
-- `--mmap-threshold <SIZE|off>` maps files at or above the threshold (default `64MiB`). Smaller files stream in 64 KiB blocks. Use `off` to disable mmap.
+- `--mmap-threshold <SIZE|off>` maps files at or above the threshold. Default is `off` (64 KiB block reads). Pass a size to enable mmap.
 - `--manifest <FILE>` writes a JSON summary containing per-file digests, failures, and performance metadata (fail-fast suppresses the file to avoid partial output). When `--format multihash` is selected, the manifest preserves the emitted base58btc tokens.
 - `--error-strategy {fail-fast,continue,report-only}` determines how failures affect exit codes and manifest writes:
   - `fail-fast` stops on the first unreadable entry, exits `1`, and skips manifest creation.
