@@ -62,6 +62,21 @@ const WEAK_ALGORITHMS: &[WeakAlgorithmMetadata] = &[
 		display_name: "SHA-224",
 		replacement_hint: "Use SHA-256 or SHA-512",
 	},
+	WeakAlgorithmMetadata {
+		algorithm_id: "snefru",
+		display_name: "Snefru-128",
+		replacement_hint: "Use SHA-256 or BLAKE3 for new digests",
+	},
+	WeakAlgorithmMetadata {
+		algorithm_id: "snefru128",
+		display_name: "Snefru-128",
+		replacement_hint: "Use SHA-256 or BLAKE3 for new digests",
+	},
+	WeakAlgorithmMetadata {
+		algorithm_id: "snefru256",
+		display_name: "Snefru-256",
+		replacement_hint: "Use SHA-256 or BLAKE3 for new digests",
+	},
 ];
 
 /// Returns registry metadata for a given algorithm identifier.
@@ -69,9 +84,10 @@ pub fn metadata_for(
 	algorithm: &str,
 ) -> Option<&'static WeakAlgorithmMetadata> {
 	let needle = algorithm.to_ascii_lowercase();
-	WEAK_ALGORITHMS
-		.iter()
-		.find(|entry| entry.algorithm_id == needle)
+	let compact = needle.replace('-', "").replace('_', "");
+	WEAK_ALGORITHMS.iter().find(|entry| {
+		entry.algorithm_id == needle || entry.algorithm_id == compact
+	})
 }
 
 /// Returns warning banner content for known weak algorithms.

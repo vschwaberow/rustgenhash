@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Snefru-128 and Snefru-256 (8-pass) digests. IDs: `snefru`, `snefru128`, `snefru256`.
 - File digest mmap is off by default. Pass `--mmap-threshold <SIZE>` to enable it.
 
 ## 0.15.0 - 2026-08-15

@@ -171,6 +171,12 @@ fn benchmark_algorithm(
 		Algorithm::Skein1024 => {
 			benchmark_rhash("SKEIN1024", iterations)
 		}
+		Algorithm::Snefru128 => {
+			benchmark_rhash("SNEFRU128", iterations)
+		}
+		Algorithm::Snefru256 => {
+			benchmark_rhash("SNEFRU256", iterations)
+		}
 		Algorithm::Sm3 => benchmark_rhash("SM3", iterations),
 		Algorithm::Streebog256 => {
 			benchmark_rhash("STREEBOG256", iterations)

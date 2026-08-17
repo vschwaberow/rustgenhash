@@ -52,6 +52,8 @@ pub enum Algorithm {
 	Skein256,
 	Skein512,
 	Skein1024,
+	Snefru128,
+	Snefru256,
 	Sm3,
 	Streebog256,
 	Streebog512,

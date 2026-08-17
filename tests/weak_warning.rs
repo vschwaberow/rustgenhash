@@ -21,6 +21,8 @@ fn metadata_lists_expected_algorithms() {
 	assert!(ids.contains(&"md5"));
 	assert!(ids.contains(&"sha1"));
 	assert!(ids.contains(&"sha224"));
+	assert!(ids.contains(&"snefru128"));
+	assert!(ids.contains(&"snefru256"));
 }
 
 #[test]

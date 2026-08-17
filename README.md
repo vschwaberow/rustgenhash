@@ -100,6 +100,7 @@ printf "config\npipeline\n" | rgh mac --alg poly1305 --key tests/fixtures/keys/p
 | MD5 | ⚠ Weak | SHA-256, BLAKE3 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
 | SHA-1 | ⚠ Weak | SHA-256, SHA-512 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
 | SHA-224 | ⚠ Weak | SHA-256, SHA-512 | [NIST SP 800-131A rev.2 §3][nist] · [BSI TR-02102-1][bsi] |
+| Snefru-128 / Snefru-256 | ⚠ Weak | SHA-256, BLAKE3 | Merkle 8-pass; collisions known for earlier round counts |
 
 ⚠ entries indicate algorithms retained solely for legacy verification; automation should migrate to the recommended replacements.
 
@@ -114,7 +115,7 @@ printf "config\npipeline\n" | rgh mac --alg poly1305 --key tests/fixtures/keys/p
 - **Skein family**: Skein-256 (32 bytes), Skein-512 (64 bytes), Skein-1024 (128 bytes).
 - **Shabal family**: Shabal-192, Shabal-224, Shabal-256, Shabal-384, Shabal-512.
 - **RIPEMD family**: RIPEMD-160, RIPEMD-320.
-- **Other classic digests**: Ascon, Belthash, Groestl, SM3, Tiger, Whirlpool.
+- **Other classic digests**: Ascon, Belthash, Groestl, SM3, Tiger, Whirlpool, Snefru-128, Snefru-256 (⚠ Weak, 8-pass).
 - **Legacy MD family**: MD2, MD4, MD5 (⚠ Weak) retained for checksums and historical datasets.
 
 The CLI exposes each algorithm via `-a/--algorithm`. Hyphenated IDs such as `sha3-256` and `gost94-test` are accepted. `rgh digest --help` highlights weak options inline.
