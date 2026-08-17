@@ -702,6 +702,8 @@ impl RHash {
 				"STREEBOG256" => streebog::Streebog256::new(),
 				"STREEBOG512" => streebog::Streebog512::new(),
 				"TIGER"     => tiger::Tiger::new(),
+				"TIGER2"    => tiger::Tiger2::new(),
+				"TIGER_2"   => tiger::Tiger2::new(),
 				"WHIRLPOOL" => whirlpool::Whirlpool::new(),
 			)?,
 		})
@@ -1394,6 +1396,32 @@ mod rhash_new_tests {
 	fn rhash_accepts_hyphenated_sha3() {
 		let mut h = RHash::new("sha3-256").expect("sha3-256");
 		assert_eq!(h.process_string(b"").len(), 32);
+	}
+
+	#[test]
+	fn rhash_tiger2_differs_from_tiger() {
+		let tiger = RHash::new("TIGER")
+			.expect("TIGER")
+			.process_string(b"abc");
+		let tiger2 = RHash::new("tiger-2")
+			.expect("tiger-2")
+			.process_string(b"abc");
+		assert_eq!(tiger.len(), 24);
+		assert_eq!(tiger2.len(), 24);
+		assert_ne!(tiger, tiger2);
+		assert_eq!(
+			tiger2,
+			hex::decode("f68d7bc5af4b43a06e048d7829560d4a9415658bb0b1f3bf")
+				.expect("hex")
+		);
+		let empty = RHash::new("TIGER2")
+			.expect("TIGER2")
+			.process_string(b"");
+		assert_eq!(
+			empty,
+			hex::decode("4441be75f6018773c206c22745374b924aa8313fef919f41")
+				.expect("hex")
+		);
 	}
 
 	#[test]

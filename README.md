@@ -114,7 +114,7 @@ printf "config\npipeline\n" | rgh mac --alg poly1305 --key tests/fixtures/keys/p
 - **Skein family**: Skein-256 (32 bytes), Skein-512 (64 bytes), Skein-1024 (128 bytes).
 - **Shabal family**: Shabal-192, Shabal-224, Shabal-256, Shabal-384, Shabal-512.
 - **RIPEMD family**: RIPEMD-160, RIPEMD-320.
-- **Other classic digests**: Ascon, Belthash, Groestl, SM3, Tiger, Whirlpool.
+- **Other classic digests**: Ascon, Belthash, Groestl, SM3, Tiger, Tiger2, Whirlpool.
 - **Legacy MD family**: MD2, MD4, MD5 (⚠ Weak) retained for checksums and historical datasets.
 
 The CLI exposes each algorithm via `-a/--algorithm`. Hyphenated IDs such as `sha3-256` and `gost94-test` are accepted. `rgh digest --help` highlights weak options inline.

@@ -150,7 +150,7 @@ impl HashAnalyzer {
 		let length_checks = check_hash_lengths!(self,
 			32 => "MD4/MD5",
 			40 => "SHA1/RIPE160/FSB160",
-			48 => "Tiger/Shabal192",
+			48 => "Tiger/Tiger2/Shabal192",
 			56 => "SHA3-224/Shabal224/FSB224",
 			64 => "SHA256/SHA3-256/Blake3/Blake2s/Groestl/Shabal256/SM3/Streebog256/GOST94/GOST94ua/BeltHash",
 			80 => "RIPEMD320",
