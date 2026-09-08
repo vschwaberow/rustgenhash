@@ -70,39 +70,29 @@ pub fn hash_digest_output(
 	format: DigestOutputFormat,
 	hash_only: bool,
 ) {
-	use Algorithm as alg;
-	match algorithm {
-		alg::Ascon => {
-			PHash::hash_ascon(input, hash_only);
-		}
-		_ => {
-			let alg_s = format!("{:?}", algorithm).to_uppercase();
-			match digest_bytes_to_record(
-				&alg_s,
-				input.as_bytes(),
-				Some(input),
-				DigestSource::String,
+	let alg_s = format!("{:?}", algorithm).to_uppercase();
+	match digest_bytes_to_record(
+		&alg_s,
+		input.as_bytes(),
+		Some(input),
+		DigestSource::String,
+	) {
+		Ok(record) => {
+			match serialize_digest_output(
+				&[record],
+				format,
+				hash_only,
 			) {
-				Ok(record) => {
-					match serialize_digest_output(
-						&[record],
-						format,
-						hash_only,
-					) {
-						Ok(result) => {
-							emit_serialization_to_stdout(result)
-						}
-						Err(err) => {
-							eprintln!("Serialization error: {}", err);
-							std::process::exit(1);
-						}
-					}
-				}
+				Ok(result) => emit_serialization_to_stdout(result),
 				Err(err) => {
-					eprintln!("Failed to digest input: {}", err);
+					eprintln!("Serialization error: {}", err);
 					std::process::exit(1);
 				}
 			}
+		}
+		Err(err) => {
+			eprintln!("Failed to digest input: {}", err);
+			std::process::exit(1);
 		}
 	}
 }

@@ -290,20 +290,6 @@ macro_rules! impl_password_hash_fn {
 	};
 }
 
-macro_rules! impl_hash_function {
-	($name:ident, $hasher:expr) => {
-		pub fn $name(password: &str, hash_only: bool) {
-			let result = $hasher(password.as_bytes());
-			let output = assemble_output(
-				hash_only,
-				vec![hex::encode(result)],
-				Some(password),
-			);
-			println!("{}", output);
-		}
-	};
-}
-
 pub struct PHash {}
 impl PHash {
 	pub fn derive_argon2_output(
@@ -318,8 +304,6 @@ impl PHash {
 			})
 			.map_err(|err| err.to_string())
 	}
-
-	impl_hash_function!(hash_ascon, AsconHash::digest);
 
 	impl_password_hash_fn!(
 		hash_argon2,
@@ -658,8 +642,9 @@ impl RHash {
 		let normalized = alg.to_ascii_uppercase().replace('-', "_");
 		Ok(Self {
 			digest: create_hasher!(normalized.as_str(),
-				"BELTHASH" => belt_hash::BeltHash::new(),
-			"BLAKE2B"   => blake2::Blake2b512::new(),
+				"ASCON"     => AsconHash::new(),
+				"BELTHASH"  => belt_hash::BeltHash::new(),
+				"BLAKE2B"   => blake2::Blake2b512::new(),
 				"BLAKE2S"   => blake2::Blake2s256::new(),
 				"BLAKE3"    => blake3::Hasher::new(),
 				"FSB160"    => fsb::Fsb160::new(),
