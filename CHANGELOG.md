@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Published known-answer fixtures for every digest algorithm under `tests/fixtures/digest/kats/`, with source citations and CI coverage gates against `DIGEST_ALGORITHMS`.
+
 ## 0.15.0 - 2026-08-15
 
 - Algorithm IDs accept hyphens (`sha3-256`). Unknown IDs return an error instead of panicking.
