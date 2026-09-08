@@ -10,7 +10,6 @@ use std::time::Duration;
 
 use chrono::Utc;
 use clap::ValueEnum;
-use digest::Digest;
 use serde_json::{json, Map, Value};
 
 use super::{
@@ -1819,24 +1818,10 @@ fn compute_digest_bytes(
 	algorithm: &str,
 	data: &[u8],
 ) -> Result<Vec<u8>, AuditError> {
-	match algorithm.to_uppercase().as_str() {
-		"SHA256" => {
-			let mut hasher = sha2::Sha256::new();
-			hasher.update(data);
-			Ok(hasher.finalize().to_vec())
-		}
-		"SHA1" => {
-			let mut hasher = sha1::Sha1::new();
-			hasher.update(data);
-			Ok(hasher.finalize().to_vec())
-		}
-		"MD5" => {
-			let mut hasher = md5::Md5::new();
-			hasher.update(data);
-			Ok(hasher.finalize().to_vec())
-		}
-		other => Err(AuditError::Invalid(format!(
-			"Unsupported algorithm `{other}` in audit fixtures"
-		))),
-	}
+	let mut hasher = crate::rgh::hash::RHash::new(algorithm).map_err(|err| {
+		AuditError::Invalid(format!(
+			"Unsupported algorithm `{algorithm}` in audit fixtures: {err}"
+		))
+	})?;
+	Ok(hasher.process_string(data))
 }
