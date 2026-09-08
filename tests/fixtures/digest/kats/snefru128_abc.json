@@ -1,0 +1,12 @@
+{
+  "algorithm": "SNEFRU128",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "553d0648928299a0f22a275a02c83b10",
+  "source": {
+    "title": "Snefru (Merkle) \u2014 8-pass digests",
+    "url": "https://en.wikipedia.org/wiki/Snefru"
+  }
+}

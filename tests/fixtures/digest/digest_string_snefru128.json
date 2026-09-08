@@ -1,0 +1,28 @@
+{
+  "id": "digest_string_snefru128",
+  "mode": "digest_string",
+  "algorithm": "SNEFRU128",
+  "input": {
+    "value": "abc"
+  },
+  "expected_output": {
+    "digest": "553d0648928299a0f22a275a02c83b10",
+    "format": "hex",
+    "default_lines": [
+      "553d0648928299a0f22a275a02c83b10 abc"
+    ],
+    "hash_only_lines": [
+      "553d0648928299a0f22a275a02c83b10"
+    ],
+    "warning_banner": "⚠ WARNING: Snefru-128 is a weak algorithm (collisions known) See NIST SP 800-131A rev.2 §3 and BSI TR-02102-1 recommendations. Use SHA-256 or BLAKE3 for new digests.",
+    "warning_references": [
+      "https://doi.org/10.6028/NIST.SP.800-131Ar2",
+      "https://www.bsi.bund.de/SharedDocs/Downloads/EN/BSI/Publications/TechGuidelines/TG02102/BSI-TR-02102-1.pdf"
+    ]
+  },
+  "metadata": {
+    "severity": "medium",
+    "notes": "Snefru-128 8-pass digest of abc plus weak-algorithm banner.",
+    "skip_reason": null
+  }
+}

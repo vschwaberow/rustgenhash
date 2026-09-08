@@ -16,6 +16,7 @@ use crate::rgh::output::{
 	DigestSource, OutputError, OutputFormatProfile,
 	SerializationResult,
 };
+use crate::rgh::snefru::{Snefru128, Snefru256};
 use crate::rgh::weak;
 use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
@@ -149,6 +150,8 @@ pub const DIGEST_ALGORITHMS: &[DigestAlgorithm] = &[
 	DigestAlgorithm { id: "SKEIN512", output_len: 64 },
 	DigestAlgorithm { id: "SKEIN1024", output_len: 128 },
 	DigestAlgorithm { id: "SM3", output_len: 32 },
+	DigestAlgorithm { id: "SNEFRU128", output_len: 16 },
+	DigestAlgorithm { id: "SNEFRU256", output_len: 32 },
 	DigestAlgorithm { id: "STREEBOG256", output_len: 32 },
 	DigestAlgorithm { id: "STREEBOG512", output_len: 64 },
 	DigestAlgorithm { id: "TIGER", output_len: 24 },
@@ -158,6 +161,9 @@ pub const DIGEST_ALGORITHMS: &[DigestAlgorithm] = &[
 /// Aliases normalized by [`RHash::new`] to a canonical [`DIGEST_ALGORITHMS`] id.
 pub const DIGEST_ALGORITHM_ALIASES: &[(&str, &str)] = &[
 	("GOST94_TEST", "GOST94TEST"),
+	("SNEFRU", "SNEFRU128"),
+	("SNEFRU_128", "SNEFRU128"),
+	("SNEFRU_256", "SNEFRU256"),
 ];
 
 pub fn digest_algorithm_ids() -> impl Iterator<Item = &'static str> {
@@ -747,6 +753,11 @@ impl RHash {
 				"SKEIN256"  => Skein256::<U32>::new(),
 				"SKEIN512"  => Skein512::<U64>::new(),
 				"SKEIN1024" => Skein1024::<U128>::new(),
+				"SNEFRU" => Snefru128::new(),
+				"SNEFRU128" => Snefru128::new(),
+				"SNEFRU_128" => Snefru128::new(),
+				"SNEFRU256" => Snefru256::new(),
+				"SNEFRU_256" => Snefru256::new(),
 				"SM3"       => sm3::Sm3::new(),
 				"STREEBOG256" => streebog::Streebog256::new(),
 				"STREEBOG512" => streebog::Streebog512::new(),
@@ -1443,6 +1454,22 @@ mod rhash_new_tests {
 	fn rhash_accepts_hyphenated_sha3() {
 		let mut h = RHash::new("sha3-256").expect("sha3-256");
 		assert_eq!(h.process_string(b"").len(), 32);
+	}
+
+	#[test]
+	fn rhash_accepts_snefru_aliases() {
+		let a = RHash::new("snefru-128")
+			.expect("snefru-128")
+			.process_string(b"abc");
+		let b = RHash::new("SNEFRU128")
+			.expect("SNEFRU128")
+			.process_string(b"abc");
+		assert_eq!(a, b);
+		assert_eq!(a.len(), 16);
+		let c = RHash::new("snefru-256")
+			.expect("snefru-256")
+			.process_string(b"");
+		assert_eq!(c.len(), 32);
 	}
 
 	#[test]

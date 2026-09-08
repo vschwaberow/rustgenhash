@@ -509,7 +509,7 @@ fn handle_digest_command(
 			let mmap_value = args
 				.get_one::<String>("mmap-threshold")
 				.map(String::as_str)
-				.unwrap_or("64MiB");
+				.unwrap_or("off");
 			let mmap_threshold = parse_mmap_threshold(mmap_value)
 				.map_err(|msg| {
 					io::Error::new(io::ErrorKind::InvalidInput, msg)
@@ -1174,8 +1174,8 @@ pub(crate) fn build_cli() -> clap::Command {
 							.arg(
 								Arg::new("mmap-threshold")
 									.long("mmap-threshold")
-									.default_value("64MiB")
-									.help("Enable mmap for files ≥ threshold (use 'off' to disable)"),
+									.default_value("off")
+									.help("Map files at or above this size (default off)"),
 							)
 							.arg(
 								Arg::new("progress")
