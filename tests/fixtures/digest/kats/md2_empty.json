@@ -1,0 +1,12 @@
+{
+  "algorithm": "MD2",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "8350e5a3e24c153df2275c9f80692773",
+  "source": {
+    "title": "RFC 1319 \u2014 The MD2 Message-Digest Algorithm",
+    "url": "https://www.rfc-editor.org/rfc/rfc1319"
+  }
+}

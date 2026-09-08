@@ -1,0 +1,12 @@
+{
+  "algorithm": "GOST94UA",
+  "input": {
+    "encoding": "utf8",
+    "value": "test"
+  },
+  "expected_hex": "7c536414f8b5b9cc649fdf3cccb2685c1a12622956308e34f31c50ed7b3af56c",
+  "source": {
+    "title": "GOST 34.311-95 UAPKI parameters / gost-engine",
+    "url": "https://github.com/gost-engine/engine"
+  }
+}

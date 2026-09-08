@@ -1,0 +1,12 @@
+{
+  "algorithm": "ASCON",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "7346bc14f036e87ae03d0997913088f5f68411434b3cf8b54fa796a80d251f91",
+  "source": {
+    "title": "ASCON Hash \u2014 NIST lightweight cryptography / ascon-hash KATs",
+    "url": "https://ascon.iaik.tugraz.at/"
+  }
+}

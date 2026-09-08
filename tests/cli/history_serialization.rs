@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+
 use std::fs;
 use std::time::{Duration, SystemTime};
 

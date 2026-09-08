@@ -331,6 +331,17 @@ Scheme for benchmarking a hash algorithm:
 rgh benchmark -a <algorithm> -i <iterations>
 ```
 
+
+### Digest correctness
+
+Every digest algorithm registered in `DIGEST_ALGORITHMS` has sourced known-answer tests under [`tests/fixtures/digest/kats/`](tests/fixtures/digest/kats/). Fixtures cite the originating standard or published KAT suite (`source.title` / `source.url`). `tests/digest_kats.rs` checks that:
+
+- each fixture digest matches `RHash`
+- every registry algorithm has at least one fixture
+- digest widths match the registry (catches silent truncation such as wrong Skein output sizes)
+
+`cargo test --all` runs these gates in CI.
+
 ## Performance Profile
 
 - Assembly-optimized code paths (`asm-accel` feature) are enabled by default for SHA-1, SHA-2, MD5, and Whirlpool on x86_64 and Apple Silicon (aarch64) targets. Unsupported targets automatically fall back to portable implementations.

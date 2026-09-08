@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Published known-answer fixtures for every digest algorithm under `tests/fixtures/digest/kats/`, with source citations and CI coverage gates against `DIGEST_ALGORITHMS`.
 - Snefru-128 and Snefru-256 (8-pass) digests. IDs: `snefru`, `snefru128`, `snefru256`.
 - File digest mmap is off by default. Pass `--mmap-threshold <SIZE>` to enable it.
 

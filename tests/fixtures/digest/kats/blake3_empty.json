@@ -1,0 +1,12 @@
+{
+  "algorithm": "BLAKE3",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+  "source": {
+    "title": "BLAKE3 specification",
+    "url": "https://github.com/BLAKE3-team/BLAKE3/blob/master/README.md"
+  }
+}

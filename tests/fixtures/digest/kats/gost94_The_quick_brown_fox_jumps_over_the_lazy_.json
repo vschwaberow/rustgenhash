@@ -1,0 +1,12 @@
+{
+  "algorithm": "GOST94",
+  "input": {
+    "encoding": "utf8",
+    "value": "The quick brown fox jumps over the lazy dog"
+  },
+  "expected_hex": "9004294a361a508c586fe53d1f1b02746765e71b765472786e4770d565830a76",
+  "source": {
+    "title": "GOST R 34.11-94 CryptoPro params (RFC 4357 / gost-engine)",
+    "url": "https://www.rfc-editor.org/rfc/rfc4357"
+  }
+}

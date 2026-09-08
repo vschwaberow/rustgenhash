@@ -1,0 +1,12 @@
+{
+  "algorithm": "SHA1",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "a9993e364706816aba3e25717850c26c9cd0d89d",
+  "source": {
+    "title": "FIPS 180-4 \u2014 Secure Hash Standard",
+    "url": "https://doi.org/10.6028/NIST.FIPS.180-4"
+  }
+}
