@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Project: rustgenhash
+
 use std::io::Write;
 use std::process::Command;
 use tempfile::NamedTempFile;
