@@ -1,0 +1,12 @@
+{
+  "algorithm": "GOST94",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "981e5f3ca30c841487830f84fb433e13ac1101569b9c13584ac483234cd656c0",
+  "source": {
+    "title": "GOST R 34.11-94 CryptoPro params (RFC 4357 / gost-engine)",
+    "url": "https://www.rfc-editor.org/rfc/rfc4357"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "algorithm": "MD4",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "31d6cfe0d16ae931b73c59d7e0c089c0",
+  "source": {
+    "title": "RFC 1320 \u2014 The MD4 Message-Digest Algorithm",
+    "url": "https://www.rfc-editor.org/rfc/rfc1320"
+  }
+}

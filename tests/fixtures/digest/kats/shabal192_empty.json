@@ -1,0 +1,12 @@
+{
+  "algorithm": "SHABAL192",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "e10dc32232f98b039dbbcfa41269b9cdf67a73c841214c81",
+  "source": {
+    "title": "Shabal \u2014 SHA-3 competition / RustCrypto shabal tests",
+    "url": "https://github.com/RustCrypto/hashes"
+  }
+}

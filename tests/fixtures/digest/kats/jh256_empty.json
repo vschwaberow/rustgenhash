@@ -1,0 +1,12 @@
+{
+  "algorithm": "JH256",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "46e64619c18bb0a92a5e87185a47eef83ca747b8fcc8e1412921357e326df434",
+  "source": {
+    "title": "JH hash \u2014 SHA-3 competition / RustCrypto jh tests",
+    "url": "https://github.com/RustCrypto/hashes"
+  }
+}

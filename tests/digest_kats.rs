@@ -1,103 +1,72 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Project: rustgenhash
 
-use rustgenhash::rgh::hash::RHash;
+use rustgenhash::rgh::hash::{DIGEST_ALGORITHMS, RHash};
+use serde::Deserialize;
+use std::collections::HashSet;
+use std::fs;
+use std::path::PathBuf;
 
-const EMPTY_INPUT_KATS: &[(&str, &str)] = &[
-	("ASCON", "7346bc14f036e87ae03d0997913088f5f68411434b3cf8b54fa796a80d251f91"),
-	("BELTHASH", "eb6ba8bde3821909b63e14764485530fd8e875a23834d41d6c100ac446828c7e"),
-	("BLAKE2B", "786a02f742015903c6c6fd852552d272912f4740e15847618a86e217f71f5419d25e1031afee585313896444934eb04b903a685b1448b755d56f701afe9be2ce"),
-	("BLAKE2S", "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"),
-	("BLAKE3", "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"),
-	("FSB160", "bd874daa024be58a7bb2725914132819f9c64c2e"),
-	("FSB224", "c66ded00ab44a5d29b16133a7078cdb431e8d089ec6fdef7d265b554"),
-	("FSB256", "344eaf42ab2a9716a07cfd61d6e717a341b701162cbabc71673f9599167bb0b0"),
-	("FSB384", "ed1f3e8d9c5f9af16d82a80043b227e3cd942453d5bd55222d62270c3aca8cc608ed16aba4202b59c194d5e783d80cca"),
-	("FSB512", "a60c6ba0e439d4a2137252e34623e1b1a0a35bff1d3893c11b0a31db8d9063990bee6c3084b24aea384c3ea08866d643fadeb679959778636a950b95da5c93f9"),
-	("GOST94", "981e5f3ca30c841487830f84fb433e13ac1101569b9c13584ac483234cd656c0"),
-	("GOST94TEST", "ce85b99cc46752fffee35cab9a7b0278abb4c2d2055cff685af4912c49490f8d"),
-	("GOST94UA", "da37bdf41145e39e34111775b40646e8059c2e969c1460bb98abccb26f0f76a5"),
-	("GROESTL", "1a52d11d550039be16107f9c58db9ebcc417f16f736adb2502567119f0083467"),
-	("JH224", "2c99df889b019309051c60fecc2bd285a774940e43175b76b2626630"),
-	("JH256", "46e64619c18bb0a92a5e87185a47eef83ca747b8fcc8e1412921357e326df434"),
-	("JH384", "2fe5f71b1b3290d3c017fb3c1a4d02a5cbeb03a0476481e25082434a881994b0ff99e078d2c16b105ad069b569315328"),
-	("JH512", "90ecf2f76f9d2c8017d979ad5ab96b87d58fc8fc4b83060f3f900774faa2c8fabe69c5f4ff1ec2b61d6b316941cedee117fb04b1f4c5bc1b919ae841c50eec4f"),
-	("MD2", "8350e5a3e24c153df2275c9f80692773"),
-	("MD4", "31d6cfe0d16ae931b73c59d7e0c089c0"),
-	("MD5", "d41d8cd98f00b204e9800998ecf8427e"),
-	("RIPEMD160", "9c1185a5c5e9fc54612808977ee8f548b2258d31"),
-	("RIPEMD320", "22d65d5661536cdc75c1fdf5c6de7b41b9f27325ebc61e8557177d705a0ec880151c3a32a00899b8"),
-	("SHA1", "da39a3ee5e6b4b0d3255bfef95601890afd80709"),
-	("SHA224", "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"),
-	("SHA256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-	("SHA384", "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"),
-	("SHA512", "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"),
-	("SHA3_224", "6b4e03423667dbb73b6e15454f0eb1abd4597f9a1b078e3f5b5a6bc7"),
-	("SHA3_256", "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"),
-	("SHA3_384", "0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004"),
-	("SHA3_512", "a69f73cca23a9ac5c8b567dc185a756e97c982164fe25859e0d1dcc1475c80a615b2123af1f5f94c11e3e9402c3ac558f500199d95b6d3e301758586281dcd26"),
-	("SHABAL192", "e10dc32232f98b039dbbcfa41269b9cdf67a73c841214c81"),
-	("SHABAL224", "562b4fdbe1706247552927f814b66a3d74b465a090af23e277bf8029"),
-	("SHABAL256", "aec750d11feee9f16271922fbaf5a9be142f62019ef8d720f858940070889014"),
-	("SHABAL384", "ff093d67d22b06a674b5f384719150d617e0ff9c8923569a2ab60cda886df63c91a25f33cd71cc22c9eebc5cd6aee52a"),
-	("SHABAL512", "fc2d5dff5d70b7f6b1f8c2fcc8c1f9fe9934e54257eded0cf2b539a2ef0a19ccffa84f8d9fa135e4bd3c09f590f3a927ebd603ac29eb729e6f2a9af031ad8dc6"),
-	("SKEIN256", "c8877087da56e072870daa843f176e9453115929094c3a40c463a196c29bf7ba"),
-	("SKEIN512", "bc5b4c50925519c290cc634277ae3d6257212395cba733bbad37a4af0fa06af41fca7903d06564fea7a2d3730dbdb80c1f85562dfcc070334ea4d1d9e72cba7a"),
-	("SKEIN1024", "0fff9563bb3279289227ac77d319b6fff8d7e9f09da1247b72a0a265cd6d2a62645ad547ed8193db48cff847c06494a03f55666d3b47eb4c20456c9373c86297d630d5578ebd34cb40991578f9f52b18003efa35d3da6553ff35db91b81ab890bec1b189b7f52cb2a783ebb7d823d725b0b4a71f6824e88f68f982eefc6d19c6"),
-	("SM3", "1ab21d8355cfa17f8e61194831e81a8f22bec8c728fefb747ed035eb5082aa2b"),
-	("STREEBOG256", "3f539a213e97c802cc229d474c6aa32a825a360b2a933a949fd925208d9ce1bb"),
-	("STREEBOG512", "8e945da209aa869f0455928529bcae4679e9873ab707b55315f56ceb98bef0a7362f715528356ee83cda5f2aac4c6ad2ba3a715c1bcd81cb8e9f90bf4c1c1a8a"),
-	("TIGER", "3293ac630c13f0245f92bbb1766e16167a4e58492dde73f3"),
-	("WHIRLPOOL", "19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3"),
-];
+#[derive(Debug, Deserialize)]
+struct KatSource {
+	title: String,
+	url: String,
+}
 
-const ABC_INPUT_KATS: &[(&str, &str)] = &[
-	("ASCON", "d37fe9f1d10dbcfad8408a6804dbe91124a8912693322bb23ec1701e19e3fd51"),
-	("BELTHASH", "2661a79795a9e80258d6bc1e5d11747247901268ec4cd19237aad051e322b0c2"),
-	("BLAKE2B", "ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923"),
-	("BLAKE2S", "508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982"),
-	("BLAKE3", "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85"),
-	("FSB160", "c93c6cbd9f9a7d35fcd02d0e9822bd8589854aef"),
-	("FSB224", "a5c46ac3abbd72b27d680915500762ce10b43db7d1cc996c5669a7e3"),
-	("FSB256", "e13c678b7d557ae9b26b605c8f4e38ad582581629eb42198cbeb7e40046c7d69"),
-	("FSB384", "163cd26db98ea5a346d079cc999e50840b24fb55b9228ee06269b32128605606f94d58e169f686e6b92c6819890f1708"),
-	("FSB512", "ee2e8824748fb1dd8f0a7424e2a7a25ee5a03d92ba974dfc611ea74065981e7ab5e64f6962fe7363d1e4f79c526585e095dbe0e02adacb9073678964db08105f"),
-	("GOST94", "b285056dbf18d7392d7677369524dd14747459ed8143997e163b2986f92fd42c"),
-	("GOST94TEST", "f3134348c44fb1b2a277729e2285ebb5cb5e0f29c975bc753b70497c06a4d51d"),
-	("GOST94UA", "a34a53504d8ba070cb73a583146167a0a3c226d793440d9cea24465fe02251f2"),
-	("GROESTL", "f3c1bb19c048801326a7efbcf16e3d7887446249829c379e1840d1a3a1e7d4d2"),
-	("JH224", "21e88480ebb76dd51a984d52e97fa0da620f885b94a172320131ab54"),
-	("JH256", "924bc82f24a76d519d4f69493da7fa70dc88bdb6016b6d1cc1dcf7def15e9cdd"),
-	("JH384", "fc41b2b33438dc818a6ef99dd86f2c02a9c42ade5d0d3422f0cdd2289d50b6472c59798e569a0faec4c632e3340d1442"),
-	("JH512", "a05eab9c641cb901107d9880bcdf0eedb19b0073188896365921bd200225d9176cf136e7af90d67bdb05dfa3037e48b757d23a905b2270db67255b9eca982973"),
-	("MD2", "da853b0d3f88d99b30283a69e6ded6bb"),
-	("MD4", "a448017aaf21d8525fc10ae87aa6729d"),
-	("MD5", "900150983cd24fb0d6963f7d28e17f72"),
-	("RIPEMD160", "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
-	("RIPEMD320", "de4c01b3054f8930a79d09ae738e92301e5a17085beffdc1b8d116713e74f82fa942d64cdbc4682d"),
-	("SHA1", "a9993e364706816aba3e25717850c26c9cd0d89d"),
-	("SHA224", "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7"),
-	("SHA256", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
-	("SHA384", "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"),
-	("SHA512", "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"),
-	("SHA3_224", "e642824c3f8cf24ad09234ee7d3c766fc9a3a5168d0c94ad73b46fdf"),
-	("SHA3_256", "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532"),
-	("SHA3_384", "ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b298d88cea927ac7f539f1edf228376d25"),
-	("SHA3_512", "b751850b1a57168a5693cd924b6b096e08f621827444f70d884f5d0240d2712e10e116e9192af3c91a7ec57647e3934057340b4cf408d5a56592f8274eec53f0"),
-	("SHABAL192", "fc0e7b3568c6daef93e7b9a44e83739a75ae2722c6713ce8"),
-	("SHABAL224", "f47578239607af492d5f7df9241818adf6fba4180ddcbef6e39ac1e9"),
-	("SHABAL256", "07225fab83ca48fb480d22219410d5ca008359efbfd315829029afe2cb3f0404"),
-	("SHABAL384", "66613058865271722c0295774aa77258a5082bebbb5a02f9d6aee9ad303fc71cbf19e2f599ddfde88cf0bf30a028e530"),
-	("SHABAL512", "4a7f0f707c1b0c1d12ddcfa8aa0f9d2410dd9bab57c2d56705fc1acb02066f99678738cedb20a2aba94842a441e77bc02656fe5690f98b421d029bfc4df09f91"),
-	("SKEIN256", "258bdec343b9fde1639221a5ae0144a96e552e5288753c5fec76c05fc2fc1870"),
-	("SKEIN512", "8f5dd9ec798152668e35129496b029a960c9a9b88662f7f9482f110b31f9f93893ecfb25c009baad9e46737197d5630379816a886aa05526d3a70df272d96e75"),
-	("SKEIN1024", "35a599a0f91abcdb4cb73c19b8cb8d947742d82c309137a7caed29e8e0a2ca7a9ff9a90c34c1908cc7e7fd99bb15032fb86e76df21b72628399b5f7c3cc209d7bb31c99cd4e19465622a049afbb87c03b5ce3888d17e6e667279ec0aa9b3e2712624c01b5f5bbe1a564220bdcf6990af0c2539019f313fdd7406cca3892a1f1f"),
-	("SM3", "66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0"),
-	("STREEBOG256", "4e2919cf137ed41ec4fb6270c61826cc4fffb660341e0af3688cd0626d23b481"),
-	("STREEBOG512", "28156e28317da7c98f4fe2bed6b542d0dab85bb224445fcedaf75d46e26d7eb8d5997f3e0915dd6b7f0aab08d9c8beb0d8c64bae2ab8b3c8c6bc53b3bf0db728"),
-	("TIGER", "2aab1484e8c158f2bfb8c5ff41b57a525129131c957b5f93"),
-	("WHIRLPOOL", "4e2448a4c6f486bb16b6562c73b4020bf3043e3a731bce721ae1b303d97e6d4c7181eebdb6c57e277d0e34957114cbd6c797fc9d95d8b582d225292076d4eef5"),
-];
+#[derive(Debug, Deserialize)]
+struct KatInput {
+	encoding: String,
+	value: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct KatFixture {
+	algorithm: String,
+	input: KatInput,
+	expected_hex: String,
+	source: KatSource,
+}
+
+fn kats_dir() -> PathBuf {
+	PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.join("tests/fixtures/digest/kats")
+}
+
+fn load_fixtures() -> Vec<(PathBuf, KatFixture)> {
+	let mut entries = Vec::new();
+	for entry in fs::read_dir(kats_dir()).expect("kats directory") {
+		let entry = entry.expect("dir entry");
+		let path = entry.path();
+		if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+			continue;
+		}
+		let raw = fs::read_to_string(&path).unwrap_or_else(|err| {
+			panic!("read {}: {err}", path.display());
+		});
+		let fixture: KatFixture = serde_json::from_str(&raw).unwrap_or_else(|err| {
+			panic!("parse {}: {err}", path.display());
+		});
+		assert!(
+			!fixture.source.title.is_empty() && !fixture.source.url.is_empty(),
+			"{} missing source citation",
+			path.display()
+		);
+		entries.push((path, fixture));
+	}
+	entries.sort_by(|a, b| a.0.cmp(&b.0));
+	assert!(!entries.is_empty(), "no digest KAT fixtures found");
+	entries
+}
+
+fn input_bytes(input: &KatInput) -> Vec<u8> {
+	match input.encoding.as_str() {
+		"utf8" => input.value.as_bytes().to_vec(),
+		"hex" => hex::decode(&input.value).unwrap_or_else(|err| {
+			panic!("hex decode failed: {err}");
+		}),
+		other => panic!("unsupported input encoding `{other}`"),
+	}
+}
 
 fn digest_hex(algorithm: &str, data: &[u8]) -> String {
 	let mut hasher = RHash::new(algorithm).unwrap_or_else(|err| {
@@ -107,41 +76,61 @@ fn digest_hex(algorithm: &str, data: &[u8]) -> String {
 }
 
 #[test]
-fn empty_input_matches_known_answers_for_all_algorithms() {
-	for (algorithm, expected) in EMPTY_INPUT_KATS {
+fn published_kats_match_rhash() {
+	for (path, fixture) in load_fixtures() {
+		let data = input_bytes(&fixture.input);
+		let actual = digest_hex(&fixture.algorithm, &data);
 		assert_eq!(
-			digest_hex(algorithm, b""),
-			*expected,
-			"empty KAT failed for {algorithm}"
+			actual, fixture.expected_hex,
+			"KAT mismatch for {} ({})",
+			fixture.algorithm,
+			path.display()
+		);
+		assert_eq!(
+			fixture.expected_hex.len() % 2,
+			0,
+			"odd hex length in {}",
+			path.display()
+		);
+		let expected_len = fixture.expected_hex.len() / 2;
+		let registry_len = DIGEST_ALGORITHMS
+			.iter()
+			.find(|algo| algo.id == fixture.algorithm)
+			.map(|algo| algo.output_len);
+		assert_eq!(
+			registry_len,
+			Some(expected_len),
+			"{} output length vs registry ({})",
+			fixture.algorithm,
+			path.display()
 		);
 	}
 }
 
 #[test]
-fn abc_input_matches_known_answers_for_all_algorithms() {
-	for (algorithm, expected) in ABC_INPUT_KATS {
-		assert_eq!(
-			digest_hex(algorithm, b"abc"),
-			*expected,
-			"abc KAT failed for {algorithm}"
+fn every_registry_algorithm_has_a_published_kat() {
+	let covered: HashSet<String> = load_fixtures()
+		.into_iter()
+		.map(|(_, fixture)| fixture.algorithm)
+		.collect();
+	for algo in DIGEST_ALGORITHMS {
+		assert!(
+			covered.contains(algo.id),
+			"missing published KAT fixture for {}",
+			algo.id
 		);
 	}
 }
 
 #[test]
-fn ascon_is_registered_in_rhash() {
-	assert!(RHash::new("ascon").is_ok());
-	assert!(RHash::new("ASCON").is_ok());
-	assert_eq!(
-		digest_hex("ASCON", b""),
-		"7346bc14f036e87ae03d0997913088f5f68411434b3cf8b54fa796a80d251f91"
-	);
-}
-
-#[test]
-fn kat_tables_cover_the_same_algorithms() {
-	let empty: Vec<&str> = EMPTY_INPUT_KATS.iter().map(|(a, _)| *a).collect();
-	let abc: Vec<&str> = ABC_INPUT_KATS.iter().map(|(a, _)| *a).collect();
-	assert_eq!(empty, abc);
-	assert_eq!(empty.len(), 45);
+fn kat_fixtures_have_no_orphan_algorithms() {
+	let known: HashSet<&str> = DIGEST_ALGORITHMS.iter().map(|algo| algo.id).collect();
+	for (path, fixture) in load_fixtures() {
+		assert!(
+			known.contains(fixture.algorithm.as_str()),
+			"orphan KAT algorithm {} in {}",
+			fixture.algorithm,
+			path.display()
+		);
+	}
 }

@@ -1,0 +1,12 @@
+{
+  "algorithm": "GOST94TEST",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "ce85b99cc46752fffee35cab9a7b0278abb4c2d2055cff685af4912c49490f8d",
+  "source": {
+    "title": "GOST R 34.11-94 Test parameter set (RFC 4357)",
+    "url": "https://www.rfc-editor.org/rfc/rfc4357"
+  }
+}

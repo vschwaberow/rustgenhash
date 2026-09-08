@@ -1,0 +1,12 @@
+{
+  "algorithm": "WHIRLPOOL",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3",
+  "source": {
+    "title": "ISO/IEC 10118-3 Whirlpool",
+    "url": "https://www.iso.org/standard/39876.html"
+  }
+}

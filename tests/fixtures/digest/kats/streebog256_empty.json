@@ -1,0 +1,12 @@
+{
+  "algorithm": "STREEBOG256",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "3f539a213e97c802cc229d474c6aa32a825a360b2a933a949fd925208d9ce1bb",
+  "source": {
+    "title": "GOST R 34.11-2012 Streebog-256 / gost-engine etalon",
+    "url": "https://github.com/gost-engine/engine"
+  }
+}

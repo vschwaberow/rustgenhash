@@ -1,0 +1,12 @@
+{
+  "algorithm": "RIPEMD160",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "9c1185a5c5e9fc54612808977ee8f548b2258d31",
+  "source": {
+    "title": "ISO/IEC 10118-3 RIPEMD-160",
+    "url": "https://www.iso.org/standard/39876.html"
+  }
+}

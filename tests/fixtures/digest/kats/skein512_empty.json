@@ -1,0 +1,12 @@
+{
+  "algorithm": "SKEIN512",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "bc5b4c50925519c290cc634277ae3d6257212395cba733bbad37a4af0fa06af41fca7903d06564fea7a2d3730dbdb80c1f85562dfcc070334ea4d1d9e72cba7a",
+  "source": {
+    "title": "Skein 1.3 \u2014 Skein-512-512 known-answer tests",
+    "url": "https://www.schneier.com/academic/skein/"
+  }
+}

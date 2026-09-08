@@ -1,0 +1,12 @@
+{
+  "algorithm": "MD5",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "d41d8cd98f00b204e9800998ecf8427e",
+  "source": {
+    "title": "RFC 1321 \u2014 The MD5 Message-Digest Algorithm",
+    "url": "https://www.rfc-editor.org/rfc/rfc1321"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "algorithm": "SKEIN256",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "c8877087da56e072870daa843f176e9453115929094c3a40c463a196c29bf7ba",
+  "source": {
+    "title": "Skein 1.3 \u2014 Skein-256-256 known-answer tests",
+    "url": "https://www.schneier.com/academic/skein/"
+  }
+}
