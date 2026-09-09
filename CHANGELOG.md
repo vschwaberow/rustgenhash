@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Sourced MAC known-answer fixtures for every registry MAC ID (`tests/mac_kats.rs`).
+- `KDF_ALGORITHM_IDS` and sourced KDF known-answer fixtures (`tests/kdf_kats.rs`).
+- Drift test: digest-capable `Algorithm` variants stay in `DIGEST_ALGORITHMS`.
+- Non-empty (`abc`) digest KATs for algorithms that previously had only empty vectors.
+- `hhh:1:` HHHash uses sorted lowercased header names; `compare_hashes` display semantics documented.
+
 ## 0.16.0 - 2026-09-09
 
 - ASCON digests go through `RHash` / `rgh digest` (no legacy-only path).

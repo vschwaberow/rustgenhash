@@ -341,7 +341,11 @@ Every algorithm in `DIGEST_ALGORITHMS` (including ASCON, Skein full-width output
 - every registry algorithm has at least one fixture
 - digest widths match the registry (catches silent truncation such as wrong Skein output sizes)
 
-Run `cargo test --test digest_kats` or `cargo test --all` (CI).
+Every MAC ID from `mac::registry::algorithms()` has a sourced fixture under [`tests/fixtures/mac/kats/`](tests/fixtures/mac/kats/). `tests/mac_kats.rs` enforces match, coverage, and no orphans.
+
+Every ID in `KDF_ALGORITHM_IDS` has a sourced fixed-parameter fixture under [`tests/fixtures/kdf/kats/`](tests/fixtures/kdf/kats/). `tests/kdf_kats.rs` enforces the same gates.
+
+Run `cargo test --test digest_kats --test mac_kats --test kdf_kats` or `cargo test --all` (CI).
 
 ## Performance Profile
 
@@ -369,7 +373,7 @@ across every CLI mode to guard against logical regressions.
 
 ```bash
 cargo test --test audit
-cargo test --test digest_kats
+cargo test --test digest_kats --test mac_kats --test kdf_kats
 ```
 
 The audit produces deterministic artifacts under `target/audit/`:
