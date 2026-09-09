@@ -1,0 +1,21 @@
+{
+  "algorithm": "argon2",
+  "password": {
+    "encoding": "utf8",
+    "value": "password"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "00112233445566778899aabbccddeeff"
+  },
+  "params": {
+    "mem_cost": 4096,
+    "time_cost": 1,
+    "parallelism": 1
+  },
+  "expected": "$argon2id$v=19$m=4096,t=1,p=1$ABEiM0RVZneImaq7zN3u/w$/wclL8iqozQ+VkrwMd0Xrwc37ScVjeFbYStJlPDKJhM",
+  "source": {
+    "title": "Argon2id PHC string \u2014 fixed-parameter rgh KAT (RFC 9106 parameters subset)",
+    "url": "https://www.rfc-editor.org/rfc/rfc9106"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "algorithm": "hkdf-blake3",
+  "ikm": {
+    "encoding": "hex",
+    "value": "696b6d"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "73616c74"
+  },
+  "info": {
+    "encoding": "hex",
+    "value": "696e666f"
+  },
+  "params": {
+    "length": 32
+  },
+  "expected": "75fc4de76f10493c7e6dfa25aac2a1ec108dd5b0517919fd79cfff8e50431b5b",
+  "source": {
+    "title": "BLAKE3 keyed / HKDF-style extract-expand \u2014 rgh audit fixture",
+    "url": "https://github.com/BLAKE3-team/BLAKE3/blob/master/blake3.pdf"
+  }
+}

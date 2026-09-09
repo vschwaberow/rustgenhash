@@ -1,0 +1,21 @@
+{
+  "algorithm": "balloon",
+  "password": {
+    "encoding": "utf8",
+    "value": "password"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "00112233445566778899aabbccddeeff"
+  },
+  "params": {
+    "time_cost": 1,
+    "memory_cost": 1024,
+    "parallelism": 1
+  },
+  "expected": "$balloon$v=1$s=1,t=1024,p=1$ABEiM0RVZneImaq7zN3u/w$GZNP4EXeos6C6rdSCVEzbKOfiIKdLUm/TRaT2PKOFRk",
+  "source": {
+    "title": "Balloon hashing \u2014 fixed-parameter rgh KAT",
+    "url": "https://eprint.iacr.org/2016/027"
+  }
+}

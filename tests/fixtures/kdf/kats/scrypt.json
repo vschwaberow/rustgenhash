@@ -1,0 +1,21 @@
+{
+  "algorithm": "scrypt",
+  "password": {
+    "encoding": "utf8",
+    "value": "password"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "00112233445566778899aabbccddeeff"
+  },
+  "params": {
+    "log_n": 14,
+    "r": 8,
+    "p": 1
+  },
+  "expected": "$scrypt$ln=14,r=8,p=1$ABEiM0RVZneImaq7zN3u/w$VdHILC47vYMggNVoOPTInR5yRTHxB32oZg+9LTjbYpU",
+  "source": {
+    "title": "RFC 7914 scrypt \u2014 fixed-parameter rgh KAT",
+    "url": "https://www.rfc-editor.org/rfc/rfc7914"
+  }
+}

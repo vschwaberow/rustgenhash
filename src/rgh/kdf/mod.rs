@@ -5,6 +5,23 @@
 //
 // Password-based key derivation command group.
 
+
+/// Canonical KDF identifiers covered by sourced known-answer fixtures.
+pub const KDF_ALGORITHM_IDS: &[&str] = &[
+	"argon2",
+	"balloon",
+	"bcrypt",
+	"hkdf-blake3",
+	"hkdf-sha256",
+	"hkdf-sha3-256",
+	"hkdf-sha3-512",
+	"hkdf-sha512",
+	"pbkdf2-sha256",
+	"pbkdf2-sha512",
+	"scrypt",
+	"sha-crypt",
+];
+
 use serde_json::{json, Value as JsonValue};
 use std::fs;
 use std::io::{self, Read};

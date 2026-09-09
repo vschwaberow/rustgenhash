@@ -1,0 +1,23 @@
+{
+  "algorithm": "hkdf-sha3-256",
+  "ikm": {
+    "encoding": "hex",
+    "value": "696b6d"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "73616c74"
+  },
+  "info": {
+    "encoding": "hex",
+    "value": "696e666f"
+  },
+  "params": {
+    "length": 32
+  },
+  "expected": "0a35ce133619c6dda6c47247ba3a65352b8fa7313a3ccddfc707ea425085517c",
+  "source": {
+    "title": "HKDF with SHA3-256 (RFC 5869 construction) \u2014 fixed-parameter rgh KAT",
+    "url": "https://www.rfc-editor.org/rfc/rfc5869"
+  }
+}

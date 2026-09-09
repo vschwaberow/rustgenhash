@@ -1,0 +1,20 @@
+{
+  "algorithm": "pbkdf2-sha512",
+  "password": {
+    "encoding": "utf8",
+    "value": "password"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "00112233445566778899aabbccddeeff"
+  },
+  "params": {
+    "rounds": 1000,
+    "output_length": 64
+  },
+  "expected": "$pbkdf2-sha512$i=1000,l=64$ABEiM0RVZneImaq7zN3u/w$0jkEYnJIcOam/amkudeWZusvjfYfCxIhbOKPbcTW3KF8v/m8GZVUvStHV+vV5R8zZVFCEXvhO7DTh32vNDzVow",
+  "source": {
+    "title": "RFC 8018 PBKDF2-HMAC-SHA512 \u2014 fixed-parameter rgh KAT",
+    "url": "https://www.rfc-editor.org/rfc/rfc8018"
+  }
+}

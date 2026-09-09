@@ -1,0 +1,20 @@
+{
+  "algorithm": "pbkdf2-sha256",
+  "password": {
+    "encoding": "utf8",
+    "value": "password"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "00112233445566778899aabbccddeeff"
+  },
+  "params": {
+    "rounds": 1000,
+    "output_length": 32
+  },
+  "expected": "$pbkdf2-sha256$i=1000,l=32$ABEiM0RVZneImaq7zN3u/w$btIUe5tnBiQnWoqxV1lSTKBi2Jkqra5qCDtLwUjRICc",
+  "source": {
+    "title": "RFC 8018 PBKDF2-HMAC-SHA256 \u2014 fixed-parameter rgh KAT",
+    "url": "https://www.rfc-editor.org/rfc/rfc8018"
+  }
+}
