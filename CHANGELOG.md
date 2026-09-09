@@ -2,21 +2,19 @@
 
 ## Unreleased
 
-- Audit harness skips `kats/` directories (KAT schema ≠ audit fixtures).
-- `cli` feature gates dialoguer/rustyline so wasm `portable-only` builds without them.
-- Analyze SHA-256 detect fixture includes Snefru-256.
-- Sourced MAC known-answer fixtures for every registry MAC ID (`tests/mac_kats.rs`).
-- `KDF_ALGORITHM_IDS` and sourced KDF known-answer fixtures (`tests/kdf_kats.rs`).
-- Drift test: digest-capable `Algorithm` variants stay in `DIGEST_ALGORITHMS`.
-- Non-empty (`abc`) digest KATs for algorithms that previously had only empty vectors.
-- `hhh:1:` HHHash uses sorted lowercased header names; `compare_hashes` display semantics documented.
-
 ## 0.16.0 - 2026-09-09
 
 - ASCON digests go through `RHash` / `rgh digest` (no legacy-only path).
 - Sourced known-answer fixtures for every digest in `DIGEST_ALGORITHMS` under `tests/fixtures/digest/kats/`; `tests/digest_kats.rs` enforces coverage and output widths.
 - Snefru-128 and Snefru-256 (8-pass) digests. IDs: `snefru`, `snefru128`, `snefru256`.
 - File digest mmap is off by default. Pass `--mmap-threshold <SIZE>` to enable it.
+- Sourced MAC known-answer fixtures for every registry MAC ID (`tests/mac_kats.rs`).
+- `KDF_ALGORITHM_IDS` and sourced KDF known-answer fixtures (`tests/kdf_kats.rs`).
+- Drift test: digest-capable `Algorithm` variants stay in `DIGEST_ALGORITHMS`.
+- Non-empty (`abc`) digest KATs for algorithms that previously had only empty vectors.
+- `hhh:1:` HHHash uses sorted lowercased header names; `compare_hashes` display semantics documented.
+- Audit harness skips `kats/` directories (KAT schema ≠ audit fixtures).
+- `cli` feature gates dialoguer/rustyline so wasm `portable-only` builds without them.
 
 ## 0.15.0 - 2026-08-15
 
