@@ -27,7 +27,8 @@ jobs:
           - name: Windows x86_64 tests
             runs-on: windows-latest
             target: ""
-            command: cargo test --all
+            # MSVC cannot assemble sha2-asm (*.S); use portable digests + CLI.
+            command: cargo test --all --no-default-features --features "std,cli"
     steps:
       - uses: actions/checkout@v4
       - name: Install stable Rust
