@@ -1,0 +1,12 @@
+{
+  "algorithm": "FSB384",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "163cd26db98ea5a346d079cc999e50840b24fb55b9228ee06269b32128605606f94d58e169f686e6b92c6819890f1708",
+  "source": {
+    "title": "FSB hash \u2014 SHA-3 competition package / RustCrypto fsb tests",
+    "url": "https://github.com/RustCrypto/hashes"
+  }
+}
