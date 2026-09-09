@@ -1,0 +1,15 @@
+{
+  "algorithm": "kmac128",
+  "key": {
+    "path": "tests/fixtures/keys/kmac.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "Compliance message"
+  },
+  "expected_hex": "19f1e1d5067f565b7260771084aa26128f68041fa9e95b8d3f41ad1e228f7cfc",
+  "source": {
+    "title": "NIST SP 800-185 KMAC128",
+    "url": "https://doi.org/10.6028/NIST.SP.800-185"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "algorithm": "hmac-sha3-512",
+  "key": {
+    "path": "tests/fixtures/keys/hmac.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "alpha"
+  },
+  "expected_hex": "e6b1a15f133580e98567da53ae24c954ae9e295a9fd65bc3438414a40ca36cda1beaf8923c5cbc61dcebebdfb203e40501ee83bb685567c2816b84c6f990bdc2",
+  "source": {
+    "title": "RFC 2104 with FIPS 202 SHA3-512",
+    "url": "https://doi.org/10.6028/NIST.FIPS.202"
+  }
+}

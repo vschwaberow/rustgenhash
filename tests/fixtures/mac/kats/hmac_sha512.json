@@ -1,0 +1,15 @@
+{
+  "algorithm": "hmac-sha512",
+  "key": {
+    "path": "tests/fixtures/keys/hmac.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "alpha"
+  },
+  "expected_hex": "22dc173ba3f0fdc5e2aa8ff463e1158a5f9e78679925b46b0f876825f4bafc35dd5fbc6cce7f0c7be3d2fb38015e7279ce66bc094d1c9e76483c997f078c8666",
+  "source": {
+    "title": "RFC 2104 with FIPS 180-4 SHA-512",
+    "url": "https://www.rfc-editor.org/rfc/rfc2104"
+  }
+}

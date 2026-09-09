@@ -1,0 +1,15 @@
+{
+  "algorithm": "hmac-sha3-256",
+  "key": {
+    "path": "tests/fixtures/keys/hmac.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "alpha"
+  },
+  "expected_hex": "a53c80426d66d10b971a224fe5528d1a83103092aba88deb0b53fb0d8c5a04f1",
+  "source": {
+    "title": "RFC 2104 with FIPS 202 SHA3-256",
+    "url": "https://doi.org/10.6028/NIST.FIPS.202"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "algorithm": "cmac-aes128",
+  "key": {
+    "path": "tests/fixtures/keys/cmac_aes128.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "compliance-mac"
+  },
+  "expected_hex": "3d5db00e9962fadb33cf8153f3167dae",
+  "source": {
+    "title": "NIST SP 800-38B AES-CMAC",
+    "url": "https://doi.org/10.6028/NIST.SP.800-38B"
+  }
+}

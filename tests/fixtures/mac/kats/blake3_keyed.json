@@ -1,0 +1,15 @@
+{
+  "algorithm": "blake3-keyed",
+  "key": {
+    "path": "tests/fixtures/keys/blake3.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "alpha"
+  },
+  "expected_hex": "e66e5af037fb22dc6d957057b669507d4627de61b43061053cb3782ecb07e41f",
+  "source": {
+    "title": "BLAKE3 keyed mode \u00a75",
+    "url": "https://github.com/BLAKE3-team/BLAKE3-specs"
+  }
+}
