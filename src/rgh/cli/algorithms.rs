@@ -120,3 +120,62 @@ impl Algorithm {
         self.properties().file_support
     }
 }
+impl Algorithm {
+	pub fn is_password_kdf(self) -> bool {
+		matches!(
+			self,
+			Self::Argon2
+				| Self::Balloon
+				| Self::Bcrypt
+				| Self::Pbkdf2Sha256
+				| Self::Pbkdf2Sha512
+				| Self::Scrypt
+				| Self::Shacrypt
+		)
+	}
+
+	/// Canonical [`crate::rgh::hash::RHash`] id when this variant is a digest.
+	pub fn digest_rhash_id(self) -> Option<String> {
+		if self.is_password_kdf() {
+			None
+		} else {
+			Some(format!("{:?}", self).to_ascii_uppercase())
+		}
+	}
+}
+
+#[cfg(test)]
+mod digest_registry_drift {
+	use super::*;
+	use crate::rgh::hash::{
+		DIGEST_ALGORITHM_ALIASES, DIGEST_ALGORITHMS, RHash,
+	};
+	use strum::IntoEnumIterator;
+
+	fn resolve_digest_id(id: &str) -> &str {
+		DIGEST_ALGORITHM_ALIASES
+			.iter()
+			.find(|(alias, _)| *alias == id)
+			.map(|(_, target)| *target)
+			.unwrap_or(id)
+	}
+
+	#[test]
+	fn digest_capable_algorithms_are_in_digest_registry() {
+		let registry: std::collections::HashSet<&str> =
+			DIGEST_ALGORITHMS.iter().map(|algo| algo.id).collect();
+		for alg in Algorithm::iter() {
+			let Some(id) = alg.digest_rhash_id() else {
+				continue;
+			};
+			let canonical = resolve_digest_id(&id);
+			assert!(
+				registry.contains(canonical),
+				"Algorithm::{alg:?} maps to `{id}` → `{canonical}` missing from DIGEST_ALGORITHMS"
+			);
+			RHash::new(canonical).unwrap_or_else(|err| {
+				panic!("RHash::new({canonical}) failed for {alg:?}: {err}")
+			});
+		}
+	}
+}
