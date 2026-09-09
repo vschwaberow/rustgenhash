@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.16.0 - 2026-09-09
 
-- Published known-answer fixtures for every digest algorithm under `tests/fixtures/digest/kats/`, with source citations and CI coverage gates against `DIGEST_ALGORITHMS`.
+- ASCON digests go through `RHash` / `rgh digest` (no legacy-only path).
+- Sourced known-answer fixtures for every digest in `DIGEST_ALGORITHMS` under `tests/fixtures/digest/kats/`; `tests/digest_kats.rs` enforces coverage and output widths.
 - Snefru-128 and Snefru-256 (8-pass) digests. IDs: `snefru`, `snefru128`, `snefru256`.
 - File digest mmap is off by default. Pass `--mmap-threshold <SIZE>` to enable it.
 

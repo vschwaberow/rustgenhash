@@ -334,13 +334,13 @@ rgh benchmark -a <algorithm> -i <iterations>
 
 ### Digest correctness
 
-Every digest algorithm registered in `DIGEST_ALGORITHMS` has sourced known-answer tests under [`tests/fixtures/digest/kats/`](tests/fixtures/digest/kats/). Fixtures cite the originating standard or published KAT suite (`source.title` / `source.url`). `tests/digest_kats.rs` checks that:
+Every algorithm in `DIGEST_ALGORITHMS` (including ASCON, Skein full-width outputs, GOST94 CryptoPro/Test/UA, and Snefru-128/256) has sourced known-answer tests under [`tests/fixtures/digest/kats/`](tests/fixtures/digest/kats/). Each fixture cites its standard or published KAT suite (`source.title` / `source.url`). `tests/digest_kats.rs` checks that:
 
 - each fixture digest matches `RHash`
 - every registry algorithm has at least one fixture
 - digest widths match the registry (catches silent truncation such as wrong Skein output sizes)
 
-`cargo test --all` runs these gates in CI.
+Run `cargo test --test digest_kats` or `cargo test --all` (CI).
 
 ## Performance Profile
 
@@ -368,6 +368,7 @@ across every CLI mode to guard against logical regressions.
 
 ```bash
 cargo test --test audit
+cargo test --test digest_kats
 ```
 
 The audit produces deterministic artifacts under `target/audit/`:
@@ -392,6 +393,7 @@ and the JSON payload to pinpoint the mismatch.
 | Fixture ID | Focus | Expected Exit | Notes |
 |------------|-------|---------------|-------|
 | `digest_string_empty` | SHA-256 digest of empty input | `0` | Ensures default and `--hash-only` outputs remain identical. |
+| `digest_string_snefru128` | Snefru-128 of `abc` plus weak banner | `0` | 8-pass Snefru; weak-algorithm warning required. |
 | `digest_file_large_stream` | 1 GiB deterministic stream | `0` | Runtime target ≤10 min; data generated under `target/audit/large-stream/`. |
 | `mac_poly1305_mismatched_key` | Poly1305 key length violation | `2` | Requires error text “Poly1305 requires a 32-byte one-time key…”. |
 | `mac_cmac_padding_mismatch` | CMAC invalid key length | `2` | Fails fast with “Invalid CMAC key length…” guidance. |
