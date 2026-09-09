@@ -4,6 +4,8 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
+#![cfg(not(target_os = "windows"))]
+
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use rustgenhash::rgh::console::{
