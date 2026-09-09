@@ -5,6 +5,7 @@
 // Copyright (c) 2025
 
 use chrono::{DateTime, Utc};
+#[cfg(feature = "cli")]
 use dialoguer::Confirm;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -617,17 +618,25 @@ pub fn confirm_runtime(
 		if algorithm_count == 1 { "" } else { "s" },
 		format_runtime(estimate)
 	);
-	let confirmed = Confirm::new()
-		.with_prompt(prompt)
-		.default(true)
-		.interact()
-		.map_err(|err| {
-			BenchmarkError::Io(io::Error::other(err.to_string()))
-		})?;
-	if confirmed {
-		Ok(())
-	} else {
-		Err(BenchmarkError::UserAborted)
+	#[cfg(not(feature = "cli"))]
+	{
+		let _ = prompt;
+		return Err(BenchmarkError::UserAborted);
+	}
+	#[cfg(feature = "cli")]
+	{
+		let confirmed = Confirm::new()
+			.with_prompt(prompt)
+			.default(true)
+			.interact()
+			.map_err(|err| {
+				BenchmarkError::Io(io::Error::other(err.to_string()))
+			})?;
+		if confirmed {
+			Ok(())
+		} else {
+			Err(BenchmarkError::UserAborted)
+		}
 	}
 }
 

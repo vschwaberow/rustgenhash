@@ -1,0 +1,19 @@
+{
+  "algorithm": "sha-crypt",
+  "password": {
+    "encoding": "utf8",
+    "value": "password"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "00112233445566778899aabbccddeeff"
+  },
+  "params": {
+    "rounds": 10000
+  },
+  "expected": "$6$rounds=10000$.2V6nEIJaR5WNeuiArhvz1$n6q7nVVcmPoiyH97mZ/EQGnO6Br6P46EZynkI9wVQbP6s.jDfV8qntGW3QcgxTzKR1.so/Sok.IKWrWhwxMd8.",
+  "source": {
+    "title": "Unix sha512-crypt (glibc) \u2014 fixed-parameter rgh KAT",
+    "url": "https://www.akkadia.org/drepper/SHA-crypt.txt"
+  }
+}

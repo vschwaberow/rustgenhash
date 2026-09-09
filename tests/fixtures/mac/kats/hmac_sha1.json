@@ -1,0 +1,15 @@
+{
+  "algorithm": "hmac-sha1",
+  "key": {
+    "path": "tests/fixtures/keys/hmac.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "alpha"
+  },
+  "expected_hex": "23ea5cec55f20f94385951e634a461e26c2554f3",
+  "source": {
+    "title": "RFC 2104 / NIST SP 800-131A (legacy HMAC-SHA1)",
+    "url": "https://www.rfc-editor.org/rfc/rfc2104"
+  }
+}

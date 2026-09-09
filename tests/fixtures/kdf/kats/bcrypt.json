@@ -1,0 +1,19 @@
+{
+  "algorithm": "bcrypt",
+  "password": {
+    "encoding": "utf8",
+    "value": "password"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "00112233445566778899aabbccddeeff"
+  },
+  "params": {
+    "cost": 4
+  },
+  "expected": "b0d41a2981c57eb1a8d77de50c41b7a9911f6db6376242a3b6902697ac0d64a45466f6cf5ee380cd2d0dc7bbbddc8f9766a6fb6399ef57d50a719d005c7eb3aa",
+  "source": {
+    "title": "bcrypt_pbkdf (OpenSSH) \u2014 fixed-parameter rgh KAT",
+    "url": "https://docs.rs/bcrypt-pbkdf"
+  }
+}

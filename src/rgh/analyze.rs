@@ -174,6 +174,10 @@ impl HashAnalyzer {
 	}
 }
 
+/// Case-insensitive equality of two hex (or other display) hash strings.
+///
+/// This is a CLI display check for `compare-hash`, not a constant-time
+/// comparison and not a MAC verification API.
 pub fn compare_hashes(hash1: &str, hash2: &str) -> bool {
 	hash1.eq_ignore_ascii_case(hash2)
 }

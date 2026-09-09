@@ -517,24 +517,30 @@ impl PHash {
 		password: &str,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let params = sha_crypt::Params::new(10_000).map_err(|err| format!("{:?}", err))?;
 		let salt = SaltString::generate(&mut OsRng);
+		Self::hash_sha_crypt_with_salt(password, salt.as_str().as_bytes())
+			.map(|digest| {
+				assemble_output(hash_only, vec![digest], Some(password))
+			})
+	}
+
+	pub fn hash_sha_crypt_with_salt(
+		password: &str,
+		salt: &[u8],
+	) -> Result<String, String> {
+		let params = sha_crypt::Params::new(10_000)
+			.map_err(|err| format!("{:?}", err))?;
 		let sha_crypt = sha_crypt::ShaCrypt::new(
 			sha_crypt::Algorithm::Sha512Crypt,
 			params,
 		);
-		let hash =
-			sha_crypt::PasswordHasher::hash_password_with_salt(
-				&sha_crypt,
-				password.as_bytes(),
-				salt.as_str().as_bytes(),
-			)
-			.map_err(|err| format!("{:?}", err))?;
-		Ok(assemble_output(
-			hash_only,
-			vec![hash.to_string()],
-			Some(password),
-		))
+		let hash = sha_crypt::PasswordHasher::hash_password_with_salt(
+			&sha_crypt,
+			password.as_bytes(),
+			salt,
+		)
+		.map_err(|err| format!("{:?}", err))?;
+		Ok(hash.to_string())
 	}
 
 	pub fn hash_pbkdf2(
@@ -588,7 +594,7 @@ impl PHash {
 		))
 	}
 
-	pub(crate) fn hash_pbkdf2_with_salt(
+	pub fn hash_pbkdf2_with_salt(
 		password: &str,
 		pb_scheme: &str,
 		cfg: &Pbkdf2Config,
@@ -637,7 +643,7 @@ impl PHash {
 		Ok(hex::encode(out))
 	}
 
-	pub(crate) fn hash_bcrypt_with_salt(
+	pub fn hash_bcrypt_with_salt(
 		password: &str,
 		cfg: &BcryptConfig,
 		salt_b64: &str,
@@ -651,7 +657,7 @@ impl PHash {
 			.map_err(|err| err.to_string())
 	}
 
-	pub(crate) fn hash_argon2_with_salt(
+	pub fn hash_argon2_with_salt(
 		password: &str,
 		cfg: &Argon2Config,
 		salt_b64: &str,
@@ -665,7 +671,7 @@ impl PHash {
 			.map_err(|err| err.to_string())
 	}
 
-	pub(crate) fn hash_balloon_with_salt(
+	pub fn hash_balloon_with_salt(
 		password: &str,
 		cfg: &BalloonConfig,
 		salt_b64: &str,
@@ -679,7 +685,7 @@ impl PHash {
 			.map_err(|err| err.to_string())
 	}
 
-	pub(crate) fn hash_scrypt_with_salt(
+	pub fn hash_scrypt_with_salt(
 		password: &str,
 		cfg: &ScryptConfig,
 		salt_b64: &str,

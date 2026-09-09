@@ -10,3 +10,7 @@ Canonical fixtures for `rgh kdf` commands. Include parameter sets (memory, time,
 - `kdf_scrypt_profile_owasp.json`: scrypt derived key based on OWASP 2024 recommended parameters.
 - `kdf_pbkdf2_invalid_iterations.json`: PBKDF2 preset violation expecting exit code `2` with NIST SP 800-132 guidance.
 - `kdf_scrypt_zero_password.json`: Scrypt invocation with zero-length secret; aborts with exit code `2` and password validation error.
+
+## Known-answer tests (`kats/`)
+
+Sourced fixed-parameter vectors for every ID in `KDF_ALGORITHM_IDS`. Password KDFs use deterministic salts; HKDF vectors reuse or mirror the audit fixtures. Coverage is gated by `tests/kdf_kats.rs`.

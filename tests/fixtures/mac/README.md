@@ -13,3 +13,7 @@ Add new fixtures alongside published test vectors to ensure deterministic regres
 Recent additions:
 - `mac_poly1305_mismatched_key.json`: Verifies oversized Poly1305 keys exit with RFC 8439 guidance and exit code `2`.
 - `mac_cmac_padding_mismatch.json`: Validates CMAC key length enforcement (invalid 12-byte key) with exit code `2` and actionable error text.
+
+## Known-answer tests (`kats/`)
+
+Every algorithm from `mac::registry::algorithms()` must have a JSON file under `kats/` with `algorithm`, `key.path`, `input`, `expected_hex`, and `source`. Coverage is enforced by `tests/mac_kats.rs`.

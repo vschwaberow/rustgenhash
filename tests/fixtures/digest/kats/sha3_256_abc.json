@@ -1,0 +1,12 @@
+{
+  "algorithm": "SHA3_256",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532",
+  "source": {
+    "title": "FIPS 202 \u2014 SHA-3 Standard",
+    "url": "https://doi.org/10.6028/NIST.FIPS.202"
+  }
+}

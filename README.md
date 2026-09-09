@@ -22,7 +22,7 @@ Rustgenhash groups its command line surface into two primary families:
 - `rgh digest <mode>` — deterministic hashing for strings, files, or stdin streams.
 - `rgh kdf <algorithm>` — password-based key derivation with structured (JSON) metadata.
 
-Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash`, `compare-file`, `random`, `header`, and
+Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash` (case-insensitive display equality of digests, not constant-time and not for MAC tags), `compare-file`, `random`, `header`, and
 `interactive` (a guided wizard that now branches between digest and KDF workflows).
 
 ### Digest commands
@@ -302,13 +302,14 @@ rgh random -a uuidv4 -l 16
 
 `uuidv4` produces 16 bytes. Other lengths return an error.
 
-Scheme for generating a [HHHash](https://www.foo.be/2023/07/HTTP-Headers-Hashing_HHHash) of a provided url:
+Scheme for generating a [HHHash](https://www.foo.be/2023/07/HTTP-Headers-Hashing_HHHash) of a provided url.
+The `hhh:1:` digest hashes **sorted** lowercased header names (not wire / insertion order):
 
 ```bash
 rgh header www.google.de
 ```
 
-Scheme for comparing a hash:
+Scheme for comparing a hash (`compare-string` / `compare-hash`: case-insensitive display equality, not constant-time, not for MAC tags):
 
 ```bash
 rgh compare-string <hash1> <hash2>
@@ -334,13 +335,17 @@ rgh benchmark -a <algorithm> -i <iterations>
 
 ### Digest correctness
 
-Every digest algorithm registered in `DIGEST_ALGORITHMS` has sourced known-answer tests under [`tests/fixtures/digest/kats/`](tests/fixtures/digest/kats/). Fixtures cite the originating standard or published KAT suite (`source.title` / `source.url`). `tests/digest_kats.rs` checks that:
+Every algorithm in `DIGEST_ALGORITHMS` (including ASCON, Skein full-width outputs, GOST94 CryptoPro/Test/UA, and Snefru-128/256) has sourced known-answer tests under [`tests/fixtures/digest/kats/`](tests/fixtures/digest/kats/). Each fixture cites its standard or published KAT suite (`source.title` / `source.url`). `tests/digest_kats.rs` checks that:
 
 - each fixture digest matches `RHash`
 - every registry algorithm has at least one fixture
 - digest widths match the registry (catches silent truncation such as wrong Skein output sizes)
 
-`cargo test --all` runs these gates in CI.
+Every MAC ID from `mac::registry::algorithms()` has a sourced fixture under [`tests/fixtures/mac/kats/`](tests/fixtures/mac/kats/). `tests/mac_kats.rs` enforces match, coverage, and no orphans.
+
+Every ID in `KDF_ALGORITHM_IDS` has a sourced fixed-parameter fixture under [`tests/fixtures/kdf/kats/`](tests/fixtures/kdf/kats/). `tests/kdf_kats.rs` enforces the same gates.
+
+Run `cargo test --test digest_kats --test mac_kats --test kdf_kats` or `cargo test --all` (CI).
 
 ## Performance Profile
 
@@ -368,6 +373,7 @@ across every CLI mode to guard against logical regressions.
 
 ```bash
 cargo test --test audit
+cargo test --test digest_kats --test mac_kats --test kdf_kats
 ```
 
 The audit produces deterministic artifacts under `target/audit/`:
@@ -392,6 +398,7 @@ and the JSON payload to pinpoint the mismatch.
 | Fixture ID | Focus | Expected Exit | Notes |
 |------------|-------|---------------|-------|
 | `digest_string_empty` | SHA-256 digest of empty input | `0` | Ensures default and `--hash-only` outputs remain identical. |
+| `digest_string_snefru128` | Snefru-128 of `abc` plus weak banner | `0` | 8-pass Snefru; weak-algorithm warning required. |
 | `digest_file_large_stream` | 1 GiB deterministic stream | `0` | Runtime target ≤10 min; data generated under `target/audit/large-stream/`. |
 | `mac_poly1305_mismatched_key` | Poly1305 key length violation | `2` | Requires error text “Poly1305 requires a 32-byte one-time key…”. |
 | `mac_cmac_padding_mismatch` | CMAC invalid key length | `2` | Fails fast with “Invalid CMAC key length…” guidance. |

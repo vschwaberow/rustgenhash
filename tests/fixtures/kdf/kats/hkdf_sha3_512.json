@@ -1,0 +1,23 @@
+{
+  "algorithm": "hkdf-sha3-512",
+  "ikm": {
+    "encoding": "hex",
+    "value": "696b6d"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "73616c74"
+  },
+  "info": {
+    "encoding": "hex",
+    "value": "696e666f"
+  },
+  "params": {
+    "length": 64
+  },
+  "expected": "6829b2bdf3102d20161f7f54e204bddcd0397391be5b32a818770ec7e96c714e6448e84030c0efa2f22d520c9a6bf459f91365904114e0ec00dd866fa734b1f4",
+  "source": {
+    "title": "HKDF with SHA3-512 (RFC 5869 construction) \u2014 fixed-parameter rgh KAT",
+    "url": "https://www.rfc-editor.org/rfc/rfc5869"
+  }
+}

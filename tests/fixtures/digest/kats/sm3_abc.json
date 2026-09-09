@@ -1,0 +1,12 @@
+{
+  "algorithm": "SM3",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0",
+  "source": {
+    "title": "GM/T 0004-2012 SM3",
+    "url": "https://www.oscca.gov.cn/"
+  }
+}

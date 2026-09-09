@@ -1,0 +1,12 @@
+{
+  "algorithm": "BELTHASH",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "2661a79795a9e80258d6bc1e5d11747247901268ec4cd19237aad051e322b0c2",
+  "source": {
+    "title": "STB 34.101.31-2020 Belt hash (Table A.23)",
+    "url": "http://apmi.bsu.by/assets/files/std/belt-spec371.pdf"
+  }
+}

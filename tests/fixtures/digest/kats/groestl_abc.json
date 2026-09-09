@@ -1,0 +1,12 @@
+{
+  "algorithm": "GROESTL",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "f3c1bb19c048801326a7efbcf16e3d7887446249829c379e1840d1a3a1e7d4d2",
+  "source": {
+    "title": "Gr\u00f8stl \u2014 SHA-3 competition / RustCrypto groestl tests",
+    "url": "https://github.com/RustCrypto/hashes"
+  }
+}

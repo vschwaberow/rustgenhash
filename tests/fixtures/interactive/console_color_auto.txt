@@ -9,7 +9,7 @@ Arguments:
 
 Options:
   -a, --algorithm <algorithm>
-          Digest algorithm identifier (e.g., sha256). ⚠ Weak: MD5, SHA-1, SHA-224 (md5, sha1, sha224). See README section "Weak Digest Algorithms" for safer alternatives.
+          Digest algorithm identifier (e.g., sha256). ⚠ Weak: MD5, SHA-1, SHA-224, Snefru-128, Snefru-256 (md5, sha1, sha224, snefru, snefru128, snefru256). See README section "Weak Digest Algorithms" for safer alternatives.
 
   -f, --format <format>
           Output format (json, jsonl, csv, hex, base64, hashcat, multihash=base58btc)

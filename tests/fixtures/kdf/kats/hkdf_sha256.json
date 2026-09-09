@@ -1,0 +1,23 @@
+{
+  "algorithm": "hkdf-sha256",
+  "ikm": {
+    "encoding": "hex",
+    "value": "726f6f7420736563726574"
+  },
+  "salt": {
+    "encoding": "hex",
+    "value": "73616c74"
+  },
+  "info": {
+    "encoding": "hex",
+    "value": "617069"
+  },
+  "params": {
+    "length": 32
+  },
+  "expected": "33f4df5eeadc1255748856f1f3c81be1e8cfd58e55a7f61e5abb729c279e922b",
+  "source": {
+    "title": "RFC 5869 HKDF-SHA256 \u2014 rgh audit fixture kdf_hkdf_sha256_basic",
+    "url": "https://www.rfc-editor.org/rfc/rfc5869"
+  }
+}

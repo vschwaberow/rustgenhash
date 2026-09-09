@@ -1,0 +1,12 @@
+{
+  "algorithm": "TIGER",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "2aab1484e8c158f2bfb8c5ff41b57a525129131c957b5f93",
+  "source": {
+    "title": "Tiger hash function \u2014 Anderson & Biham",
+    "url": "https://www.cs.technion.ac.il/~biham/Reports/Tiger/"
+  }
+}

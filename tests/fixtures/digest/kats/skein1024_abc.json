@@ -1,0 +1,12 @@
+{
+  "algorithm": "SKEIN1024",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "35a599a0f91abcdb4cb73c19b8cb8d947742d82c309137a7caed29e8e0a2ca7a9ff9a90c34c1908cc7e7fd99bb15032fb86e76df21b72628399b5f7c3cc209d7bb31c99cd4e19465622a049afbb87c03b5ce3888d17e6e667279ec0aa9b3e2712624c01b5f5bbe1a564220bdcf6990af0c2539019f313fdd7406cca3892a1f1f",
+  "source": {
+    "title": "Skein 1.3 \u2014 Skein-1024-1024 known-answer tests",
+    "url": "https://www.schneier.com/academic/skein/"
+  }
+}

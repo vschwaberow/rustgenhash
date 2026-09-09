@@ -1,0 +1,12 @@
+{
+  "algorithm": "BLAKE2S",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982",
+  "source": {
+    "title": "RFC 7693 \u2014 BLAKE2s",
+    "url": "https://www.rfc-editor.org/rfc/rfc7693"
+  }
+}

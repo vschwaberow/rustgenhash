@@ -1,0 +1,15 @@
+{
+  "algorithm": "poly1305",
+  "key": {
+    "path": "tests/fixtures/keys/poly1305.key"
+  },
+  "input": {
+    "encoding": "utf8",
+    "value": "config"
+  },
+  "expected_hex": "1cb7a97202776f414eae3333aefc9f57",
+  "source": {
+    "title": "RFC 8439 \u00a72.5 Poly1305",
+    "url": "https://www.rfc-editor.org/rfc/rfc8439"
+  }
+}

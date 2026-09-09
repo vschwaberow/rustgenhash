@@ -1,0 +1,12 @@
+{
+  "algorithm": "STREEBOG512",
+  "input": {
+    "encoding": "utf8",
+    "value": "abc"
+  },
+  "expected_hex": "28156e28317da7c98f4fe2bed6b542d0dab85bb224445fcedaf75d46e26d7eb8d5997f3e0915dd6b7f0aab08d9c8beb0d8c64bae2ab8b3c8c6bc53b3bf0db728",
+  "source": {
+    "title": "GOST R 34.11-2012 Streebog-512 / gost-engine etalon",
+    "url": "https://github.com/gost-engine/engine"
+  }
+}
