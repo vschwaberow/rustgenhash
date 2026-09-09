@@ -8,7 +8,7 @@ use super::{
 	BenchmarkError, BenchmarkMode, BenchmarkResult,
 	BenchmarkScenario, BenchmarkSummary,
 };
-use crate::rgh::app::Algorithm;
+use crate::rgh::cli::algorithms::Algorithm;
 use crate::rgh::hash::{
 	asm_accelerated_digests, Argon2Config, BalloonConfig,
 	BcryptConfig, PHash, Pbkdf2Config, RHash, ScryptConfig,

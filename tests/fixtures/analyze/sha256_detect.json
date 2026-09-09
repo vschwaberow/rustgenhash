@@ -17,6 +17,7 @@
       "SHA3-256",
       "SM3",
       "Shabal256",
+      "Snefru-256",
       "Streebog256"
     ],
     "is_exact": false

@@ -16,7 +16,7 @@ use super::{
 	AuditCase, AuditError, AuditMode, AuditRunMetadata, AuditSeverity,
 };
 use crate::rgh::analyze::{compare_hashes, HashAnalyzer};
-use crate::rgh::app::Algorithm;
+use crate::rgh::cli::algorithms::Algorithm;
 use crate::rgh::benchmark::run_digest_benchmarks;
 use crate::rgh::file::{
 	DirectoryHashPlan, EntryStatus, ErrorHandlingProfile,

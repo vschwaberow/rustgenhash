@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Audit harness skips `kats/` directories (KAT schema ≠ audit fixtures).
+- `cli` feature gates dialoguer/rustyline so wasm `portable-only` builds without them.
+- Analyze SHA-256 detect fixture includes Snefru-256.
 - Sourced MAC known-answer fixtures for every registry MAC ID (`tests/mac_kats.rs`).
 - `KDF_ALGORITHM_IDS` and sourced KDF known-answer fixtures (`tests/kdf_kats.rs`).
 - Drift test: digest-capable `Algorithm` variants stay in `DIGEST_ALGORITHMS`.

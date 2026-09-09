@@ -8,10 +8,12 @@ pub use serde::{Deserialize, Serialize};
 
 pub mod rgh {
         pub mod analyze;
+        #[cfg(feature = "cli")]
         pub mod app;
         pub mod audit;
         pub mod benchmark;
         pub mod cli;
+        #[cfg(feature = "cli")]
         pub mod console;
         pub mod digest;
         pub mod file;

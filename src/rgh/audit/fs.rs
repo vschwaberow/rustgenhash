@@ -81,6 +81,10 @@ fn collect_recursive(
 			})?;
 		let path = entry.path();
 		if meta.is_dir() {
+			// Known-answer fixtures use a different schema than audit cases.
+			if path.file_name() == Some(OsStr::new("kats")) {
+				continue;
+			}
 			collect_recursive(&path, paths)?;
 			continue;
 		}
