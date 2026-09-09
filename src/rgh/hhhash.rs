@@ -49,6 +49,31 @@ pub fn generate_hhhash(
 	Err("HHHash generation is not supported on wasm targets".into())
 }
 
+/// Canonical HHHash header list: lowercased names, sorted, joined by newlines.
+///
+/// `hhh:1:` digests use this order so the result is independent of response
+/// header insertion / wire order.
+pub fn canonicalize_header_names<'a>(
+	names: impl IntoIterator<Item = &'a str>,
+) -> String {
+	let mut names: Vec<String> = names
+		.into_iter()
+		.map(|name| name.to_ascii_lowercase())
+		.collect();
+	names.sort_unstable();
+	names.join("\n")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn hhhash_from_header_names<'a>(
+	names: impl IntoIterator<Item = &'a str>,
+) -> String {
+	let header_string = canonicalize_header_names(names);
+	let mut hasher = sha2::Sha256::new();
+	hasher.update(header_string.as_bytes());
+	format!("hhh:1:{}", hex::encode(hasher.finalize()))
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn generate_hhhash(
 	url: String,
@@ -60,17 +85,31 @@ pub fn generate_hhhash(
 
 	let resp = client.get(parsed_url).send()?.error_for_status()?;
 
-	let header_names: Vec<_> = resp
-		.headers()
-		.keys()
-		.map(|header| header.as_str())
-		.collect();
-	let header_string = header_names.join("\n");
+	Ok(hhhash_from_header_names(
+		resp.headers().keys().map(|header| header.as_str()),
+	))
+}
 
-	let mut hasher = sha2::Sha256::new();
-	hasher.update(header_string.as_bytes());
-	let hash = hasher.finalize();
-	let hash = format!("hhh:1:{}", hex::encode(hash));
+#[cfg(test)]
+mod tests {
+	use super::*;
 
-	Ok(hash)
+	#[test]
+	fn header_order_does_not_change_hhhash() {
+		let a = ["Content-Type", "Date", "Server"];
+		let b = ["server", "content-type", "DATE"];
+		assert_eq!(
+			canonicalize_header_names(a),
+			"content-type\ndate\nserver"
+		);
+		assert_eq!(
+			canonicalize_header_names(a),
+			canonicalize_header_names(b)
+		);
+		#[cfg(not(target_arch = "wasm32"))]
+		assert_eq!(
+			hhhash_from_header_names(a),
+			hhhash_from_header_names(b)
+		);
+	}
 }

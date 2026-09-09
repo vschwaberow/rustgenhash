@@ -22,7 +22,7 @@ Rustgenhash groups its command line surface into two primary families:
 - `rgh digest <mode>` — deterministic hashing for strings, files, or stdin streams.
 - `rgh kdf <algorithm>` — password-based key derivation with structured (JSON) metadata.
 
-Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash`, `compare-file`, `random`, `header`, and
+Supporting utilities remain available: `analyze`, `benchmark`, `compare-hash` (case-insensitive display equality of digests, not constant-time and not for MAC tags), `compare-file`, `random`, `header`, and
 `interactive` (a guided wizard that now branches between digest and KDF workflows).
 
 ### Digest commands
@@ -302,13 +302,14 @@ rgh random -a uuidv4 -l 16
 
 `uuidv4` produces 16 bytes. Other lengths return an error.
 
-Scheme for generating a [HHHash](https://www.foo.be/2023/07/HTTP-Headers-Hashing_HHHash) of a provided url:
+Scheme for generating a [HHHash](https://www.foo.be/2023/07/HTTP-Headers-Hashing_HHHash) of a provided url.
+The `hhh:1:` digest hashes **sorted** lowercased header names (not wire / insertion order):
 
 ```bash
 rgh header www.google.de
 ```
 
-Scheme for comparing a hash:
+Scheme for comparing a hash (`compare-string` / `compare-hash`: case-insensitive display equality, not constant-time, not for MAC tags):
 
 ```bash
 rgh compare-string <hash1> <hash2>
