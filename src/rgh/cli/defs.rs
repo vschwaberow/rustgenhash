@@ -19,11 +19,13 @@ pub static DIGEST_ALGORITHM_HELP: OnceLock<String> = OnceLock::new();
 
 pub fn digest_algorithm_help_text() -> &'static str {
 	DIGEST_ALGORITHM_HELP.get_or_init(|| {
-		let display_names = all_metadata()
-			.iter()
-			.map(|meta| meta.display_name)
-			.collect::<Vec<_>>()
-			.join(", ");
+		let mut display_names = Vec::new();
+		for meta in all_metadata() {
+			if !display_names.contains(&meta.display_name) {
+				display_names.push(meta.display_name);
+			}
+		}
+		let display_names = display_names.join(", ");
 		let identifiers = all_metadata()
 			.iter()
 			.map(|meta| meta.algorithm_id)
