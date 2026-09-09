@@ -27,9 +27,14 @@ jobs:
           - name: Windows x86_64 tests
             runs-on: windows-latest
             target: ""
-            # MSVC cannot assemble sha2-asm (*.S); use portable digests + CLI.
-            command: cargo test --all --no-default-features --features "std,cli"
+            # MSVC cannot assemble sha2-asm (*.S). Audit lives in the Linux Audit Harness
+            # workflow (symlinks/path separators differ on Windows).
+            command: cargo test --all --no-default-features --features "std,cli" -- --skip audit_fixtures_smoke
     steps:
+      - name: Force LF checkouts on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable

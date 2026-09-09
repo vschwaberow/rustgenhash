@@ -1,0 +1,2 @@
+# Keep fixture bytes identical across platforms (audit/KAT digests).
+tests/fixtures/** text eol=lf
