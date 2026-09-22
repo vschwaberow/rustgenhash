@@ -155,6 +155,7 @@ pub const DIGEST_ALGORITHMS: &[DigestAlgorithm] = &[
 	DigestAlgorithm { id: "STREEBOG256", output_len: 32 },
 	DigestAlgorithm { id: "STREEBOG512", output_len: 64 },
 	DigestAlgorithm { id: "TIGER", output_len: 24 },
+	DigestAlgorithm { id: "TIGER2", output_len: 24 },
 	DigestAlgorithm { id: "WHIRLPOOL", output_len: 64 },
 ];
 
@@ -164,6 +165,7 @@ pub const DIGEST_ALGORITHM_ALIASES: &[(&str, &str)] = &[
 	("SNEFRU", "SNEFRU128"),
 	("SNEFRU_128", "SNEFRU128"),
 	("SNEFRU_256", "SNEFRU256"),
+	("TIGER_2", "TIGER2"),
 ];
 
 pub fn digest_algorithm_ids() -> impl Iterator<Item = &'static str> {
@@ -768,6 +770,8 @@ impl RHash {
 				"STREEBOG256" => streebog::Streebog256::new(),
 				"STREEBOG512" => streebog::Streebog512::new(),
 				"TIGER"     => tiger::Tiger::new(),
+				"TIGER2"    => tiger::Tiger2::new(),
+				"TIGER_2"   => tiger::Tiger2::new(),
 				"WHIRLPOOL" => whirlpool::Whirlpool::new(),
 			)?,
 		})

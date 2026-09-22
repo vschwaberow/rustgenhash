@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Tiger2 digest (`tiger2`, `tiger-2`). Same 192-bit width as Tiger, MD4-style padding.
+
 ## 0.16.0 - 2026-09-09
 
 - ASCON digests go through `RHash` / `rgh digest` (no legacy-only path).
