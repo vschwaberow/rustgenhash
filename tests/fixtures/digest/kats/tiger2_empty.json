@@ -1,0 +1,12 @@
+{
+  "algorithm": "TIGER2",
+  "input": {
+    "encoding": "utf8",
+    "value": ""
+  },
+  "expected_hex": "4441be75f6018773c206c22745374b924aa8313fef919f41",
+  "source": {
+    "title": "Tiger hash function — Anderson & Biham (Tiger2 / MD4-style padding)",
+    "url": "https://www.cs.technion.ac.il/~biham/Reports/Tiger/"
+  }
+}

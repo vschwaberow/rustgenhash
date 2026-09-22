@@ -58,6 +58,7 @@ pub enum Algorithm {
 	Streebog256,
 	Streebog512,
 	Tiger,
+	Tiger2,
 	Whirlpool,
 }
 
