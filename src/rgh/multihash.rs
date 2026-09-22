@@ -25,11 +25,19 @@ impl MulticodecSupportMatrix {
 	pub fn lookup(
 		algorithm: &str,
 	) -> Option<&'static MulticodecEntry> {
-		let normalized = algorithm.to_ascii_lowercase();
-		Self::entries()
-			.iter()
-			.find(|entry| entry.algorithm == normalized)
+		let needle = compact_algorithm_id(algorithm);
+		Self::entries().iter().find(|entry| {
+			compact_algorithm_id(entry.algorithm) == needle
+		})
 	}
+}
+
+fn compact_algorithm_id(algorithm: &str) -> String {
+	algorithm
+		.chars()
+		.filter(|ch| *ch != '-' && *ch != '_')
+		.flat_map(|ch| ch.to_lowercase())
+		.collect()
 }
 
 /// Single multicodec mapping entry.
@@ -96,7 +104,7 @@ impl MultihashEncoder {
 			== entry.expected_digest_len
 		{
 			Cow::Borrowed(digest)
-		} else if entry.algorithm == "blake2b"
+		} else if compact_algorithm_id(entry.algorithm) == "blake2b"
 			&& digest.len() == 64
 			&& entry.expected_digest_len == 32
 		{
@@ -109,7 +117,8 @@ impl MultihashEncoder {
 			});
 		};
 
-		let mut out_bytes = Vec::with_capacity(canonical_digest.len() + 8);
+		let mut out_bytes =
+			Vec::with_capacity(canonical_digest.len() + 8);
 		encode_varint(entry.code, &mut out_bytes);
 		encode_varint(canonical_digest.len() as u64, &mut out_bytes);
 		out_bytes.extend_from_slice(canonical_digest.as_ref());
@@ -134,6 +143,12 @@ fn encode_varint(mut value: u64, buf: &mut Vec<u8>) {
 
 const ENTRIES: &[MulticodecEntry] = &[
 	MulticodecEntry {
+		algorithm: "sha1",
+		code: 0x11,
+		expected_digest_len: 20,
+		description: "multihash code 0x11 (sha1)",
+	},
+	MulticodecEntry {
 		algorithm: "sha256",
 		code: 0x12,
 		expected_digest_len: 32,
@@ -146,10 +161,34 @@ const ENTRIES: &[MulticodecEntry] = &[
 		description: "multihash code 0x13 (sha2-512)",
 	},
 	MulticodecEntry {
+		algorithm: "sha384",
+		code: 0x20,
+		expected_digest_len: 48,
+		description: "multihash code 0x20 (sha2-384)",
+	},
+	MulticodecEntry {
+		algorithm: "sha3-256",
+		code: 0x16,
+		expected_digest_len: 32,
+		description: "multihash code 0x16 (sha3-256)",
+	},
+	MulticodecEntry {
+		algorithm: "sha3-512",
+		code: 0x14,
+		expected_digest_len: 64,
+		description: "multihash code 0x14 (sha3-512)",
+	},
+	MulticodecEntry {
 		algorithm: "blake2b",
 		code: 0xb220,
 		expected_digest_len: 32,
 		description: "multihash code 0xb220 (blake2b-256)",
+	},
+	MulticodecEntry {
+		algorithm: "blake2s",
+		code: 0xb260,
+		expected_digest_len: 32,
+		description: "multihash code 0xb260 (blake2s-256)",
 	},
 	MulticodecEntry {
 		algorithm: "blake3",
@@ -159,5 +198,7 @@ const ENTRIES: &[MulticodecEntry] = &[
 	},
 ];
 
-const SUPPORTED_ALGORITHMS: &[&str] =
-	&["sha256", "sha512", "blake2b", "blake3"];
+const SUPPORTED_ALGORITHMS: &[&str] = &[
+	"sha1", "sha256", "sha384", "sha512", "sha3-256", "sha3-512",
+	"blake2b", "blake2s", "blake3",
+];

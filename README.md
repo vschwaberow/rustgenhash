@@ -5,7 +5,7 @@ rustgenhash is a tool to generate hashes on the commandline from stdio.
 It can be used to generate single or multiple hashes for usage in password databases or even in penetration testing scenarios where you want to test password cracking tools. It can also help to identify the nature of a provided hash.
 
 > Multihash output support follows the [multiformats Multihash specification](https://github.com/multiformats/multihash) and uses the Rust [`multihash`](https://crates.io/crates/multihash) v0.18 and [`multibase`](https://crates.io/crates/multibase) v0.9 crates for TLV encoding and base58btc emission.
-> Supported multicodec mappings currently cover `sha2-256`, `sha2-512`, `blake2b-256`, and `blake3-256`. When `--format multihash` is selected, manifests record the emitted base58btc tokens verbatim.
+> Supported multicodec mappings currently cover `sha1`, `sha2-256`, `sha2-384`, `sha2-512`, `sha3-256`, `sha3-512`, `blake2b-256`, `blake2s-256`, and `blake3-256`. When `--format multihash` is selected, manifests record the emitted base58btc tokens verbatim.
 
 ## Install
 
