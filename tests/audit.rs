@@ -44,72 +44,95 @@ fn load_all(paths: &[PathBuf]) -> Vec<AuditCase> {
 		.collect()
 }
 
+struct LargeStreamConfig {
+	path: PathBuf,
+	length: u64,
+	chunk_size: u64,
+	seed: u64,
+}
+
+fn parse_large_stream_config(
+	case: &AuditCase,
+	config: &Value,
+) -> io::Result<LargeStreamConfig> {
+	let cfg = config.as_object().ok_or_else(|| {
+		io::Error::new(
+			io::ErrorKind::InvalidData,
+			format!(
+				"Fixture `{}` generate_large_stream must be an object",
+				case.id
+			),
+		)
+	})?;
+	let path_str = cfg.get("path").and_then(Value::as_str).ok_or_else(|| {
+		io::Error::new(
+			io::ErrorKind::InvalidData,
+			format!(
+				"Fixture `{}` generate_large_stream.path missing",
+				case.id
+			),
+		)
+	})?;
+	let length = cfg
+		.get("length_bytes")
+		.and_then(Value::as_u64)
+		.ok_or_else(|| {
+			io::Error::new(
+				io::ErrorKind::InvalidData,
+				format!(
+					"Fixture `{}` generate_large_stream.length_bytes missing",
+					case.id
+				),
+			)
+		})?;
+	let chunk_size = cfg
+		.get("chunk_size")
+		.and_then(Value::as_u64)
+		.unwrap_or(MAX_STREAM_CHUNK_SIZE);
+	if chunk_size == 0 || chunk_size > MAX_STREAM_CHUNK_SIZE {
+		return Err(io::Error::new(
+			io::ErrorKind::InvalidData,
+			format!(
+				"Fixture `{}` chunk_size must be 1..={} bytes",
+				case.id,
+				MAX_STREAM_CHUNK_SIZE
+			),
+		));
+	}
+	let seed = cfg.get("seed").and_then(Value::as_u64).unwrap_or(0);
+	Ok(LargeStreamConfig {
+		path: PathBuf::from(path_str),
+		length,
+		chunk_size,
+		seed,
+	})
+}
+
+fn ensure_stream_file(config: &LargeStreamConfig) -> io::Result<()> {
+	if let Some(parent) = config.path.parent() {
+		fs::create_dir_all(parent)?;
+	}
+	if let Ok(meta) = fs::metadata(&config.path) {
+		if meta.len() == config.length {
+			return Ok(());
+		}
+	}
+	write_large_stream(
+		&config.path,
+		config.seed,
+		config.length,
+		config.chunk_size,
+	)
+}
+
 fn prepare_large_stream_inputs(
 	cases: &[AuditCase],
 ) -> io::Result<()> {
 	fs::create_dir_all(LARGE_STREAM_DIR)?;
 	for case in cases {
-		if let Some(config) = case.input.get("generate_large_stream")
-		{
-			let cfg = config.as_object().ok_or_else(|| {
-				io::Error::new(
-					io::ErrorKind::InvalidData,
-					format!(
-						"Fixture `{}` generate_large_stream must be an object",
-						case.id
-					),
-				)
-			})?;
-			let path_str = cfg
-				.get("path")
-				.and_then(Value::as_str)
-				.ok_or_else(|| {
-					io::Error::new(
-						io::ErrorKind::InvalidData,
-						format!(
-							"Fixture `{}` generate_large_stream.path missing",
-							case.id
-						),
-					)
-				})?;
-			let length = cfg
-				.get("length_bytes")
-				.and_then(Value::as_u64)
-				.ok_or_else(|| {
-					io::Error::new(
-						io::ErrorKind::InvalidData,
-						format!(
-							"Fixture `{}` generate_large_stream.length_bytes missing",
-							case.id
-						),
-					)
-				})?;
-			let chunk_size = cfg
-				.get("chunk_size")
-				.and_then(Value::as_u64)
-				.unwrap_or(MAX_STREAM_CHUNK_SIZE);
-			if chunk_size == 0 || chunk_size > MAX_STREAM_CHUNK_SIZE {
-				return Err(io::Error::new(
-					io::ErrorKind::InvalidData,
-					format!(
-						"Fixture `{}` chunk_size must be 1..={} bytes",
-						case.id,
-						MAX_STREAM_CHUNK_SIZE
-					),
-				));
-			}
-			let seed =
-				cfg.get("seed").and_then(Value::as_u64).unwrap_or(0);
-			let path = Path::new(path_str);
-			if let Some(parent) = path.parent() {
-				fs::create_dir_all(parent)?;
-			}
-			if let Ok(meta) = fs::metadata(path) {
-				if meta.len() == length {
-					continue;
-				}
-			}
-			write_large_stream(path, seed, length, chunk_size)?;
+		if let Some(config) = case.input.get("generate_large_stream") {
+			let parsed = parse_large_stream_config(case, config)?;
+			ensure_stream_file(&parsed)?;
 		}
 	}
 	Ok(())
