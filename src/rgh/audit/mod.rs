@@ -30,9 +30,6 @@ pub use runner::{
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum AuditMode {
-	String,
-	File,
-	Stdio,
 	#[serde(rename = "digest_string")]
 	DigestString,
 	#[serde(rename = "digest_file")]

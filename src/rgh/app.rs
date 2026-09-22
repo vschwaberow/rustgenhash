@@ -20,8 +20,7 @@ use crate::rgh::cli::defs::{
 	MAC_ALGORITHM_HELP, MAC_ALGORITHM_MATRIX_HELP,
 };
 use crate::rgh::cli::handlers::{
-	hash_file, hash_string, HashConfigs,
-};
+	};
 use crate::rgh::cli::interactive::{
 	render_compare_summary, run_interactive_mode,
 };
@@ -70,12 +69,11 @@ use clap::builder::PossibleValuesParser;
 use clap::parser::ValueSource;
 use clap::{crate_name, Arg, ArgAction, ArgGroup};
 use clap_complete::{generate, Generator, Shell};
-use colored::*;
 use dialoguer::Password;
 use pbkdf2::password_hash::SaltString as Pbkdf2SaltString;
 use scrypt::password_hash::SaltString as ScryptSaltString;
 use std::error::Error;
-use std::io::{self, BufRead, Read};
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::str::FromStr;
@@ -182,75 +180,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				}
 			}
 		}
-		Some(("string", s)) => {
-			emit_legacy_warning(
-				"string",
-				"rgh digest string -a <algorithm> <INPUT>",
-			);
-			let st = s.get_one::<String>("INPUTSTRING");
-			let st = match st {
-				Some(s) => s,
-				None => {
-					println!("No string provided.");
-					std::process::exit(1);
-				}
-			};
-			let a = s.get_one::<Algorithm>("algorithm");
-			let a = match a {
-				Some(a) => *a,
-				None => panic!("Algorithm not found."),
-			};
-			let format = s
-				.get_one::<DigestOutputFormat>("format")
-				.copied()
-				.unwrap_or(DigestOutputFormat::Hex);
-			let argon2_config = Argon2Config {
-				mem_cost: *s
-					.get_one::<u32>("argon2-mem-cost")
-					.unwrap(),
-				time_cost: *s
-					.get_one::<u32>("argon2-time-cost")
-					.unwrap(),
-				parallelism: *s
-					.get_one::<u32>("argon2-parallelism")
-					.unwrap(),
-			};
-			let scrypt_config = ScryptConfig {
-				log_n: *s.get_one::<u8>("scrypt-log-n").unwrap(),
-				r: *s.get_one::<u32>("scrypt-r").unwrap(),
-				p: *s.get_one::<u32>("scrypt-p").unwrap(),
-			};
-			let bcrypt_config = BcryptConfig {
-				cost: *s.get_one::<u32>("bcrypt-cost").unwrap(),
-			};
-			let pbkdf2_config = Pbkdf2Config {
-				rounds: *s.get_one::<u32>("pbkdf2-rounds").unwrap(),
-				output_length: *s
-					.get_one::<usize>("pbkdf2-output-length")
-					.unwrap(),
-			};
-			let balloon_config = BalloonConfig {
-				time_cost: *s
-					.get_one::<u32>("balloon-time-cost")
-					.unwrap(),
-				memory_cost: *s
-					.get_one::<u32>("balloon-memory-cost")
-					.unwrap(),
-				parallelism: *s
-					.get_one::<u32>("balloon-parallelism")
-					.unwrap(),
-			};
-			let hash_only = s.get_flag("hash-only");
-			let configs = HashConfigs {
-				argon2: &argon2_config,
-				scrypt: &scrypt_config,
-				bcrypt: &bcrypt_config,
-				pbkdf2: &pbkdf2_config,
-				balloon: &balloon_config,
-			};
-
-			hash_string(a, st, format, &configs, hash_only);
-		}
 		Some(("compare-file", s)) => {
 			let baseline = s
 				.get_one::<String>("manifest")
@@ -297,74 +226,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 				println!("The hashes are not equal.");
 				std::process::exit(1);
 			}
-		}
-		Some(("file", s)) => {
-			emit_legacy_warning(
-				"file",
-				"rgh digest file -a <algorithm> <PATH>",
-			);
-			let f = s.get_one::<String>("FILE");
-			let f = match f {
-				Some(f) => f,
-				None => {
-					println!("No file provided.");
-					std::process::exit(1);
-				}
-			};
-			let a = s.get_one::<Algorithm>("algorithm");
-			let a = match a {
-				Some(a) => *a,
-				None => panic!("Algorithm not found."),
-			};
-			let format = s
-				.get_one::<DigestOutputFormat>("format")
-				.copied()
-				.unwrap_or(DigestOutputFormat::Hex);
-			let hash_only = s.get_flag("hash-only");
-			hash_file(a, f, format, hash_only);
-		}
-		Some(("stdio", s)) => {
-			emit_legacy_warning(
-				"stdio",
-				"rgh digest stdio -a <algorithm>",
-			);
-			let stdin = std::io::stdin();
-			let hash_only = s.get_flag("hash-only");
-			stdin.lock().lines().for_each(|l| {
-				let a = s.get_one::<Algorithm>("algorithm");
-				let a = match a {
-					Some(a) => *a,
-					None => {
-						println!("Algorithm error. This should really not happen.");
-						std::process::exit(1);
-					}
-				};
-				let l = match l {
-					Ok(l) => l,
-					Err(e) => {
-						eprintln!("Error: {}", e);
-						std::process::exit(1);
-					}
-				};
-				let format = s
-					.get_one::<DigestOutputFormat>("format")
-					.copied()
-					.unwrap_or(DigestOutputFormat::Hex);
-				let argon2_config = Argon2Config::default();
-				let scrypt_config = ScryptConfig::default();
-				let bcrypt_config = BcryptConfig::default();
-				let pbkdf2_config = Pbkdf2Config::default();
-				let balloon_config = BalloonConfig::default();
-				let configs = HashConfigs {
-					argon2: &argon2_config,
-					scrypt: &scrypt_config,
-					bcrypt: &bcrypt_config,
-					pbkdf2: &pbkdf2_config,
-					balloon: &balloon_config,
-				};
-
-				hash_string(a, &l, format, &configs, hash_only);
-			});
 		}
 		Some(("generate-auto-completions", s)) => {
 			if let Some(gen) = s.get_one::<Shell>("SHELL") {
@@ -1057,17 +918,6 @@ fn handle_mac_command(
 	}
 }
 
-fn emit_legacy_warning(command: &str, replacement: &str) {
-	eprintln!(
-		"{}",
-		format!(
-			"warning: `rgh {}` is deprecated; use `{}` instead.",
-			command,
-			replacement
-		)
-		.yellow()
-	);
-}
 
 pub(crate) fn build_cli() -> clap::Command {
 	clap::Command::new(clap::crate_name!()) 
@@ -1647,193 +1497,7 @@ pub(crate) fn build_cli() -> clap::Command {
 							)
 					)
 		)
-			.subcommand(
-						clap::command!("string")
-							.about("Hash single string object")
-						.arg(
-								Arg::new("INPUTSTRING")
-									.help("String to hash")
-									.required(true),
-						)
-						.arg_required_else_help(true)
-						.display_order(3)
-						.arg(
-								Arg::new("interactive")
-						)
-						.arg(
-								Arg::new("algorithm")
-									.short('a')
-									.long("algorithm")
-									.value_parser(clap::value_parser!(Algorithm))
-									.required(true)
-									.display_order(1),
-						)
-						.arg(
-								Arg::new("argon2-mem-cost")
-									.long("argon2-mem-cost")
-									.value_parser(clap::value_parser!(u32))
-									.help("Argon2 memory cost (KiB)")
-									.default_value("65536")
-						)
-						.arg(
-								Arg::new("argon2-time-cost")
-									.long("argon2-time-cost")
-									.value_parser(clap::value_parser!(u32))
-									.help("Argon2 time cost (iterations)")
-									.default_value("3")
-						)
-						.arg(
-								Arg::new("argon2-parallelism")
-									.long("argon2-parallelism")
-									.value_parser(clap::value_parser!(u32))
-									.help("Argon2 parallelism")
-									.default_value("4")
-						)
-						.arg(
-								Arg::new("scrypt-log-n")
-									.long("scrypt-log-n")
-									.value_parser(clap::value_parser!(u8))
-									.help("Scrypt log_n (2^n)")
-									.default_value("15")
-						)
-						.arg(
-								Arg::new("scrypt-r")
-									.long("scrypt-r")
-									.value_parser(clap::value_parser!(u32))
-									.help("Scrypt r")
-									.default_value("8")
-						)
-						.arg(
-								Arg::new("scrypt-p")
-									.long("scrypt-p")
-									.value_parser(clap::value_parser!(u32))
-									.help("Scrypt p")
-									.default_value("1")
-						)
-						.arg(
-								Arg::new("bcrypt-cost")
-									.long("bcrypt-cost")
-									.value_parser(clap::value_parser!(u32))
-									.help("Bcrypt cost")
-									.default_value("12")
-						)
-						.arg(
-								Arg::new("pbkdf2-rounds")
-									.long("pbkdf2-rounds")
-									.value_parser(clap::value_parser!(u32))
-									.help("PBKDF2 rounds")
-									.default_value("100000")
-						)
-						.arg(
-								Arg::new("pbkdf2-output-length")
-									.long("pbkdf2-output-length")
-									.value_parser(clap::value_parser!(usize))
-									.help("PBKDF2 output length (bytes)")
-									.default_value("32")
-						)
-						.arg(
-								Arg::new("balloon-time-cost")
-									.long("balloon-time-cost")
-									.value_parser(clap::value_parser!(u32))
-									.help("Balloon time cost (iterations)")
-									.default_value("3")
-						)
-						.arg(
-								Arg::new("balloon-memory-cost")
-									.long("balloon-memory-cost")
-									.value_parser(clap::value_parser!(u32))
-									.help("Balloon memory cost (KiB)")
-									.default_value("65536")
-						)
-						.arg(
-								Arg::new("balloon-parallelism")
-									.long("balloon-parallelism")
-									.value_parser(clap::value_parser!(u32))
-									.help("Balloon parallelism")
-									.default_value("4")
-						)
-						.arg(
-								Arg::new("format")
-									.short('f')
-									.long("format")
-									.value_parser(clap::value_parser!(
-										DigestOutputFormat
-									))
-									.help("Output format")
-									.default_value("hex")
-									.display_order(1),
-						)
-						.arg(
-								Arg::new("hash-only")
-									.short('H')
-									.long("hash-only")
-									.help("Print only the hash value without the source input")
-									.action(ArgAction::SetTrue)
-									.display_order(1),
-						)
-			)
-		.subcommand(
-						clap::command!("file")
-							.about("Hash single file or single directory")
-						.arg(Arg::new("FILE").display_order(1).required(true))
-						.arg(
-							Arg::new("algorithm")
-								.display_order(2)
-								.value_parser(clap::value_parser!(Algorithm))
-								.help(digest_algorithm_help_text())
-								.short('a')
-								.long("algorithm")
-								.required(true),
-						)
-						.arg(
-								Arg::new("format")
-									.short('f')
-									.long("format")
-									.value_parser(clap::value_parser!(DigestOutputFormat))
-									.help("Output format")
-									.default_value("hex")
-									.display_order(1),
-						)
-						.arg(
-								Arg::new("hash-only")
-									.short('H')
-									.long("hash-only")
-									.help("Print only the hash for each file entry")
-									.action(ArgAction::SetTrue)
-									.display_order(1),
-						),
-		)
-		.subcommand(
-						clap::command!("stdio")
-							.about("Hash input from stdin")
-						.display_order(2)
-						.arg(
-							Arg::new("algorithm")
-								.required(true)
-								.short('a')
-								.long("algorithm")
-								.value_parser(clap::value_parser!(Algorithm))
-								.help(digest_algorithm_help_text()),
-						)
-						.arg(
-								Arg::new("format")
-									.short('f')
-									.long("format")
-									.value_parser(clap::value_parser!(DigestOutputFormat))
-									.help("Output format")
-									.default_value("hex")
-									.display_order(1),
-						)
-						.arg(
-								Arg::new("hash-only")
-									.short('H')
-									.long("hash-only")
-									.help("Print only the hash for each input line")
-									.action(ArgAction::SetTrue)
-									.display_order(1),
-						),
-		)
-			.subcommand(
+										.subcommand(
 						clap::command!("random")
 							.about("Generate random string")
 						.display_order(3)

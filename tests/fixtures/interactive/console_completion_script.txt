@@ -1,20 +1,17 @@
 rgh-console(script)# complete
-# completions prefix='' matches=15
+# completions prefix='' matches=12
 analyze
 benchmark
 compare-file
 compare-hash
 console
 digest
-file
 generate-auto-completions
 header
 interactive
 kdf
 mac
 random
-stdio
-string
 rgh-console(script)# complete dig
 # completions prefix='dig' matches=1
 digest
