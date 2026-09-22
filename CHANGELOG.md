@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Multihash multicodec map adds `sha1`, `sha384`, `sha3-256`, `sha3-512`, and `blake2s` (hyphen/underscore IDs accepted).
 - Tiger2 digest (`tiger2`, `tiger-2`). Same 192-bit width as Tiger, MD4-style padding.
 - Refresh Cargo.lock within existing Cargo.toml semver ranges.
 
