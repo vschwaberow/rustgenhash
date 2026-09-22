@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Tiger2 digest (`tiger2`, `tiger-2`). Same 192-bit width as Tiger, MD4-style padding.
+- Refresh Cargo.lock within existing Cargo.toml semver ranges.
 
 ## 0.16.0 - 2026-09-09
 
