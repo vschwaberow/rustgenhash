@@ -29,7 +29,7 @@ use pbkdf2::{
 	},
 	Params as Pbkdf2Params, Pbkdf2,
 };
-use rand_core::{OsRng, RngCore};
+use password_hash::rand_core::{OsRng, RngCore};
 use scrypt::password_hash::SaltString as ScryptSaltString;
 use serde_json::json;
 use std::error::Error;
