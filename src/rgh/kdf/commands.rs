@@ -16,21 +16,7 @@ use crate::rgh::kdf::hkdf::{
 };
 use crate::rgh::kdf::profile::{Pbkdf2Profile, ScryptProfile};
 use crate::rgh::kdf::SecretMaterial;
-use argon2::password_hash::{
-	rand_core::OsRng as ArgonOsRng, SaltString as ArgonSaltString,
-};
-use balloon_hash::password_hash::{
-	rand_core::OsRng as BalloonOsRng, SaltString as BalloonSaltString,
-};
-use password_hash::PasswordHasher;
-use pbkdf2::{
-	password_hash::{
-		Ident as Pbkdf2Ident, SaltString as Pbkdf2SaltString,
-	},
-	Params as Pbkdf2Params, Pbkdf2,
-};
-use rand_core::{OsRng, RngCore};
-use scrypt::password_hash::SaltString as ScryptSaltString;
+use password_hash::phc::{Salt, SaltString as PhcSaltString};
 use serde_json::json;
 use std::error::Error;
 use std::io;
@@ -73,15 +59,14 @@ pub fn derive_argon2(
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
-	let mut rng = ArgonOsRng;
-	let salt = ArgonSaltString::generate(&mut rng);
+	let salt = PhcSaltString::generate();
 	let digest = PHash::hash_argon2_impl(password, config, &salt)
 		.map_err(|err| io::Error::other(err.to_string()))?;
 	let metadata = json!({
 		"mem_cost": config.mem_cost,
 		"time_cost": config.time_cost,
 		"parallelism": config.parallelism,
-		"salt": salt.as_str()
+		"salt": salt.as_ref()
 	});
 	println!(
 		"{}",
@@ -95,22 +80,22 @@ pub fn derive_scrypt(
 	password: &str,
 	config: &ScryptConfig,
 	profile: Option<&ScryptProfile>,
-	salt_override: Option<ScryptSaltString>,
+	salt_override: Option<PhcSaltString>,
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
-	let mut rng = OsRng;
 	let salt = match salt_override {
 		Some(salt) => salt,
 		None => {
 			if let Some(profile) = profile {
 				let mut salt_bytes = vec![0u8; profile.salt_len];
-				rng.fill_bytes(&mut salt_bytes);
-				ScryptSaltString::b64_encode(&salt_bytes).map_err(
-					|err| io::Error::other(err.to_string()),
-				)?
+				getrandom::fill(&mut salt_bytes)
+					.map_err(|err| io::Error::other(err.to_string()))?;
+				Salt::new(&salt_bytes)
+					.map(|salt| salt.to_salt_string())
+					.map_err(|err| io::Error::other(err.to_string()))?
 			} else {
-				ScryptSaltString::generate(&mut rng)
+				PhcSaltString::generate()
 			}
 		}
 	};
@@ -123,19 +108,12 @@ pub fn derive_scrypt(
 		"log_n": config.log_n,
 		"r": config.r,
 		"p": config.p,
-		"salt": salt.as_str(),
+		"salt": salt.as_ref(),
 		"memory_bytes": memory_bytes,
 		"memory_kib": memory_bytes / 1024,
 		"estimated_operations": estimated_ops
 	});
-	let mut salt_buffer =
-		vec![0u8; profile.map_or(16usize, |p| p.salt_len).max(16)];
-	let salt_length_bytes = salt
-		.as_salt()
-		.b64_decode(&mut salt_buffer)
-		.map_err(|err| io::Error::other(err.to_string()))?
-		.len();
-	metadata["salt_length_bytes"] = json!(salt_length_bytes);
+	metadata["salt_length_bytes"] = json!(salt.to_salt().len());
 	if let Some(profile) = profile {
 		metadata["profile"] = json!({
 			"id": profile.id,
@@ -161,54 +139,39 @@ pub fn derive_pbkdf2(
 	scheme: &str,
 	config: &Pbkdf2Config,
 	profile: Option<&Pbkdf2Profile>,
-	salt_override: Option<Pbkdf2SaltString>,
+	salt_override: Option<PhcSaltString>,
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
 	let normalized = normalize_pbkdf2_scheme(scheme)?;
-	let mut rng = OsRng;
 	let salt = match salt_override {
 		Some(salt) => salt,
 		None => {
 			if let Some(profile) = profile {
 				let mut salt_bytes = vec![0u8; profile.salt_len];
-				rng.fill_bytes(&mut salt_bytes);
-				Pbkdf2SaltString::b64_encode(&salt_bytes).map_err(
-					|err| io::Error::other(err.to_string()),
-				)?
+				getrandom::fill(&mut salt_bytes)
+					.map_err(|err| io::Error::other(err.to_string()))?;
+				Salt::new(&salt_bytes)
+					.map(|salt| salt.to_salt_string())
+					.map_err(|err| io::Error::other(err.to_string()))?
 			} else {
-				Pbkdf2SaltString::generate(&mut rng)
+				PhcSaltString::generate()
 			}
 		}
 	};
-	let ident = Pbkdf2Ident::new(normalized)
-		.map_err(|err| io::Error::other(err.to_string()))?;
-	let params = Pbkdf2Params {
-		output_length: config.output_length,
-		rounds: config.rounds,
-	};
-	let hash = Pbkdf2::hash_password_customized(
-		&Pbkdf2,
-		password.as_bytes(),
-		Some(ident),
-		None,
-		params,
-		salt.as_salt(),
+	let digest = PHash::hash_pbkdf2_with_salt(
+		password,
+		normalized,
+		config,
+		salt.as_ref(),
 	)
-	.map_err(|err| io::Error::other(err.to_string()))?;
-	let digest = hash.to_string();
-	let expected_salt_len = profile.map_or(16usize, |p| p.salt_len);
-	let mut salt_buffer = vec![0u8; expected_salt_len.max(16)];
-	let salt_length = salt
-		.as_salt()
-		.b64_decode(&mut salt_buffer)
-		.map_err(|err| io::Error::other(err.to_string()))?
-		.len();
+	.map_err(|err| io::Error::other(err))?;
+	let salt_length = salt.to_salt().len();
 	let mut metadata = json!({
 		"rounds": config.rounds,
 		"output_length": config.output_length,
 		"algorithm": normalized,
-		"salt": salt.as_str(),
+		"salt": salt.as_ref(),
 		"salt_length_bytes": salt_length
 	});
 	if let Some(profile) = profile {
@@ -235,13 +198,12 @@ pub fn derive_bcrypt(
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
-	let mut rng = ArgonOsRng;
-	let salt = ArgonSaltString::generate(&mut rng);
+	let salt = PhcSaltString::generate();
 	let digest = PHash::hash_bcrypt_hex(password, config, &salt)
 		.map_err(|err| io::Error::other(err.to_string()))?;
 	let metadata = json!({
 		"cost": config.cost,
-		"salt": salt.as_str()
+		"salt": salt.as_ref()
 	});
 	println!(
 		"{}",
@@ -257,15 +219,14 @@ pub fn derive_balloon(
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
-	let mut rng = BalloonOsRng;
-	let salt = BalloonSaltString::generate(&mut rng);
+	let salt = PhcSaltString::generate();
 	let digest = PHash::hash_balloon_impl(password, config, &salt)
 		.map_err(|err| io::Error::other(err.to_string()))?;
 	let metadata = json!({
 		"time_cost": config.time_cost,
 		"memory_cost": config.memory_cost,
 		"parallelism": config.parallelism,
-		"salt": salt.as_str()
+		"salt": salt.as_ref()
 	});
 	println!(
 		"{}",
@@ -282,10 +243,9 @@ pub fn derive_sha_crypt(
 	ensure_password(password)?;
 	let params = sha_crypt::Params::new(10_000)
 		.map_err(|err| io::Error::other(format!("{:?}", err)))?;
-	let mut rng = ArgonOsRng;
-	let salt = ArgonSaltString::generate(&mut rng);
+	let salt = PhcSaltString::generate();
 	let sha_crypt_hasher = sha_crypt::ShaCrypt::new(sha_crypt::Algorithm::Sha512Crypt, params);
-	let digest = sha_crypt::PasswordHasher::hash_password_with_salt(&sha_crypt_hasher, password.as_bytes(), salt.as_str().as_bytes())
+	let digest = sha_crypt::PasswordHasher::hash_password_with_salt(&sha_crypt_hasher, password.as_bytes(), salt.as_ref().as_bytes())
 		.map_err(|err| io::Error::other(format!("{:?}", err)))?
 		.to_string();
 	let metadata = json!({

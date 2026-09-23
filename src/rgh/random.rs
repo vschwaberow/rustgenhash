@@ -6,9 +6,8 @@
 
 use crate::rgh::output::DigestOutputFormat;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use getrandom::getrandom;
-use rand::TryRngCore;
-use rand_core::{RngCore, SeedableRng};
+use getrandom::fill as getrandom_fill;
+use rand::TryRng;
 use std::error::Error;
 
 pub trait Rng {
@@ -76,30 +75,29 @@ impl RandomNumberGenerator {
 
 		match &mut self.rng {
 			RngType::GetRandom => {
-				getrandom(&mut buffer)
+				getrandom_fill(&mut buffer)
 					.map_err(|err| Box::new(err) as Box<dyn Error>)?;
 			}
 			RngType::ThreadRng => {
 				rand::rng().try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::OsRng => {
-				let mut rng = rand::rngs::OsRng;
+				let mut rng = rand::rngs::SysRng;
 				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::ChaChaRng => {
-				let mut rng = rand_chacha::ChaChaRng::from_entropy();
-				rng.fill_bytes(&mut buffer);
+				let mut rng: rand_chacha::ChaChaRng = rand::make_rng();
+				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::Hc128Rng => {
-				let mut rng = rand_hc::Hc128Rng::from_entropy();
-				rng.fill_bytes(&mut buffer);
+				let mut rng: rand_hc::Hc128Rng = rand::make_rng();
+				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::IsaacRng => {
-				let mut rng = rand_isaac::IsaacRng::from_entropy();
-				rng.fill_bytes(&mut buffer);
+				let mut rng: rand_isaac::IsaacRng = rand::make_rng();
+				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::JitterRng => {
-				use rand_jitter::rand_core::RngCore;
 				use std::sync::atomic::{AtomicBool, Ordering};
 				use std::sync::Arc;
 				use std::time::{SystemTime, UNIX_EPOCH};
@@ -118,21 +116,23 @@ impl RandomNumberGenerator {
 							| dur.subsec_nanos() as u64
 					},
 				);
-				rng.fill_bytes(&mut buffer);
+				rng.try_fill_bytes(&mut buffer).map_err(|err| {
+					Box::new(err) as Box<dyn Error>
+				})?;
 				if time_error.load(Ordering::Relaxed) {
-					                    return Err(std::io::Error::other(
-					                        "System clock is before UNIX_EPOCH",
-					                    )					.into());
+					return Err(std::io::Error::other(
+						"System clock is before UNIX_EPOCH",
+					)
+					.into());
 				}
 			}
 			RngType::Pcg32 => {
-				let mut rng = rand_pcg::Pcg32::from_entropy();
-				rng.fill_bytes(&mut buffer);
+				let mut rng: rand_pcg::Pcg32 = rand::make_rng();
+				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::XorShiftRng => {
-				let mut rng =
-					rand_xorshift::XorShiftRng::from_entropy();
-				rng.fill_bytes(&mut buffer);
+				let mut rng: rand_xorshift::XorShiftRng = rand::make_rng();
+				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::Uuidv4 => {
 				if output_length != 16 {

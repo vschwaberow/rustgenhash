@@ -18,34 +18,25 @@ use crate::rgh::output::{
 };
 use crate::rgh::snefru::{Snefru128, Snefru256};
 use crate::rgh::weak;
-use argon2::{
-	password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-	Argon2,
-};
-use ascon_hash::AsconHash;
+use argon2::{password_hash::PasswordHasher, Argon2};
+use ascon_hash::AsconHash256;
 use balloon_hash::{
-	password_hash::{
-		rand_core::OsRng as BalOsRng, SaltString as BalSaltString,
-	},
+	password_hash::PasswordHasher as BalloonPasswordHasher,
 	Algorithm as BalAlgorithm, Balloon, Params as BalParams,
 };
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
 use blake2::Digest;
 use chrono::{DateTime, Utc};
 use digest::DynDigest;
-use pbkdf2::{
-	password_hash::{Ident as PbIdent, SaltString as PbSaltString},
-	Pbkdf2,
+use password_hash::{
+	phc::{Salt, SaltString},
+	CustomizedPasswordHasher,
 };
-use scrypt::{
-	password_hash::SaltString as ScSaltString, Params as ScParams,
-	Scrypt,
-};
+use pbkdf2::{Algorithm as Pbkdf2Algorithm, Params as PbParams, Pbkdf2};
+use scrypt::{Params as ScParams, Scrypt};
 use serde_json::to_writer_pretty;
-use skein::{
-	consts::{U128, U32, U64},
-	Skein1024, Skein256, Skein512,
-};
+use digest::consts::{U128, U32, U64};
+use skein::{Skein1024, Skein256, Skein512};
 use std::fs::{self, File};
 use std::io::{self, IsTerminal, Read};
 use std::time::Instant;
@@ -362,6 +353,37 @@ macro_rules! impl_password_hash_fn {
 	};
 }
 
+
+fn generate_phc_salt() -> SaltString {
+	SaltString::generate()
+}
+
+fn salt_string_from_raw(bytes: &[u8]) -> Result<SaltString, String> {
+	Salt::new(bytes)
+		.map(|salt| salt.to_salt_string())
+		.map_err(|err| err.to_string())
+}
+
+fn generate_balloon_salt() -> SaltString {
+	generate_phc_salt()
+}
+
+fn balloon_salt_from_raw(bytes: &[u8]) -> Result<SaltString, String> {
+	salt_string_from_raw(bytes)
+}
+
+fn pbkdf2_algorithm(scheme: &str) -> Result<Pbkdf2Algorithm, String> {
+	match scheme {
+		"pbkdf2sha256" | "pbkdf2-sha256" | "sha256" => {
+			Ok(Pbkdf2Algorithm::Pbkdf2Sha256)
+		}
+		"pbkdf2sha512" | "pbkdf2-sha512" | "sha512" => {
+			Ok(Pbkdf2Algorithm::Pbkdf2Sha512)
+		}
+		other => Err(format!("Unsupported PBKDF2 algorithm `{other}`")),
+	}
+}
+
 pub struct PHash {}
 impl PHash {
 	pub fn derive_argon2_output(
@@ -369,7 +391,7 @@ impl PHash {
 		cfg: &Argon2Config,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let salt = SaltString::generate(&mut OsRng);
+		let salt = generate_phc_salt();
 		Self::hash_argon2_impl(password, cfg, &salt)
 			.map(|hash| {
 				assemble_output(hash_only, vec![hash], Some(password))
@@ -381,7 +403,7 @@ impl PHash {
 		hash_argon2,
 		hash_argon2_impl,
 		Argon2Config,
-		SaltString::generate(&mut OsRng)
+		generate_phc_salt()
 	);
 	pub(crate) fn hash_argon2_impl(
 		password: &str,
@@ -399,22 +421,32 @@ impl PHash {
 			)?,
 		);
 		Ok(argon2
-			.hash_password(password.as_bytes(), salt)?
+			.hash_password_with_salt(
+				password.as_bytes(),
+				salt.to_salt().as_ref(),
+			)?
 			.to_string())
 	}
 
-	impl_password_hash_fn!(
-		hash_balloon,
-		hash_balloon_impl,
-		BalloonConfig,
-		BalSaltString::generate(&mut BalOsRng)
-	);
+	pub fn hash_balloon(
+		password: &str,
+		config: &BalloonConfig,
+		hash_only: bool,
+	) {
+		match Self::derive_balloon_output(password, config, hash_only)
+		{
+			Ok(output) => println!("{}", output),
+			Err(err) => {
+				println!("Error hashing password: {}", err);
+			}
+		}
+	}
 	pub fn derive_balloon_output(
 		password: &str,
 		cfg: &BalloonConfig,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let salt = BalSaltString::generate(&mut BalOsRng);
+		let salt = generate_balloon_salt();
 		Self::hash_balloon_impl(password, cfg, &salt)
 			.map(|hash| {
 				assemble_output(hash_only, vec![hash], Some(password))
@@ -424,7 +456,7 @@ impl PHash {
 	pub(crate) fn hash_balloon_impl(
 		password: &str,
 		cfg: &BalloonConfig,
-		salt: &BalSaltString,
+		salt: &SaltString,
 	) -> Result<String, balloon_hash::password_hash::Error> {
 		let balloon = Balloon::<sha2::Sha256>::new(
 			BalAlgorithm::Balloon,
@@ -435,23 +467,26 @@ impl PHash {
 			)?,
 			None,
 		);
-		Ok(balloon
-			.hash_password(password.as_bytes(), salt)?
-			.to_string())
+		Ok(BalloonPasswordHasher::hash_password_with_salt(
+			&balloon,
+			password.as_bytes(),
+			salt.to_salt().as_ref(),
+		)?
+		.to_string())
 	}
 
 	impl_password_hash_fn!(
 		hash_scrypt,
 		hash_scrypt_impl,
 		ScryptConfig,
-		ScSaltString::generate(&mut OsRng)
+		generate_phc_salt()
 	);
 	pub fn derive_scrypt_output(
 		password: &str,
 		cfg: &ScryptConfig,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let salt = ScSaltString::generate(&mut OsRng);
+		let salt = generate_phc_salt();
 		Self::hash_scrypt_impl(password, cfg, &salt)
 			.map(|hash| {
 				assemble_output(hash_only, vec![hash], Some(password))
@@ -461,19 +496,20 @@ impl PHash {
 	pub(crate) fn hash_scrypt_impl(
 		password: &str,
 		cfg: &ScryptConfig,
-		salt: &ScSaltString,
+		salt: &SaltString,
 	) -> Result<String, scrypt::password_hash::Error> {
 		let params = ScParams::new(cfg.log_n, cfg.r, cfg.p)
 			.map_err(|_| scrypt::password_hash::Error::Crypto)?;
-		Ok(Scrypt
-			.hash_password_customized(
-				password.as_bytes(),
-				None,
-				None,
-				params,
-				salt.as_salt(),
-			)?
-			.to_string())
+		let scrypt = Scrypt::new_with_params(params);
+		Ok(CustomizedPasswordHasher::hash_password_customized(
+			&scrypt,
+			password.as_bytes(),
+			salt.to_salt().as_ref(),
+			None,
+			None,
+			params,
+		)?
+		.to_string())
 	}
 
 	pub fn hash_bcrypt(
@@ -497,7 +533,7 @@ impl PHash {
 		cfg: &BcryptConfig,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let salt = SaltString::generate(&mut OsRng);
+		let salt = generate_phc_salt();
 		Self::hash_bcrypt_hex(password, cfg, &salt)
 			.map(|hex| {
 				assemble_output(hash_only, vec![hex], Some(password))
@@ -519,8 +555,11 @@ impl PHash {
 		password: &str,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let salt = SaltString::generate(&mut OsRng);
-		Self::hash_sha_crypt_with_salt(password, salt.as_str().as_bytes())
+		let salt = generate_phc_salt();
+		Self::hash_sha_crypt_with_salt(
+			password,
+			salt.to_salt().as_ref(),
+		)
 			.map(|digest| {
 				assemble_output(hash_only, vec![digest], Some(password))
 			})
@@ -568,25 +607,21 @@ impl PHash {
 		cfg: &Pbkdf2Config,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let schemes = HashMap::from([
-			("pbkdf2sha256", "pbkdf2-sha256"),
-			("pbkdf2sha512", "pbkdf2-sha512"),
-		]);
-		let alg =
-			PbIdent::new(schemes.get(pb_scheme).unwrap_or(&"NONE"))
-				.map_err(|err| err.to_string())?;
-		let salt = PbSaltString::generate(&mut OsRng);
-		let params = pbkdf2::Params {
-			output_length: cfg.output_length,
-			rounds: cfg.rounds,
-		};
-		let hash = Pbkdf2::hash_password_customized(
-			&Pbkdf2,
+		let algorithm = pbkdf2_algorithm(pb_scheme)?;
+		let salt = generate_phc_salt();
+		let params = PbParams::new_with_output_len(
+			cfg.rounds,
+			cfg.output_length,
+		)
+		.map_err(|err| err.to_string())?;
+		let pbkdf2 = Pbkdf2::new(algorithm, params);
+		let hash = CustomizedPasswordHasher::hash_password_customized(
+			&pbkdf2,
 			password.as_bytes(),
-			Some(alg),
+			salt.to_salt().as_ref(),
+			Some(algorithm.to_str()),
 			None,
 			params,
-			salt.as_salt(),
 		)
 		.map_err(|err| err.to_string())?;
 		Ok(assemble_output(
@@ -602,29 +637,24 @@ impl PHash {
 		cfg: &Pbkdf2Config,
 		salt_b64: &str,
 	) -> Result<String, String> {
-		let schemes = HashMap::from([
-			("pbkdf2sha256", "pbkdf2-sha256"),
-			("pbkdf2sha512", "pbkdf2-sha512"),
-		]);
-		let alg =
-			PbIdent::new(schemes.get(pb_scheme).unwrap_or(&"NONE"))
-				.map_err(|err| err.to_string())?;
+		let algorithm = pbkdf2_algorithm(pb_scheme)?;
 		let salt_bytes = STANDARD_NO_PAD
 			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
-		let salt = PbSaltString::b64_encode(&salt_bytes)
-			.map_err(|err| err.to_string())?;
-		let params = pbkdf2::Params {
-			output_length: cfg.output_length,
-			rounds: cfg.rounds,
-		};
-		let hash = Pbkdf2::hash_password_customized(
-			&Pbkdf2,
+		let salt = salt_string_from_raw(&salt_bytes)?;
+		let params = PbParams::new_with_output_len(
+			cfg.rounds,
+			cfg.output_length,
+		)
+		.map_err(|err| err.to_string())?;
+		let pbkdf2 = Pbkdf2::new(algorithm, params);
+		let hash = CustomizedPasswordHasher::hash_password_customized(
+			&pbkdf2,
 			password.as_bytes(),
-			Some(alg),
+			salt.to_salt().as_ref(),
+			Some(algorithm.to_str()),
 			None,
 			params,
-			salt.as_salt(),
 		)
 		.map_err(|err| err.to_string())?;
 		Ok(hash.to_string())
@@ -638,7 +668,7 @@ impl PHash {
 		let mut out = [0; 64];
 		bcrypt_pbkdf::bcrypt_pbkdf(
 			password.as_bytes(),
-			salt.as_bytes(),
+			salt.as_ref().as_bytes(),
 			cfg.cost,
 			&mut out,
 		)?;
@@ -653,8 +683,7 @@ impl PHash {
 		let salt_bytes = STANDARD_NO_PAD
 			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
-		let salt = SaltString::b64_encode(&salt_bytes)
-			.map_err(|err| err.to_string())?;
+		let salt = salt_string_from_raw(&salt_bytes)?;
 		Self::hash_bcrypt_hex(password, cfg, &salt)
 			.map_err(|err| err.to_string())
 	}
@@ -667,8 +696,7 @@ impl PHash {
 		let salt_bytes = STANDARD_NO_PAD
 			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
-		let salt = SaltString::b64_encode(&salt_bytes)
-			.map_err(|err| err.to_string())?;
+		let salt = salt_string_from_raw(&salt_bytes)?;
 		Self::hash_argon2_impl(password, cfg, &salt)
 			.map_err(|err| err.to_string())
 	}
@@ -681,8 +709,7 @@ impl PHash {
 		let salt_bytes = STANDARD_NO_PAD
 			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
-		let salt = BalSaltString::b64_encode(&salt_bytes)
-			.map_err(|err| err.to_string())?;
+		let salt = balloon_salt_from_raw(&salt_bytes)?;
 		Self::hash_balloon_impl(password, cfg, &salt)
 			.map_err(|err| err.to_string())
 	}
@@ -695,8 +722,7 @@ impl PHash {
 		let salt_bytes = STANDARD_NO_PAD
 			.decode(salt_b64)
 			.map_err(|err| err.to_string())?;
-		let salt = ScSaltString::b64_encode(&salt_bytes)
-			.map_err(|err| err.to_string())?;
+		let salt = salt_string_from_raw(&salt_bytes)?;
 		Self::hash_scrypt_impl(password, cfg, &salt)
 			.map_err(|err| err.to_string())
 	}
@@ -720,7 +746,7 @@ impl RHash {
 		let normalized = alg.to_ascii_uppercase().replace('-', "_");
 		Ok(Self {
 			digest: create_hasher!(normalized.as_str(),
-				"ASCON"     => AsconHash::new(),
+				"ASCON"     => AsconHash256::new(),
 				"BELTHASH"  => belt_hash::BeltHash::new(),
 				"BLAKE2B"   => blake2::Blake2b512::new(),
 				"BLAKE2S"   => blake2::Blake2s256::new(),
@@ -1407,9 +1433,7 @@ mod mmap_thread_tests {
 
 #[cfg(test)]
 mod kdf_param_tests {
-	use super::{PHash, ScryptConfig};
-	use scrypt::password_hash::SaltString;
-	use scrypt::password_hash::rand_core::OsRng;
+	use super::{generate_phc_salt, PHash, ScryptConfig};
 
 	#[test]
 	fn scrypt_rejects_invalid_log_n() {
@@ -1418,7 +1442,7 @@ mod kdf_param_tests {
 			r: 8,
 			p: 1,
 		};
-		let salt = SaltString::generate(&mut OsRng);
+		let salt = generate_phc_salt();
 		assert!(PHash::hash_scrypt_impl("secret", &cfg, &salt).is_err());
 	}
 }
@@ -1525,7 +1549,8 @@ mod digest_registry_tests {
 
 	#[test]
 	fn skein512_matches_upstream_full_width_empty() {
-		use skein::{consts::U64, Digest, Skein512};
+		use digest::{consts::U64, Digest};
+		use skein::Skein512;
 		let upstream = Skein512::<U64>::digest(b"");
 		let via_rhash = RHash::new("SKEIN512")
 			.expect("SKEIN512")
@@ -1535,7 +1560,8 @@ mod digest_registry_tests {
 
 	#[test]
 	fn skein1024_matches_upstream_full_width_empty() {
-		use skein::{consts::U128, Digest, Skein1024};
+		use digest::{consts::U128, Digest};
+		use skein::Skein1024;
 		let upstream = Skein1024::<U128>::digest(b"");
 		let via_rhash = RHash::new("SKEIN1024")
 			.expect("SKEIN1024")

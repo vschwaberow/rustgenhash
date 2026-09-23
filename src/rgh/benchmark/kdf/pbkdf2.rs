@@ -19,8 +19,10 @@ pub(crate) fn run_pbkdf2(
 	shared: &SharedBenchmarkArgs,
 	target_duration: Duration,
 ) -> Result<BenchmarkResult, BenchmarkError> {
-	let effective_rounds =
-		std::cmp::max(1, profile.rounds / PBKDF2_ROUND_DIVISOR);
+	let effective_rounds = std::cmp::max(
+		pbkdf2::Params::MIN_ROUNDS,
+		profile.rounds / PBKDF2_ROUND_DIVISOR,
+	);
 	let config = Pbkdf2Config {
 		rounds: effective_rounds,
 		output_length: profile.output_len,

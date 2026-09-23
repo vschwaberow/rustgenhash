@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Major dependency upgrades: rustyline 18, reqwest 0.12, rand 0.10, password-hash 0.6 stack, RustCrypto digest/MAC 0.11 (sha3 0.12, ascon-hash 0.4 / AsconHash256, cshake for KMAC).
 - Split audit runner into digest/mac/kdf/parse/other modules.
 - Remove dead legacy CLI handlers (`hash_string` / `hash_file`).
 - Move `sha-crypt` from `0.6.0-rc.4` to `0.6.0`. Keep `blake3` at `=1.8.3` until `digest` 0.11.

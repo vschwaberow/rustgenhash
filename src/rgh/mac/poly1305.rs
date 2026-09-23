@@ -7,8 +7,7 @@
 
 use blake3::Hasher;
 use poly1305::{
-	universal_hash::generic_array::GenericArray,
-	universal_hash::KeyInit, universal_hash::UniversalHash,
+	universal_hash::{Block, KeyInit, UniversalHash},
 	Poly1305 as Poly1305Mac,
 };
 
@@ -102,7 +101,7 @@ impl MacExecutor for Poly1305Executor {
 		if full > 0 {
 			let mut blocks = Vec::with_capacity(full / POLY1305_BLOCK);
 			for chunk in input[..full].chunks_exact(POLY1305_BLOCK) {
-				blocks.push(GenericArray::clone_from_slice(chunk));
+				blocks.push(Block::<Poly1305Mac>::try_from(chunk).expect("poly1305 block"));
 			}
 			self.inner.update(&blocks);
 		}

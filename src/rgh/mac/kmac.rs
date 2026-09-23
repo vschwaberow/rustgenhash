@@ -9,8 +9,8 @@ use super::registry::{
 	MacAlgorithm, MacAlgorithmMetadata, MacError, MacErrorKind,
 	MacExecutor,
 };
-use sha3::digest::{ExtendableOutput, Update, XofReader};
-use sha3::{CShake128, CShake128Core, CShake256, CShake256Core};
+use cshake::{CShake128, CShake256};
+use digest::{ExtendableOutput, Update, XofReader};
 
 const KMAC128_RATE: usize = 168; // bytes
 const KMAC256_RATE: usize = 136; // bytes
@@ -101,11 +101,10 @@ fn create_kmac128(
 			"KMAC128 key must not be empty",
 		));
 	}
-	let core = CShake128Core::new_with_function_name(
+	let mut state = CShake128::new_with_function_name(
 		FUNCTION_NAME,
 		CUSTOMIZATION,
 	);
-	let mut state = CShake128::from_core(core);
 	state.update(&bytepad(&encode_string(key), KMAC128_RATE));
 	Ok(Box::new(KmacExecutor {
 		variant: KmacVariant::Kmac128 {
@@ -124,11 +123,10 @@ fn create_kmac256(
 			"KMAC256 key must not be empty",
 		));
 	}
-	let core = CShake256Core::new_with_function_name(
+	let mut state = CShake256::new_with_function_name(
 		FUNCTION_NAME,
 		CUSTOMIZATION,
 	);
-	let mut state = CShake256::from_core(core);
 	state.update(&bytepad(&encode_string(key), KMAC256_RATE));
 	Ok(Box::new(KmacExecutor {
 		variant: KmacVariant::Kmac256 {

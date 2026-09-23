@@ -9,7 +9,8 @@ use super::registry::{
 	MacAlgorithm, MacAlgorithmMetadata, MacError, MacErrorKind,
 	MacExecutor,
 };
-use hmac::{Hmac, Mac};
+use digest::KeyInit;
+use hmac::{Hmac, Mac, SimpleHmac};
 use sha1::Sha1;
 use sha2::{Sha256, Sha512};
 use sha3::{Sha3_256, Sha3_512};
@@ -17,8 +18,8 @@ use sha3::{Sha3_256, Sha3_512};
 type HmacSha1 = Hmac<Sha1>;
 type HmacSha256 = Hmac<Sha256>;
 type HmacSha512 = Hmac<Sha512>;
-type HmacSha3_256 = Hmac<Sha3_256>;
-type HmacSha3_512 = Hmac<Sha3_512>;
+type HmacSha3_256 = SimpleHmac<Sha3_256>;
+type HmacSha3_512 = SimpleHmac<Sha3_512>;
 
 pub fn catalog() -> &'static [MacAlgorithm] {
 	const ALGORITHMS: &[MacAlgorithm] = &[
