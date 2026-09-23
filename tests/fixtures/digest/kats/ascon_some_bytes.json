@@ -4,9 +4,9 @@
     "encoding": "utf8",
     "value": "some bytes"
   },
-  "expected_hex": "b742ca75e57038757059cccc6874714f9dbd7fc5924a7df4e316594fd1426ca8",
+  "expected_hex": "e909c2f6da9cb3028423265c8f23fc2d26bfc0f3db704683ef16b787a945ed68",
   "source": {
-    "title": "ASCON Hash \u2014 NIST lightweight cryptography / ascon-hash KATs",
-    "url": "https://ascon.iaik.tugraz.at/"
+    "title": "ASCON Hash256 \u2014 NIST SP 800-232 / ascon-hash 0.4",
+    "url": "https://doi.org/10.6028/NIST.SP.800-232"
   }
 }

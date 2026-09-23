@@ -68,7 +68,7 @@ use clap::parser::ValueSource;
 use clap::{crate_name, Arg, ArgAction, ArgGroup};
 use clap_complete::{generate, Generator, Shell};
 use dialoguer::Password;
-use password_hash::phc::{Salt, SaltString as PhcSaltString};
+use password_hash::phc::Salt;
 use std::error::Error;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};

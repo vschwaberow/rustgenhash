@@ -16,7 +16,6 @@ use crate::rgh::kdf::hkdf::{
 };
 use crate::rgh::kdf::profile::{Pbkdf2Profile, ScryptProfile};
 use crate::rgh::kdf::SecretMaterial;
-use balloon_hash::password_hash::SaltString as BalloonSaltString;
 use password_hash::phc::{Salt, SaltString as PhcSaltString};
 use serde_json::json;
 use std::error::Error;
@@ -220,10 +219,7 @@ pub fn derive_balloon(
 	hash_only: bool,
 ) -> Result<(), Box<dyn Error>> {
 	ensure_password(password)?;
-	let mut salt_bytes = [0u8; 16];
-	getrandom::fill(&mut salt_bytes).map_err(|err| io::Error::other(err.to_string()))?;
-	let salt = BalloonSaltString::encode_b64(&salt_bytes)
-		.map_err(|err| io::Error::other(err.to_string()))?;
+	let salt = PhcSaltString::generate();
 	let digest = PHash::hash_balloon_impl(password, config, &salt)
 		.map_err(|err| io::Error::other(err.to_string()))?;
 	let metadata = json!({

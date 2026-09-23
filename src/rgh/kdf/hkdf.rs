@@ -6,7 +6,7 @@
 //! HKDF helpers for CLI and audit harness integration.
 
 use blake3::Hasher as Blake3Hasher;
-use hmac::digest::KeyInit;
+use digest::KeyInit;
 use hmac::Mac;
 use hmac::SimpleHmac as Hmac;
 use sha2::{Sha256, Sha512};

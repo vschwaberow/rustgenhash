@@ -6,6 +6,7 @@
 //! CMAC executor implementations for AES-128/192/256 keys.
 
 use aes::{Aes128, Aes192, Aes256};
+use digest::KeyInit;
 use cmac::{Cmac, Mac};
 
 use super::key::validate_cmac_key_length;

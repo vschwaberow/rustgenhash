@@ -19,12 +19,9 @@ use crate::rgh::output::{
 use crate::rgh::snefru::{Snefru128, Snefru256};
 use crate::rgh::weak;
 use argon2::{password_hash::PasswordHasher, Argon2};
-use ascon_hash::AsconHash;
+use ascon_hash::AsconHash256;
 use balloon_hash::{
-	password_hash::{
-		PasswordHasher as BalloonPasswordHasher,
-		SaltString as BalSaltString,
-	},
+	password_hash::PasswordHasher as BalloonPasswordHasher,
 	Algorithm as BalAlgorithm, Balloon, Params as BalParams,
 };
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
@@ -38,10 +35,8 @@ use password_hash::{
 use pbkdf2::{Algorithm as Pbkdf2Algorithm, Params as PbParams, Pbkdf2};
 use scrypt::{Params as ScParams, Scrypt};
 use serde_json::to_writer_pretty;
-use skein::{
-	consts::{U128, U32, U64},
-	Skein1024, Skein256, Skein512,
-};
+use digest::consts::{U128, U32, U64};
+use skein::{Skein1024, Skein256, Skein512};
 use std::fs::{self, File};
 use std::io::{self, IsTerminal, Read};
 use std::time::Instant;
@@ -369,14 +364,12 @@ fn salt_string_from_raw(bytes: &[u8]) -> Result<SaltString, String> {
 		.map_err(|err| err.to_string())
 }
 
-fn generate_balloon_salt() -> Result<BalSaltString, String> {
-	let mut bytes = [0u8; 16];
-	getrandom::fill(&mut bytes).map_err(|err| err.to_string())?;
-	BalSaltString::encode_b64(&bytes).map_err(|err| err.to_string())
+fn generate_balloon_salt() -> SaltString {
+	generate_phc_salt()
 }
 
-fn balloon_salt_from_raw(bytes: &[u8]) -> Result<BalSaltString, String> {
-	BalSaltString::encode_b64(bytes).map_err(|err| err.to_string())
+fn balloon_salt_from_raw(bytes: &[u8]) -> Result<SaltString, String> {
+	salt_string_from_raw(bytes)
 }
 
 fn pbkdf2_algorithm(scheme: &str) -> Result<Pbkdf2Algorithm, String> {
@@ -453,7 +446,7 @@ impl PHash {
 		cfg: &BalloonConfig,
 		hash_only: bool,
 	) -> Result<String, String> {
-		let salt = generate_balloon_salt()?;
+		let salt = generate_balloon_salt();
 		Self::hash_balloon_impl(password, cfg, &salt)
 			.map(|hash| {
 				assemble_output(hash_only, vec![hash], Some(password))
@@ -463,7 +456,7 @@ impl PHash {
 	pub(crate) fn hash_balloon_impl(
 		password: &str,
 		cfg: &BalloonConfig,
-		salt: &BalSaltString,
+		salt: &SaltString,
 	) -> Result<String, balloon_hash::password_hash::Error> {
 		let balloon = Balloon::<sha2::Sha256>::new(
 			BalAlgorithm::Balloon,
@@ -474,10 +467,10 @@ impl PHash {
 			)?,
 			None,
 		);
-		Ok(BalloonPasswordHasher::hash_password(
+		Ok(BalloonPasswordHasher::hash_password_with_salt(
 			&balloon,
 			password.as_bytes(),
-			salt,
+			salt.to_salt().as_ref(),
 		)?
 		.to_string())
 	}
@@ -753,7 +746,7 @@ impl RHash {
 		let normalized = alg.to_ascii_uppercase().replace('-', "_");
 		Ok(Self {
 			digest: create_hasher!(normalized.as_str(),
-				"ASCON"     => AsconHash::new(),
+				"ASCON"     => AsconHash256::new(),
 				"BELTHASH"  => belt_hash::BeltHash::new(),
 				"BLAKE2B"   => blake2::Blake2b512::new(),
 				"BLAKE2S"   => blake2::Blake2s256::new(),
@@ -1556,7 +1549,8 @@ mod digest_registry_tests {
 
 	#[test]
 	fn skein512_matches_upstream_full_width_empty() {
-		use skein::{consts::U64, Digest, Skein512};
+		use digest::{consts::U64, Digest};
+		use skein::Skein512;
 		let upstream = Skein512::<U64>::digest(b"");
 		let via_rhash = RHash::new("SKEIN512")
 			.expect("SKEIN512")
@@ -1566,7 +1560,8 @@ mod digest_registry_tests {
 
 	#[test]
 	fn skein1024_matches_upstream_full_width_empty() {
-		use skein::{consts::U128, Digest, Skein1024};
+		use digest::{consts::U128, Digest};
+		use skein::Skein1024;
 		let upstream = Skein1024::<U128>::digest(b"");
 		let via_rhash = RHash::new("SKEIN1024")
 			.expect("SKEIN1024")
