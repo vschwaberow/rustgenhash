@@ -11,7 +11,7 @@ use crate::rgh::benchmark::{
 };
 use crate::rgh::hash::{PHash, ScryptConfig};
 use crate::rgh::kdf::profile::ScryptProfile;
-use scrypt::password_hash::SaltString as ScryptSaltString;
+use password_hash::phc::Salt;
 use std::time::{Duration, Instant};
 
 pub(crate) fn run_scrypt(
@@ -26,7 +26,8 @@ pub(crate) fn run_scrypt(
 		r: profile.r,
 		p: profile.p.max(1),
 	};
-	let salt = ScryptSaltString::b64_encode(&SCRYPT_SALT_BYTES)
+	let salt = Salt::new(&SCRYPT_SALT_BYTES)
+		.map(|salt| salt.to_salt_string())
 		.map_err(|err| {
 			BenchmarkError::validation(format!(
 				"failed to prepare scrypt salt: {}",

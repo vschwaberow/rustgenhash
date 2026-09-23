@@ -68,8 +68,7 @@ use clap::parser::ValueSource;
 use clap::{crate_name, Arg, ArgAction, ArgGroup};
 use clap_complete::{generate, Generator, Shell};
 use dialoguer::Password;
-use pbkdf2::password_hash::SaltString as Pbkdf2SaltString;
-use scrypt::password_hash::SaltString as ScryptSaltString;
+use password_hash::phc::{Salt, SaltString as PhcSaltString};
 use std::error::Error;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -559,10 +558,11 @@ fn handle_kdf_command(
 						}
 					}
 					Some(
-						ScryptSaltString::b64_encode(&bytes)
-								.map_err(|err| {
-									io::Error::other(err.to_string())
-								})?,
+						Salt::new(&bytes)
+							.map(|s| s.to_salt_string())
+							.map_err(|err| {
+								io::Error::other(err.to_string())
+							})?,
 					)
 				}
 				None => None,
@@ -671,9 +671,10 @@ fn handle_kdf_command(
 						}
 					}
 					Some(
-						Pbkdf2SaltString::b64_encode(&bytes)
-								.map_err(|err| {
-									io::Error::other(err.to_string())
+						Salt::new(&bytes)
+							.map(|s| s.to_salt_string())
+							.map_err(|err| {
+								io::Error::other(err.to_string())
 							})?,
 					)
 				}
