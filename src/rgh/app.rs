@@ -19,8 +19,6 @@ use crate::rgh::cli::defs::{
 	digest_algorithm_help_text, HELP_TEMPLATE, MAC_ALGORITHMS,
 	MAC_ALGORITHM_HELP, MAC_ALGORITHM_MATRIX_HELP,
 };
-use crate::rgh::cli::handlers::{
-	};
 use crate::rgh::cli::interactive::{
 	render_compare_summary, run_interactive_mode,
 };
