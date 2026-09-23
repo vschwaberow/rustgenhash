@@ -1798,15 +1798,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand_isaac"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62cb7dedb2feaa5c3ea9f47b7d6f5bde397a2dd7d0305a0cd35b51588607f415"
-dependencies = [
- "rand_core",
-]
-
-[[package]]
 name = "rand_jitter"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1994,7 +1985,6 @@ dependencies = [
  "rand_chacha",
  "rand_core",
  "rand_hc",
- "rand_isaac",
  "rand_jitter",
  "rand_pcg",
  "rand_xorshift",

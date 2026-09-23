@@ -4,6 +4,8 @@
 // Author: Volker Schwaberow <volker@schwaberow.de>
 // Copyright (c) 2022 Volker Schwaberow
 
+// Linux-only: console path/TTY fixtures assume a Unix PTY layout; Windows is
+// intentionally skipped rather than ported in this suite.
 #![cfg(not(target_os = "windows"))]
 
 use assert_cmd::prelude::*;

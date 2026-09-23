@@ -6,10 +6,10 @@
     "iterations": 5000
   },
   "expected_output": {
-    "asm_enabled": true
+    "asm_enabled": false
   },
   "metadata": {
     "severity": "medium",
-    "notes": "Verify benchmark metadata reflects assembly acceleration on supported targets."
+    "notes": "asm-accel removed; portable digests report asm_enabled false."
   }
 }

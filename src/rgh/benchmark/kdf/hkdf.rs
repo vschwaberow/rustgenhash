@@ -6,7 +6,7 @@ use super::common::{
 	HKDF_DEFAULT_LENGTH,
 };
 use crate::rgh::benchmark::{
-	BenchmarkError, BenchmarkResult, SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
+	BenchmarkError, BenchmarkResult, SharedBenchmarkArgs,
 };
 use crate::rgh::kdf::hkdf::{
 	self, HkdfInput as HkdfCliInput, HkdfMode, HkdfRequest, HkdfVariant,

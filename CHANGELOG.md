@@ -2,15 +2,16 @@
 
 ## Unreleased
 
-- Major dependency upgrades: rustyline 18, reqwest 0.12, rand 0.10, password-hash 0.6 stack, RustCrypto digest/MAC 0.11 (sha3 0.12, ascon-hash 0.4 / AsconHash256, cshake for KMAC).
-- Split audit runner into digest/mac/kdf/parse/other modules.
-- Remove dead legacy CLI handlers (`hash_string` / `hash_file`).
-- Move `sha-crypt` from `0.6.0-rc.4` to `0.6.0`. Keep `blake3` at `=1.8.3` until `digest` 0.11.
+- Major dependency upgrades: rustyline 18, reqwest 0.12, rand 0.10, password-hash 0.6 stack, RustCrypto digest/MAC 0.11 (sha3 0.12, ascon-hash 0.4 / AsconHash256, cshake for KMAC); `sha-crypt` 0.6.0; `blake3` pin relaxed.
+- Keep `balloon-hash` at `0.5.0-rc.5` (no stable 0.5 on crates.io yet; required for password-hash 0.6). Upgrade when 0.5 ships.
+- Breaking: remove empty `asm-accel` feature; digests are portable RustCrypto only (`asm_enabled` always false).
+- Breaking: remove `rand_isaac` / RNG option `isaac`.
 - Breaking: remove deprecated top-level `rgh string|file|stdio`; use `rgh digest …`.
-- Split interactive CLI, KDF benchmarks, and audit large-stream helpers into smaller modules.
+- Remove dead legacy CLI handlers (`hash_string` / `hash_file`).
+- Split audit runner, interactive CLI, KDF benchmarks, and audit large-stream helpers into smaller modules.
 - Multihash multicodec map adds `sha1`, `sha384`, `sha3-256`, `sha3-512`, and `blake2s` (hyphen/underscore IDs accepted).
 - Tiger2 digest (`tiger2`, `tiger-2`). Same 192-bit width as Tiger, MD4-style padding.
-- Refresh Cargo.lock within existing Cargo.toml semver ranges.
+- Document `tests/interactive_console.rs` as Linux-only (Windows skipped by cfg).
 
 ## 0.16.0 - 2026-09-09
 

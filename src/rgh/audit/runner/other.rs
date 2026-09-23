@@ -11,7 +11,6 @@ use super::super::{AuditCase, AuditError};
 use crate::rgh::analyze::{compare_hashes, HashAnalyzer};
 use crate::rgh::benchmark::run_digest_benchmarks;
 use crate::rgh::cli::algorithms::Algorithm;
-use crate::rgh::hash::asm_accelerated_digests;
 
 pub(crate) fn run_analyze_case(
 	case: &AuditCase,
@@ -108,7 +107,5 @@ pub(crate) fn run_benchmark_case(
 		},
 	)?;
 
-	let asm_enabled = !asm_accelerated_digests().is_empty();
-
-	Ok(json!({ "asm_enabled": asm_enabled }))
+	Ok(json!({ "asm_enabled": false }))
 }

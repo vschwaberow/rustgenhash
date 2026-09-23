@@ -10,8 +10,8 @@ use super::{
 };
 use crate::rgh::cli::algorithms::Algorithm;
 use crate::rgh::hash::{
-	asm_accelerated_digests, Argon2Config, BalloonConfig,
-	BcryptConfig, PHash, Pbkdf2Config, RHash, ScryptConfig,
+	Argon2Config, BalloonConfig, BcryptConfig, PHash,
+	Pbkdf2Config, RHash, ScryptConfig,
 };
 use std::time::{Duration, Instant};
 use strum::IntoEnumIterator;
@@ -80,7 +80,7 @@ pub fn render_digest_report(summary: &BenchmarkSummary) {
 		println!("Iterations per algorithm: {}", iterations);
 	}
 	println!("----------------------------");
-	println!("asm_enabled: {}", asm_acceleration_active());
+	println!("asm_enabled: false");
 	for case in &summary.cases {
 		println!(
 			"{}: avg time per operation: {:.6} ms",
@@ -261,9 +261,6 @@ where
 	start.elapsed()
 }
 
-fn asm_acceleration_active() -> bool {
-	!asm_accelerated_digests().is_empty()
-}
 
 fn is_kdf_algorithm(alg: Algorithm) -> bool {
 	matches!(
