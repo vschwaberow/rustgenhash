@@ -8,8 +8,9 @@ use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
+use rand::TryRng;
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::SeedableRng;
 use rustgenhash::rgh::audit::{
 	collect_fixture_paths, compute_run_metadata, execute_cases,
 	load_fixture, write_reports, AuditCase, AuditOutcome,
@@ -155,7 +156,7 @@ fn write_large_stream(
 	while remaining > 0 {
 		let write_len =
 			std::cmp::min(buffer.len() as u64, remaining) as usize;
-		rng.fill_bytes(&mut buffer[..write_len]);
+		rng.try_fill_bytes(&mut buffer[..write_len]).unwrap();
 		writer.write_all(&buffer[..write_len])?;
 		remaining -= write_len as u64;
 	}
