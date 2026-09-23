@@ -2,12 +2,12 @@
 // Project: rustgenhash
 
 use super::common::{
-	elapsed_ms, evaluate_compliance, finalize_result, should_continue,
+	elapsed_ms, finalize_result, should_continue,
 	Pbkdf2Variant, PBKDF2_MEDIAN_THRESHOLD_MS, PBKDF2_PASSWORD,
 	PBKDF2_ROUND_DIVISOR, PBKDF2_SALT_B64,
 };
 use crate::rgh::benchmark::{
-	BenchmarkError, BenchmarkResult, SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
+	BenchmarkError, BenchmarkResult, SharedBenchmarkArgs,
 };
 use crate::rgh::hash::{PHash, Pbkdf2Config};
 use crate::rgh::kdf::profile::Pbkdf2Profile;

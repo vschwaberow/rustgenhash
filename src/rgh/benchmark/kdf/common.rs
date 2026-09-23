@@ -2,8 +2,7 @@
 // Project: rustgenhash
 
 use crate::rgh::benchmark::{
-	BenchmarkError, BenchmarkResult, BenchmarkSummary, MetricKind,
-	SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
+	BenchmarkError, BenchmarkResult, KDF_SAMPLE_TARGET,
 };
 use crate::rgh::kdf::hkdf::{HkdfVariant, HKDF_VARIANTS};
 use crate::rgh::kdf::profile::{

@@ -2,12 +2,12 @@
 // Project: rustgenhash
 
 use super::common::{
-	elapsed_ms, evaluate_compliance, finalize_result, should_continue,
+	elapsed_ms, finalize_result, should_continue,
 	KdfAlgorithm, PBKDF2_PASSWORD, SCRYPT_LOG_N_REDUCTION,
 	SCRYPT_MEDIAN_THRESHOLD_MS, SCRYPT_SALT_BYTES,
 };
 use crate::rgh::benchmark::{
-	BenchmarkError, BenchmarkResult, SharedBenchmarkArgs, KDF_SAMPLE_TARGET,
+	BenchmarkError, BenchmarkResult, SharedBenchmarkArgs,
 };
 use crate::rgh::hash::{PHash, ScryptConfig};
 use crate::rgh::kdf::profile::ScryptProfile;

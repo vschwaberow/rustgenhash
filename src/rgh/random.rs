@@ -23,7 +23,6 @@ pub enum RngType {
 	OsRng,
 	ChaChaRng,
 	Hc128Rng,
-	IsaacRng,
 	JitterRng,
 	Pcg32,
 	XorShiftRng,
@@ -47,7 +46,6 @@ impl RngType {
 			RngType::OsRng,
 			RngType::ChaChaRng,
 			RngType::Hc128Rng,
-			RngType::IsaacRng,
 			RngType::JitterRng,
 			RngType::Pcg32,
 			RngType::XorShiftRng,
@@ -91,10 +89,6 @@ impl RandomNumberGenerator {
 			}
 			RngType::Hc128Rng => {
 				let mut rng: rand_hc::Hc128Rng = rand::make_rng();
-				rng.try_fill_bytes(&mut buffer).unwrap();
-			}
-			RngType::IsaacRng => {
-				let mut rng: rand_isaac::IsaacRng = rand::make_rng();
 				rng.try_fill_bytes(&mut buffer).unwrap();
 			}
 			RngType::JitterRng => {

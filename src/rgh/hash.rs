@@ -44,54 +44,6 @@ use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 
-#[cfg(all(
-	feature = "asm-accel",
-	not(feature = "portable-only"),
-	any(target_arch = "x86", target_arch = "x86_64")
-))]
-const ASM_ACCEL_DIGESTS: &[&str] = &[
-	"MD5",
-	"SHA1",
-	"SHA224",
-	"SHA256",
-	"SHA384",
-	"SHA512",
-	"WHIRLPOOL",
-];
-
-#[cfg(all(
-	feature = "asm-accel",
-	not(feature = "portable-only"),
-	target_arch = "aarch64"
-))]
-const ASM_ACCEL_DIGESTS: &[&str] =
-	&["SHA1", "SHA224", "SHA256", "SHA384", "SHA512"];
-
-#[cfg(any(
-	not(feature = "asm-accel"),
-	feature = "portable-only",
-	all(
-		feature = "asm-accel",
-		not(any(
-			target_arch = "x86",
-			target_arch = "x86_64",
-			target_arch = "aarch64"
-		))
-	)
-))]
-const ASM_ACCEL_DIGESTS: &[&str] = &[];
-
-pub fn asm_accelerated_digests() -> &'static [&'static str] {
-	ASM_ACCEL_DIGESTS
-}
-
-pub fn algorithm_uses_asm(algorithm: &str) -> bool {
-	let needle = algorithm.to_uppercase();
-	ASM_ACCEL_DIGESTS
-		.iter()
-		.any(|candidate| candidate.eq_ignore_ascii_case(&needle))
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DigestAlgorithm {
 	pub id: &'static str,
